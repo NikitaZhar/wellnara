@@ -1,0 +1,927 @@
+
+===== ./target/classes/data.sql =====
+INSERT INTO users (username, email, password, role)
+SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE username = 'admin'
+);
+===== ./target/classes/templates/client.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Client</title>
+</head>
+<body>
+
+<h2>Wellnara: Client</h2>
+
+<a th:href="@{/auth/logout}">Logout</a>
+
+</body>
+</html>
+===== ./target/classes/templates/admin.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Admin</title>
+</head>
+<body>
+
+<h2>Wellnara: Admin</h2>
+
+<form th:action="@{/admin/invite}" method="post">
+    <div>
+        <label for="email">Enter Provider email:</label>
+        <input id="email" type="email" name="email" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Press to invite provider</button>
+    </div>
+</form>
+
+<div th:if="${session.providerInviteLink}" style="margin-top: 20px;">
+    <p>Provider registration link:</p>
+    <p>
+        <a th:href="${session.providerInviteLink}"
+           th:text="${session.providerInviteLink}"></a>
+    </p>
+</div>
+
+<div style="margin-top: 20px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
+
+</body>
+</html>
+===== ./target/classes/templates/provider.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Provider</title>
+</head>
+<body>
+
+<h2>Wellnara: Provider</h2>
+
+<a th:href="@{/auth/logout}">Logout</a>
+
+</body>
+</html>
+===== ./target/classes/templates/login.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Login</title>
+</head>
+<body>
+
+<h2>Wellnara: Вход пользователя</h2>
+
+<form th:action="@{/auth/login}" method="post">
+    <div>
+        <label for="username">Логин:</label>
+        <input id="username" type="text" name="username" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Войти</button>
+    </div>
+</form>
+
+<div th:if="${error}" style="margin-top: 15px; color: red;">
+    <p th:text="${error}"></p>
+</div>
+
+</body>
+</html>
+===== ./target/classes/templates/provider-register.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация специалиста</title>
+</head>
+<body>
+
+<h2>Регистрация специалиста</h2>
+
+<form th:action="@{/provider/register}" method="post">
+
+    <!-- скрытое поле с token -->
+    <input type="hidden" name="token" th:value="${token}"/>
+
+    <div>
+        <label for="name">Имя:</label>
+        <input id="name" type="text" name="name" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+
+</form>
+
+</body>
+</html>
+===== ./src/test/java/life/wellnara/UserRepositoryTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.UserRepository;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+
+/**
+ * Integration tests for {@link UserRepository}.
+ */
+@DataJpaTest
+class UserRepositoryTest {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    @DisplayName("Should save and retrieve user by username")
+    void shouldSaveAndFindUserByUsername() {
+        User user = new User();
+        user.setUsername("testuser");
+        user.setPassword("password");
+        user.setEmail("test@example.com");
+        user.setRole(UserRole.PROVIDER);
+
+        userRepository.save(user);
+
+        assertThat(userRepository.findByUsername("testuser"))
+                .isPresent()
+                .get()
+                .extracting(User::getEmail)
+                .isEqualTo("test@example.com");
+    }
+}
+===== ./src/test/java/life/wellnara/WellnaraApplicationTests.java =====
+package life.wellnara;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class WellnaraApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+===== ./src/main/resources/data.sql =====
+INSERT INTO users (username, email, password, role)
+SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE username = 'admin'
+);
+===== ./src/main/resources/templates/client.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Client</title>
+</head>
+<body>
+
+<h2>Wellnara: Client</h2>
+
+<a th:href="@{/auth/logout}">Logout</a>
+
+</body>
+</html>
+===== ./src/main/resources/templates/admin.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Admin</title>
+</head>
+<body>
+
+<h2>Wellnara: Admin</h2>
+
+<form th:action="@{/admin/invite}" method="post">
+    <div>
+        <label for="email">Enter Provider email:</label>
+        <input id="email" type="email" name="email" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Press to invite provider</button>
+    </div>
+</form>
+
+<div th:if="${session.providerInviteLink}" style="margin-top: 20px;">
+    <p>Provider registration link:</p>
+    <p>
+        <a th:href="${session.providerInviteLink}"
+           th:text="${session.providerInviteLink}"></a>
+    </p>
+</div>
+
+<div style="margin-top: 20px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
+
+</body>
+</html>
+===== ./src/main/resources/templates/provider.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Provider</title>
+</head>
+<body>
+
+<h2>Wellnara: Provider</h2>
+
+<a th:href="@{/auth/logout}">Logout</a>
+
+</body>
+</html>
+===== ./src/main/resources/templates/login.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Login</title>
+</head>
+<body>
+
+<h2>Wellnara: Вход пользователя</h2>
+
+<form th:action="@{/auth/login}" method="post">
+    <div>
+        <label for="username">Логин:</label>
+        <input id="username" type="text" name="username" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Войти</button>
+    </div>
+</form>
+
+<div th:if="${error}" style="margin-top: 15px; color: red;">
+    <p th:text="${error}"></p>
+</div>
+
+</body>
+</html>
+===== ./src/main/resources/templates/provider-register.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация специалиста</title>
+</head>
+<body>
+
+<h2>Регистрация специалиста</h2>
+
+<form th:action="@{/provider/register}" method="post">
+
+    <!-- скрытое поле с token -->
+    <input type="hidden" name="token" th:value="${token}"/>
+
+    <div>
+        <label for="name">Имя:</label>
+        <input id="name" type="text" name="name" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+
+</form>
+
+</body>
+</html>
+===== ./src/main/java/life/wellnara/repository/ProviderInvitationRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.ProviderInvitation;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface ProviderInvitationRepository extends JpaRepository<ProviderInvitation, Long> {
+
+    Optional<ProviderInvitation> findByToken(String token);
+
+    boolean existsByEmail(String email);
+}
+===== ./src/main/java/life/wellnara/repository/UserRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+/**
+ * Repository for working with users.
+ */
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    /**
+     * Finds a user by username.
+     *
+     * @param username username value
+     * @return found user or empty result
+     */
+    Optional<User> findByUsername(String username);
+    boolean existsByEmail(String email);
+}
+===== ./src/main/java/life/wellnara/controller/AdminController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+/**
+ * Controller for admin page access.
+ */
+@Controller
+public class AdminController {
+
+    /**
+     * Shows admin page for authenticated admin user.
+     *
+     * @param session current HTTP session
+     * @return admin page view name or redirect to login page
+     */
+    @GetMapping("/admin")
+    public String showPage(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.ADMIN) {
+            return "redirect:/auth/login";
+        }
+
+        return "admin";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ClientController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+/**
+ * Controller for client page access.
+ */
+@Controller
+public class ClientController {
+
+    /**
+     * Shows client page for authenticated client user.
+     *
+     * @param session current HTTP session
+     * @return client page view name or redirect to login page
+     */
+    @GetMapping("/client")
+    public String showPage(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.CLIENT) {
+            return "redirect:/auth/login";
+        }
+
+        return "client";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/AuthController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.service.AuthService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.Optional;
+
+/**
+ * Controller for authentication actions.
+ */
+@Controller
+public class AuthController {
+
+    private final AuthService authService;
+
+    /**
+     * Creates auth controller.
+     *
+     * @param authService authentication service
+     */
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    /**
+     * Shows common login page for all user roles.
+     *
+     * @return login page view name
+     */
+    @GetMapping("/auth/login")
+    public String showLoginPage() {
+        return "login";
+    }
+
+    /**
+     * Processes login form and redirects user by role.
+     *
+     * @param username entered username
+     * @param password entered password
+     * @param session current session
+     * @param model MVC model
+     * @return redirect to role page or login page on error
+     */
+    @PostMapping("/auth/login")
+    public String login(@RequestParam String username,
+                        @RequestParam String password,
+                        HttpSession session,
+                        Model model) {
+        Optional<User> authenticatedUser = authService.authenticate(username, password);
+
+        if (authenticatedUser.isEmpty()) {
+            model.addAttribute("error", "Неверный логин или пароль");
+            return "login";
+        }
+
+        User user = authenticatedUser.get();
+        session.setAttribute("currentUser", user);
+
+        if (user.getRole() == UserRole.ADMIN) {
+            return "redirect:/admin";
+        }
+
+        if (user.getRole() == UserRole.PROVIDER) {
+            return "redirect:/provider";
+        }
+
+        if (user.getRole() == UserRole.CLIENT) {
+            return "redirect:/client";
+        }
+
+        session.invalidate();
+        model.addAttribute("error", "Неизвестная роль пользователя");
+        return "login";
+    }
+
+    /**
+     * Logs out current user.
+     *
+     * @param session current session
+     * @return redirect to login page
+     */
+    @GetMapping("/auth/logout")
+    public String logout(HttpSession session) {
+        session.invalidate();
+        return "redirect:/auth/login";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ProviderInvitationController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.service.ProviderInvitationService;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+/**
+ * Controller for provider invitation from admin page.
+ */
+@Controller
+public class ProviderInvitationController {
+
+    private final ProviderInvitationService service;
+
+    /**
+     * Creates provider invitation controller.
+     *
+     * @param service provider invitation service
+     */
+    public ProviderInvitationController(ProviderInvitationService service) {
+        this.service = service;
+    }
+
+    /**
+     * Creates provider invitation and stores registration link in session.
+     *
+     * @param email invited provider email
+     * @param session current HTTP session
+     * @return redirect to admin page
+     */
+    @PostMapping("/admin/invite")
+    public String invite(@RequestParam String email, HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.ADMIN) {
+            return "redirect:/auth/login";
+        }
+
+        String token = service.invite(email);
+        String registrationLink = "http://localhost:8080/provider/register?token=" + token;
+
+        session.setAttribute("providerInviteLink", registrationLink);
+
+        return "redirect:/admin";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ProviderRegistrationController.java =====
+package life.wellnara.controller;
+
+import life.wellnara.service.ProviderInvitationService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+/**
+ * Controller for specialist registration by invitation token.
+ */
+@Controller
+public class ProviderRegistrationController {
+
+    private final ProviderInvitationService service;
+
+    /**
+     * Creates provider registration controller.
+     *
+     * @param service provider invitation service
+     */
+    public ProviderRegistrationController(ProviderInvitationService service) {
+        this.service = service;
+    }
+
+    /**
+     * Shows specialist registration page.
+     *
+     * @param token invitation token
+     * @param model MVC model
+     * @return registration page view name
+     */
+    @GetMapping("/provider/register")
+    public String showRegisterPage(@RequestParam String token, Model model) {
+        model.addAttribute("token", token);
+        return "provider-register";
+    }
+
+    /**
+     * Registers provider by invitation token.
+     *
+     * @param token invitation token
+     * @param name specialist name
+     * @param password specialist password
+     * @return redirect to login page after successful registration
+     */
+    @PostMapping("/provider/register")
+    public String register(@RequestParam String token,
+                           @RequestParam String name,
+                           @RequestParam String password) {
+        service.register(token, name, password);
+        return "redirect:/auth/login";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ProviderController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+/**
+ * Controller for provider page access.
+ */
+@Controller
+public class ProviderController {
+
+    /**
+     * Shows provider page for authenticated provider user.
+     *
+     * @param session current HTTP session
+     * @return provider page view name or redirect to login page
+     */
+    @GetMapping("/provider")
+    public String showPage(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return "redirect:/auth/login";
+        }
+
+        return "provider";
+    }
+}
+===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.*;
+
+import java.util.UUID;
+
+/**
+ * Invitation for provider registration.
+ * Removed after successful registration.
+ */
+@Entity
+@Table(name = "provider_invitations")
+public class ProviderInvitation {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false, unique = true, updatable = false)
+    private String token;
+
+    protected ProviderInvitation() {
+    }
+
+    public ProviderInvitation(String email) {
+        this.email = email;
+        this.token = UUID.randomUUID().toString();
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getToken() {
+        return token;
+    }
+}
+===== ./src/main/java/life/wellnara/model/UserRole.java =====
+package life.wellnara.model;
+
+public enum UserRole {
+    ADMIN,
+    PROVIDER,
+    CLIENT
+}
+===== ./src/main/java/life/wellnara/model/User.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+/**
+ * Represents a system user.
+ */
+@Entity
+@Table(name = "users")
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
+
+    /**
+     * Required by JPA.
+     */
+    public User() {
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
+    }
+}
+===== ./src/main/java/life/wellnara/WellnaraApplication.java =====
+package life.wellnara;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class WellnaraApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(WellnaraApplication.class, args);
+	}
+
+}
+
+//http://localhost:8080/auth/login
+//admin
+//123
+
+//http://localhost:8080/provider/register?token=bf8582ee-36f8-4680-90ae-e75452f17b5d
+//http://localhost:8080/client/register?token=
+
+
+===== ./src/main/java/life/wellnara/service/ProviderInvitationService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.ProviderInvitation;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.ProviderInvitationRepository;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class ProviderInvitationService {
+
+    private final ProviderInvitationRepository invitationRepository;
+    private final UserRepository userRepository;
+
+    public ProviderInvitationService(ProviderInvitationRepository invitationRepository,
+                                     UserRepository userRepository) {
+        this.invitationRepository = invitationRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public String invite(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already used");
+        }
+
+        if (invitationRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Invitation already exists");
+        }
+
+        ProviderInvitation invitation = new ProviderInvitation(email);
+        invitationRepository.save(invitation);
+
+        return invitation.getToken();
+    }
+
+    @Transactional
+    public void register(String token, String name, String password) {
+        ProviderInvitation invitation = invitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        User user = new User();
+        user.setEmail(invitation.getEmail());
+        user.setUsername(name);
+        user.setPassword(password);
+        user.setRole(UserRole.PROVIDER);
+
+        userRepository.save(user);
+        invitationRepository.delete(invitation);
+    }
+}
+===== ./src/main/java/life/wellnara/service/AuthService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.User;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+
+/**
+ * Service for authentication operations.
+ */
+@Service
+public class AuthService {
+
+    private final UserRepository userRepository;
+
+    /**
+     * Creates authentication service.
+     *
+     * @param userRepository repository for user access
+     */
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * Authenticates a user by username and password.
+     *
+     * @param username entered username
+     * @param password entered password
+     * @return authenticated user or empty result
+     */
+    public Optional<User> authenticate(String username, String password) {
+        return userRepository.findByUsername(username)
+                .filter(user -> user.getPassword().equals(password));
+    }
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Admin</title>
+</head>
+<body>
+
+<h2>Wellnara: Admin</h2>
+
+<form th:action="@{/admin/invite}" method="post">
+    <div>
+        <label for="email">Enter Provider email:</label>
+        <input id="email" type="email" name="email" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Press to invite provider</button>
+    </div>
+</form>
+
+<div th:if="${inviteError}" style="margin-top: 15px; color: red;">
+    <p th:text="${inviteError}"></p>
+</div>
+
+<div th:if="${providerInviteLink}" style="margin-top: 20px;">
+    <p>Provider registration link:</p>
+    <p>
+        <a th:href="${providerInviteLink}"
+           th:text="${providerInviteLink}"></a>
+    </p>
+</div>
+
+<div style="margin-top: 30px;">
+    <h3>System users</h3>
+
+    <div th:if="${#lists.isEmpty(users)}">
+        <p>No users found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(users)}" border="1" cellpadding="8" cellspacing="0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="user : ${users}">
+            <td th:text="${user.id}"></td>
+            <td th:text="${user.username}"></td>
+            <td th:text="${user.email}"></td>
+            <td th:text="${user.role}"></td>
+            <td>
+                <form th:action="@{/admin/users/{id}/delete(id=${user.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this user?');">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 20px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
+
+</body>
+</html>
