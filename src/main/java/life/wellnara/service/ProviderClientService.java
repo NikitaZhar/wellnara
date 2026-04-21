@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Service for provider client operations.
@@ -53,12 +54,17 @@ public class ProviderClientService {
     public void deleteClient(User provider, Long clientId) {
         validateProvider(provider);
 
-        ProviderClientLink providerClientLink = providerClientLinkRepository
-                .findByProviderAndClientId(provider, clientId)
-                .orElseThrow(() -> new IllegalArgumentException("Client not found"));
+        Optional<ProviderClientLink> linkOpt =
+                providerClientLinkRepository.findByProviderAndClientId(provider, clientId);
 
-        providerClientLinkRepository.delete(providerClientLink);
-        userRepository.delete(providerClientLink.getClient());
+        if (linkOpt.isEmpty()) {
+            return; // чужой клиент или не существует — просто игнорируем
+        }
+
+        ProviderClientLink link = linkOpt.get();
+
+        providerClientLinkRepository.delete(link);
+        userRepository.delete(link.getClient());
     }
 
     /**

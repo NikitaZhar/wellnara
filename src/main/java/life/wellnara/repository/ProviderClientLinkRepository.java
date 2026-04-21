@@ -28,4 +28,6 @@ public interface ProviderClientLinkRepository extends JpaRepository<ProviderClie
      * @return found link or empty result
      */
     Optional<ProviderClientLink> findByProviderAndClientId(User provider, Long clientId);
+    
+    void deleteAllByClient(User client);
 }

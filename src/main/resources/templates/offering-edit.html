@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Offering</title>
+</head>
+<body>
+
+<h2>Edit offering</h2>
+
+<form th:action="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}" method="post">
+    <div>
+        <label for="offeringName">Offering Name:</label>
+        <input id="offeringName" type="text" name="name" th:value="${offering.name}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="offeringDescription">Description:</label>
+        <textarea id="offeringDescription"
+                  name="description"
+                  required
+                  th:text="${offering.description}"></textarea>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="pricePerSession">Price per session:</label>
+        <input id="pricePerSession"
+               type="number"
+               name="pricePerSession"
+               step="0.01"
+               min="0"
+               th:value="${offering.pricePerSession}"
+               required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="durationMinutes">Duration (minutes):</label>
+        <input id="durationMinutes"
+               type="number"
+               name="durationMinutes"
+               min="1"
+               th:value="${offering.durationMinutes}"
+               required>
+    </div>
+
+    <div style="margin-top: 15px;">
+    <button type="submit">Update offering</button>
+
+    <button type="button"
+            onclick="window.location.href='/provider?section=offerings'"
+            style="margin-left: 10px;">
+        Cancel
+    </button>
+</div>
+</form>
+
+</body>
+</html>

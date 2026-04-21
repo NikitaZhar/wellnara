@@ -3,6 +3,7 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderClientService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -15,14 +16,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class ProviderController {
 
     private final ProviderClientService providerClientService;
+    private final OfferingService offeringService;
 
     /**
      * Creates provider controller.
      *
      * @param providerClientService service for provider client operations
+     * @param offeringService service for offering management
      */
-    public ProviderController(ProviderClientService providerClientService) {
+    public ProviderController(ProviderClientService providerClientService,
+                              OfferingService offeringService) {
         this.providerClientService = providerClientService;
+        this.offeringService = offeringService;
     }
 
     /**
@@ -51,6 +56,8 @@ public class ProviderController {
         }
 
         model.addAttribute("clients", providerClientService.getClientsOfProvider(currentUser));
+        model.addAttribute("offerings", offeringService.getOfferingsOfProvider(currentUser));
+        model.addAttribute("providerName", currentUser.getUsername());
 
         return "provider";
     }
