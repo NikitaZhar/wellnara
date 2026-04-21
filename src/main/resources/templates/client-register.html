@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara: Client Registration</title>
+</head>
+<body>
+
+<h2>Wellnara: Client Registration</h2>
+
+<form th:action="@{/client/register}" method="post">
+
+    <input type="hidden" name="token" th:value="${token}"/>
+
+    <div style="margin-bottom: 15px;">
+        <p>
+            Registration email:
+            <strong th:text="${email}"></strong>
+        </p>
+    </div>
+
+    <div>
+        <label for="name">Имя:</label>
+        <input id="name" type="text" name="name" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="confirmPassword">Повторите пароль:</label>
+        <input id="confirmPassword" type="password" name="confirmPassword" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+
+</form>
+
+<div th:if="${error}" style="margin-top: 15px; color: red;">
+    <p th:text="${error}"></p>
+</div>
+
+</body>
+</html>

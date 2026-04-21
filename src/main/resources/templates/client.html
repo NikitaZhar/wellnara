@@ -2,11 +2,22 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Wellnara Client</title>
+    <title>Wellnara: Client</title>
 </head>
 <body>
 
 <h2>Wellnara: Client</h2>
+
+<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
+    <p th:text="${successMessage}"></p>
+</div>
+
+<div th:if="${clientEmail}" style="margin-bottom: 20px;">
+    <p>
+        Your email:
+        <strong th:text="${clientEmail}"></strong>
+    </p>
+</div>
 
 <a th:href="@{/auth/logout}">Logout</a>
 

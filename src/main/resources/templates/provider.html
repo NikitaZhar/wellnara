@@ -19,6 +19,64 @@
     </p>
 </div>
 
+<form th:action="@{/provider/invite-client}" method="post">
+    <div>
+        <label for="email">Enter Client email:</label>
+        <input id="email" type="email" name="email" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Press to invite client</button>
+    </div>
+</form>
+
+<div th:if="${clientInviteError}" style="margin-top: 15px; color: red;">
+    <p th:text="${clientInviteError}"></p>
+</div>
+
+<div th:if="${clientInviteLink}" style="margin-top: 20px;">
+    <p>Client registration link:</p>
+    <p>
+        <a th:href="${clientInviteLink}"
+           th:text="${clientInviteLink}"></a>
+    </p>
+</div>
+
+<div style="margin-top: 30px;">
+    <h3>My clients</h3>
+
+    <div th:if="${#lists.isEmpty(clients)}">
+        <p>No clients found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(clients)}" border="1" cellpadding="8" cellspacing="0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Invited at</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="clientLink : ${clients}">
+            <td th:text="${clientLink.client.id}"></td>
+            <td th:text="${clientLink.client.username}"></td>
+            <td th:text="${clientLink.client.email}"></td>
+            <td th:text="${clientLink.invitedAt}"></td>
+            <td>
+                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this client?');">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
 <a th:href="@{/auth/logout}">Logout</a>
 
 </body>
