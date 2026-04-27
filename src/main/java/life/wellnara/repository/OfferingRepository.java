@@ -21,6 +21,14 @@ public interface OfferingRepository extends JpaRepository<Offering, Long> {
     List<Offering> findAllByProvider(User provider);
 
     /**
+     * Returns all active offerings of provider.
+     *
+     * @param provider provider owner
+     * @return list of active offerings
+     */
+    List<Offering> findAllByProviderAndActiveTrue(User provider);
+
+    /**
      * Finds offering by provider and offering id.
      *
      * @param provider provider owner

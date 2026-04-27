@@ -2,11 +2,14 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Wellnara: Client</title>
+    <title>Wellnara Client</title>
 </head>
 <body>
 
-<h2>Wellnara: Client</h2>
+<h2>
+    Wellnara: Client -
+    <span th:text="${clientName}"></span>
+</h2>
 
 <div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
     <p th:text="${successMessage}"></p>
@@ -19,7 +22,41 @@
     </p>
 </div>
 
-<a th:href="@{/auth/logout}">Logout</a>
+<div style="margin-top: 30px;">
+    <h3>Offerings of my provider</h3>
+
+    <div th:if="${#lists.isEmpty(offerings)}">
+        <p>No offerings found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(offerings)}"
+           border="1"
+           cellpadding="8"
+           cellspacing="0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Offering Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Duration</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="offering : ${offerings}">
+            <td th:text="${offering.id}"></td>
+            <td th:text="${offering.name}"></td>
+            <td th:text="${offering.description}"></td>
+            <td th:text="${offering.pricePerSession}"></td>
+            <td th:text="${offering.durationMinutes}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 30px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
 
 </body>
 </html>

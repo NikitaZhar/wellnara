@@ -5,6 +5,65 @@ SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
 WHERE NOT EXISTS (
     SELECT 1 FROM users WHERE username = 'admin'
 );
+===== ./target/classes/templates/offering-edit.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Offering</title>
+</head>
+<body>
+
+<h2>Edit offering</h2>
+
+<form th:action="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}" method="post">
+    <div>
+        <label for="offeringName">Offering Name:</label>
+        <input id="offeringName" type="text" name="name" th:value="${offering.name}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="offeringDescription">Description:</label>
+        <textarea id="offeringDescription"
+                  name="description"
+                  required
+                  th:text="${offering.description}"></textarea>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="pricePerSession">Price per session:</label>
+        <input id="pricePerSession"
+               type="number"
+               name="pricePerSession"
+               step="0.01"
+               min="0"
+               th:value="${offering.pricePerSession}"
+               required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="durationMinutes">Duration (minutes):</label>
+        <input id="durationMinutes"
+               type="number"
+               name="durationMinutes"
+               min="1"
+               th:value="${offering.durationMinutes}"
+               required>
+    </div>
+
+    <div style="margin-top: 15px;">
+    <button type="submit">Update offering</button>
+
+    <button type="button"
+            onclick="window.location.href='/provider?section=offerings'"
+            style="margin-left: 10px;">
+        Cancel
+    </button>
+</div>
+</form>
+
+</body>
+</html>
 ===== ./target/classes/templates/client.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -14,9 +73,57 @@ WHERE NOT EXISTS (
 </head>
 <body>
 
-<h2>Wellnara: Client</h2>
+<h2>
+    Wellnara: Client -
+    <span th:text="${clientName}"></span>
+</h2>
 
-<a th:href="@{/auth/logout}">Logout</a>
+<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
+    <p th:text="${successMessage}"></p>
+</div>
+
+<div th:if="${clientEmail}" style="margin-bottom: 20px;">
+    <p>
+        Your email:
+        <strong th:text="${clientEmail}"></strong>
+    </p>
+</div>
+
+<div style="margin-top: 30px;">
+    <h3>Offerings of my provider</h3>
+
+    <div th:if="${#lists.isEmpty(offerings)}">
+        <p>No offerings found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(offerings)}"
+           border="1"
+           cellpadding="8"
+           cellspacing="0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Offering Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Duration</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="offering : ${offerings}">
+            <td th:text="${offering.id}"></td>
+            <td th:text="${offering.name}"></td>
+            <td th:text="${offering.description}"></td>
+            <td th:text="${offering.pricePerSession}"></td>
+            <td th:text="${offering.durationMinutes}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 30px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
 
 </body>
 </html>
@@ -101,23 +208,428 @@ WHERE NOT EXISTS (
 <head>
     <meta charset="UTF-8">
     <title>Wellnara Provider</title>
+
+    <link rel="stylesheet" th:href="@{/css/provider.css}">
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.provider-section')
+                .forEach(section => section.style.display = 'none');
+
+            document.querySelectorAll('.tab-button')
+                .forEach(button => button.disabled = false);
+
+            document.getElementById(sectionId).style.display = 'block';
+            document.getElementById('tab-' + sectionId).disabled = true;
+        }
+
+        function fillProviderTimezone() {
+            const timezoneInput = document.getElementById('providerTimezone');
+
+            if (timezoneInput) {
+                timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const section = params.get('section');
+
+            if (document.getElementById('calendar-errors')) {
+                showSection('calendar-section');
+            } else if (section === 'offerings') {
+                showSection('offerings-section');
+            } else if (section === 'calendar') {
+                showSection('calendar-section');
+            } else {
+                showSection('clients-section');
+            }
+
+            fillProviderTimezone();
+        });
+    </script>
 </head>
+
 <body>
 
-<h2>Wellnara: Provider</h2>
+<div class="page-header">
+    <h1>
+        Wellnara: Provider -
+        <span th:text="${providerName}"></span>
+    </h1>
 
-<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
+    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+</div>
+
+<div th:if="${successMessage}" style="color: green;">
     <p th:text="${successMessage}"></p>
 </div>
 
-<div th:if="${providerEmail}" style="margin-bottom: 20px;">
+<div th:if="${providerEmail}">
     <p>
         Your email:
         <strong th:text="${providerEmail}"></strong>
     </p>
 </div>
 
-<a th:href="@{/auth/logout}">Logout</a>
+<div class="tabs">
+    <button id="tab-clients-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('clients-section')">
+        Clients
+    </button>
+
+    <button id="tab-offerings-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('offerings-section')">
+        Offerings
+    </button>
+
+    <button id="tab-calendar-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('calendar-section')">
+        Calendar
+    </button>
+</div>
+
+<div id="clients-section" class="provider-section" style="display: none;">
+
+    <h2>My clients</h2>
+
+    <form th:action="@{/provider/invite-client}" method="post">
+        <div class="form-row">
+            <input id="clientEmail"
+                   type="email"
+                   name="email"
+                   placeholder="Enter Client email"
+                   required>
+
+            <button type="submit">Invite</button>
+        </div>
+    </form>
+
+    <div th:if="${clientInviteError}" style="color: red;">
+        <p th:text="${clientInviteError}"></p>
+    </div>
+
+    <div th:if="${clientInviteLink}">
+        <p>Client registration link:</p>
+        <p>
+            <a th:href="${clientInviteLink}"
+               th:text="${clientInviteLink}"></a>
+        </p>
+    </div>
+
+    <div th:if="${#lists.isEmpty(clients)}">
+        <p>No clients found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(clients)}">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Invited at</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="clientLink : ${clients}">
+            <td th:text="${clientLink.client.id}"></td>
+            <td th:text="${clientLink.client.username}"></td>
+            <td th:text="${clientLink.client.email}"></td>
+            <td th:text="${clientLink.invitedAt}"></td>
+            <td>
+                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this client?');">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="offerings-section" class="provider-section" style="display: none;">
+
+    <h2>My offerings</h2>
+
+    <form th:action="@{/provider/offerings}" method="post">
+        <div class="form-row">
+            <input id="offeringName"
+                   type="text"
+                   name="name"
+                   placeholder="Name"
+                   required>
+
+            <textarea id="offeringDescription"
+                      name="description"
+                      placeholder="Description"
+                      required></textarea>
+
+            <input id="pricePerSession"
+                   type="number"
+                   name="pricePerSession"
+                   step="0.01"
+                   min="0"
+                   placeholder="Price"
+                   required>
+
+            <input id="durationMinutes"
+                   type="number"
+                   name="durationMinutes"
+                   min="1"
+                   placeholder="Duration"
+                   required>
+
+            <button type="submit">Create</button>
+        </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(offerings)}">
+        <p>No offerings found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(offerings)}">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Duration</th>
+            <th>Active</th>
+            <th>Edit</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="offering : ${offerings}">
+            <td th:text="${offering.name}"></td>
+            <td th:text="${offering.description}"></td>
+            <td th:text="${offering.pricePerSession}"></td>
+            <td th:text="${offering.durationMinutes}"></td>
+            <td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
+            <td>
+                <a th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}">
+                    Edit
+                </a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="calendar-section" class="provider-section" style="display: none;">
+
+    <h2>Calendar</h2>
+
+    <div id="calendar-errors"
+         th:if="${calendarErrors != null}"
+         style="color: #b00020; margin-bottom: 15px;">
+        <div th:each="err : ${calendarErrors.values()}">
+            ⚠ <span th:text="${err}"></span>
+        </div>
+    </div>
+
+    <p>
+        Period:
+        <span th:if="${planningFrom != null and planningTo != null}"
+              th:text="${planningFrom} + ' - ' + ${planningTo}"></span>
+        <span th:if="${planningFrom == null or planningTo == null}">
+            not selected
+        </span>
+    </p>
+
+    <div th:if="${#lists.isEmpty(calendarTerms)}">
+        <p>No slots</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(calendarTerms)}">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="term : ${calendarTerms}">
+            <td th:text="${term.date}"></td>
+            <td th:text="${term.startTime}"></td>
+            <td th:text="${term.endTime}"></td>
+            <td>Free</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <form th:action="@{/provider/calendar}" method="post">
+
+        <input id="providerTimezone"
+               type="hidden"
+               name="providerTimezone">
+
+        <h3>Period</h3>
+
+        <div class="form-row">
+            <input id="planningFrom"
+                   type="date"
+                   name="planningFrom"
+                   th:value="${planningFrom}"
+                   required>
+
+            <input id="planningTo"
+                   type="date"
+                   name="planningTo"
+                   th:value="${planningTo}"
+                   required>
+        </div>
+
+        <h3>Availability</h3>
+
+        <table class="availability-table">
+            <tbody>
+            <tr>
+                <td>Monday</td>
+                <td>
+                    <input id="monday-start"
+                           name="mondayStart"
+                           type="time"
+                           th:value="${calendarForm.mondayStart}">
+                </td>
+                <td>
+                    <input id="monday-end"
+                           name="mondayEnd"
+                           type="time"
+                           th:value="${calendarForm.mondayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Tuesday</td>
+                <td>
+                    <input id="tuesday-start"
+                           name="tuesdayStart"
+                           type="time"
+                           th:value="${calendarForm.tuesdayStart}">
+                </td>
+                <td>
+                    <input id="tuesday-end"
+                           name="tuesdayEnd"
+                           type="time"
+                           th:value="${calendarForm.tuesdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Wednesday</td>
+                <td>
+                    <input id="wednesday-start"
+                           name="wednesdayStart"
+                           type="time"
+                           th:value="${calendarForm.wednesdayStart}">
+                </td>
+                <td>
+                    <input id="wednesday-end"
+                           name="wednesdayEnd"
+                           type="time"
+                           th:value="${calendarForm.wednesdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Thursday</td>
+                <td>
+                    <input id="thursday-start"
+                           name="thursdayStart"
+                           type="time"
+                           th:value="${calendarForm.thursdayStart}">
+                </td>
+                <td>
+                    <input id="thursday-end"
+                           name="thursdayEnd"
+                           type="time"
+                           th:value="${calendarForm.thursdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Friday</td>
+                <td>
+                    <input id="friday-start"
+                           name="fridayStart"
+                           type="time"
+                           th:value="${calendarForm.fridayStart}">
+                </td>
+                <td>
+                    <input id="friday-end"
+                           name="fridayEnd"
+                           type="time"
+                           th:value="${calendarForm.fridayEnd}">
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <button class="primary-button" type="submit">Save</button>
+    </form>
+</div>
+
+</body>
+</html>
+===== ./target/classes/templates/client-register.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara: Client Registration</title>
+</head>
+<body>
+
+<h2>Wellnara: Client Registration</h2>
+
+<form th:action="@{/client/register}" method="post">
+
+    <input type="hidden" name="token" th:value="${token}"/>
+
+    <div style="margin-bottom: 15px;">
+        <p>
+            Registration email:
+            <strong th:text="${email}"></strong>
+        </p>
+    </div>
+
+    <div>
+        <label for="name">Имя:</label>
+        <input id="name" type="text" name="name" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="confirmPassword">Повторите пароль:</label>
+        <input id="confirmPassword" type="password" name="confirmPassword" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+
+</form>
+
+<div th:if="${error}" style="margin-top: 15px; color: red;">
+    <p th:text="${error}"></p>
+</div>
 
 </body>
 </html>
@@ -203,6 +715,299 @@ WHERE NOT EXISTS (
 
 </body>
 </html>
+===== ./src/test/java/life/wellnara/ProviderClientFlowMvcTest.java =====
+package life.wellnara;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.ClientInvitation;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.ClientInvitationRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Integration MVC tests for complete provider-client flow.
+ *
+ * <p>These tests verify the interaction between controllers, session state,
+ * redirects, template rendering and database state for the following chain:
+ *
+ * <ul>
+ *     <li>provider logs in,</li>
+ *     <li>provider invites client,</li>
+ *     <li>client registers by invitation token,</li>
+ *     <li>provider sees registered client,</li>
+ *     <li>provider can delete client,</li>
+ *     <li>client can log out and log in again after successful registration.</li>
+ * </ul>
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class ProviderClientFlowMvcTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ClientInvitationRepository clientInvitationRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    /**
+     * Verifies that provider can create client invitation successfully and
+     * the registration link is shown only once on provider page.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should invite client successfully and show invite link only once")
+    void shouldInviteClientSuccessfullyAndShowInviteLinkOnlyOnce() throws Exception {
+        User provider = createProvider("provider-one", "provider-one@example.com", "123");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/invite-client")
+                        .session(session)
+                        .param("email", "client-one@example.com"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"));
+
+        mockMvc.perform(get("/provider").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Client registration link:")))
+                .andExpect(content().string(containsString("http://localhost:8080/client/register?token=")));
+
+        mockMvc.perform(get("/provider").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("Client registration link:"))));
+
+        assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
+    }
+
+    /**
+     * Verifies that client registration with mismatched passwords
+     * returns user back to registration page and does not create client.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should return client registration page with error when passwords do not match")
+    void shouldReturnClientRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
+        User provider = createProvider("provider-two", "provider-two@example.com", "123");
+        ClientInvitation invitation = createClientInvitation(provider, "client-two@example.com");
+
+        mockMvc.perform(post("/client/register")
+                        .param("token", invitation.getToken())
+                        .param("name", "client-two")
+                        .param("password", "secret123")
+                        .param("confirmPassword", "different123"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("token"))
+                .andExpect(model().attributeExists("email"))
+                .andExpect(model().attributeExists("error"))
+                .andExpect(content().string(containsString("Passwords do not match")));
+
+        assertThat(userRepository.findByUsername("client-two")).isEmpty();
+        assertThat(clientInvitationRepository.findByToken(invitation.getToken())).isPresent();
+        assertThat(providerClientLinkRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies complete successful flow:
+     * provider invites client, client registers, provider sees the client,
+     * client logs out, client logs in again, provider deletes the client.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should complete full provider-client flow successfully")
+    @DirtiesContext
+    void shouldCompleteFullProviderClientFlowSuccessfully() throws Exception {
+        User provider = createProvider("provider-three", "provider-three@example.com", "123");
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/invite-client")
+                        .session(providerSession)
+                        .param("email", "client-three@example.com"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"));
+
+        ClientInvitation invitation = clientInvitationRepository.findByToken(
+                        extractTokenFromInvitationEmail("client-three@example.com"))
+                .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
+
+        var registrationResult = mockMvc.perform(post("/client/register")
+                        .param("token", invitation.getToken())
+                        .param("name", "client-three")
+                        .param("password", "pass123")
+                        .param("confirmPassword", "pass123"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Registration completed successfully")))
+                .andExpect(content().string(containsString("client-three@example.com")))
+                .andReturn();
+
+        HttpSession clientSession = registrationResult.getRequest().getSession(false);
+        assertThat(clientSession).isNotNull();
+
+        User savedClient = userRepository.findByUsername("client-three")
+                .orElseThrow(() -> new IllegalStateException("Registered client not found"));
+
+        assertThat(savedClient.getRole()).isEqualTo(UserRole.CLIENT);
+        assertThat(savedClient.getEmail()).isEqualTo("client-three@example.com");
+        assertThat(clientInvitationRepository.findByToken(invitation.getToken())).isEmpty();
+
+        Optional<ProviderClientLink> providerClientLink = providerClientLinkRepository
+                .findByProviderAndClientId(provider, savedClient.getId());
+
+        assertThat(providerClientLink).isPresent();
+        assertThat(providerClientLink.get().getProvider().getId()).isEqualTo(provider.getId());
+        assertThat(providerClientLink.get().getClient().getId()).isEqualTo(savedClient.getId());
+
+        mockMvc.perform(get("/provider").session(providerSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("My clients")))
+                .andExpect(content().string(containsString("client-three")))
+                .andExpect(content().string(containsString("client-three@example.com")));
+
+        mockMvc.perform(get("/auth/logout").session((MockHttpSession) clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/login"));
+
+        var loginResult = mockMvc.perform(post("/auth/login")
+                        .param("username", "client-three")
+                        .param("password", "pass123"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client"))
+                .andReturn();
+
+        HttpSession loggedClientSession = loginResult.getRequest().getSession(false);
+        assertThat(loggedClientSession).isNotNull();
+
+        mockMvc.perform(get("/client").session((MockHttpSession) loggedClientSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("Registration completed successfully"))))
+                .andExpect(content().string(not(containsString("client-three@example.com"))));
+
+        mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"));
+
+        assertThat(userRepository.findById(savedClient.getId())).isEmpty();
+        assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, savedClient.getId())).isEmpty();
+
+        mockMvc.perform(get("/provider").session(providerSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("client-three@example.com"))));
+    }
+
+    /**
+     * Verifies that provider cannot invite client with email that already exists in the system.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should return provider page with error when client email already exists")
+    void shouldReturnProviderPageWithErrorWhenClientEmailAlreadyExists() throws Exception {
+        User provider = createProvider("provider-four", "provider-four@example.com", "123");
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        User existingClient = new User();
+        existingClient.setUsername("existing-client");
+        existingClient.setPassword("123");
+        existingClient.setEmail("existing-client@example.com");
+        existingClient.setRole(UserRole.CLIENT);
+        userRepository.save(existingClient);
+
+        mockMvc.perform(post("/provider/invite-client")
+                        .session(providerSession)
+                        .param("email", "existing-client@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("clientInviteError"))
+                .andExpect(content().string(containsString("Email already used")));
+    }
+
+    /**
+     * Creates provider user for test scenario.
+     *
+     * @param username provider username
+     * @param email provider email
+     * @param password provider password
+     * @return saved provider user
+     */
+    private User createProvider(String username, String email, String password) {
+        User provider = new User();
+        provider.setUsername(username);
+        provider.setPassword(password);
+        provider.setEmail(email);
+        provider.setRole(UserRole.PROVIDER);
+        return userRepository.save(provider);
+    }
+
+    /**
+     * Creates client invitation for test scenario.
+     *
+     * @param provider provider user
+     * @param email invited client email
+     * @return saved client invitation
+     */
+    private ClientInvitation createClientInvitation(User provider, String email) {
+        ClientInvitation invitation = new ClientInvitation(provider, email);
+        return clientInvitationRepository.save(invitation);
+    }
+
+    /**
+     * Creates session containing authenticated current user.
+     *
+     * @param user authenticated user
+     * @return mock HTTP session with currentUser attribute
+     */
+    private MockHttpSession createSessionWithCurrentUser(User user) {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("currentUser", user);
+        return session;
+    }
+
+    /**
+     * Returns invitation token for email from repository.
+     *
+     * @param email invited client email
+     * @return invitation token
+     */
+    private String extractTokenFromInvitationEmail(String email) {
+        return clientInvitationRepository.findAll().stream()
+                .filter(invitation -> invitation.getEmail().equals(email))
+                .findFirst()
+                .map(ClientInvitation::getToken)
+                .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
+    }
+}
 ===== ./src/test/java/life/wellnara/UserRepositoryTest.java =====
 package life.wellnara;
 
@@ -497,6 +1302,252 @@ class ProviderAdminFlowMvcTest {
         return session;
     }
 }
+===== ./src/test/java/life/wellnara/ProviderClientAndOfferingEdgeCasesMvcTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Integration MVC tests for edge cases in provider-client and offering flows.
+ *
+ * <p>These tests verify data integrity and access restrictions
+ * that are easy to miss in the main happy-path scenarios.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class ProviderClientAndOfferingEdgeCasesMvcTest {
+
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private ProviderClientLinkRepository providerClientLinkRepository;
+
+	@Autowired
+	private OfferingRepository offeringRepository;
+
+	/**
+	 * Verifies that admin can delete a client even when this client
+	 * is linked to provider through provider_client_links.
+	 *
+	 * <p>Expected behavior:
+	 * <ul>
+	 *     <li>request redirects back to admin page,</li>
+	 *     <li>client is removed from users table,</li>
+	 *     <li>provider-client link is also removed.</li>
+	 * </ul>
+	 *
+	 * @throws Exception if MockMvc request fails
+	 */
+	@Test
+	@DisplayName("Should delete client by admin together with provider-client link")
+	@DirtiesContext
+	void shouldDeleteClientByAdminTogetherWithProviderClientLink() throws Exception {
+		User admin = getAdminUser();
+		User provider = createProvider("provider-admin-delete", "provider-admin-delete@example.com", "123");
+		User client = createClient("client-admin-delete", "client-admin-delete@example.com", "123");
+
+		ProviderClientLink link = new ProviderClientLink(provider, client, LocalDateTime.now());
+		providerClientLinkRepository.save(link);
+
+		MockHttpSession adminSession = createSessionWithCurrentUser(admin);
+
+		mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
+				.session(adminSession))
+		.andExpect(status().is3xxRedirection())
+		.andExpect(redirectedUrl("/admin"));
+
+		assertThat(userRepository.findById(client.getId())).isEmpty();
+		assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())).isEmpty();
+	}
+
+	/**
+	 * Verifies that provider cannot delete a client belonging to another provider.
+	 *
+	 * <p>Expected behavior:
+	 * <ul>
+	 *     <li>request fails because client does not belong to current provider,</li>
+	 *     <li>client remains in database,</li>
+	 *     <li>provider-client link remains in database.</li>
+	 * </ul>
+	 *
+	 * @throws Exception if MockMvc request fails
+	 */
+	@Test
+	@DisplayName("Should not allow provider to delete another provider client")
+	void shouldNotAllowProviderToDeleteAnotherProviderClient() throws Exception {
+		User providerOne = createProvider("provider-one-edge", "provider-one-edge@example.com", "123");
+		User providerTwo = createProvider("provider-two-edge", "provider-two-edge@example.com", "123");
+		User client = createClient("client-edge", "client-edge@example.com", "123");
+
+		ProviderClientLink link = new ProviderClientLink(providerOne, client, LocalDateTime.now());
+		providerClientLinkRepository.save(link);
+
+		MockHttpSession providerTwoSession = createSessionWithCurrentUser(providerTwo);
+
+		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId())
+				.session(providerTwoSession))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(redirectedUrl("/provider"));
+
+		assertThat(userRepository.findById(client.getId())).isPresent();
+		assertThat(providerClientLinkRepository.findByProviderAndClientId(providerOne, client.getId())).isPresent();
+	}
+
+	/**
+	 * Verifies that created offering is saved for current provider only.
+	 *
+	 * @throws Exception if MockMvc request fails
+	 */
+	@Test
+	@DisplayName("Should save offering for current provider")
+	void shouldSaveOfferingForCurrentProvider() throws Exception {
+		User provider = createProvider("provider-offering-save", "provider-offering-save@example.com", "123");
+		MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+		mockMvc.perform(post("/provider/offerings")
+				.session(providerSession)
+				.param("name", "Consultation")
+				.param("description", "First consultation")
+				.param("pricePerSession", "45.00")
+				.param("durationMinutes", "60"))
+		.andExpect(status().is3xxRedirection())
+		.andExpect(redirectedUrl("/provider"));
+
+		List<Offering> offerings = offeringRepository.findAllByProvider(provider);
+
+		assertThat(offerings).hasSize(1);
+		assertThat(offerings.get(0).getName()).isEqualTo("Consultation");
+		assertThat(offerings.get(0).getDescription()).isEqualTo("First consultation");
+		assertThat(offerings.get(0).getPricePerSession()).isEqualByComparingTo(new BigDecimal("45.00"));
+		assertThat(offerings.get(0).getDurationMinutes()).isEqualTo(60);
+		assertThat(offerings.get(0).isActive()).isTrue();
+		assertThat(offerings.get(0).getProvider().getId()).isEqualTo(provider.getId());
+	}
+
+	/**
+	 * Verifies that provider page shows only offerings of current provider.
+	 *
+	 * @throws Exception if MockMvc request fails
+	 */
+	@Test
+	@DisplayName("Should show only own offerings on provider page")
+	void shouldShowOnlyOwnOfferingsOnProviderPage() throws Exception {
+		User providerOne = createProvider("provider-own-offerings", "provider-own-offerings@example.com", "123");
+		User providerTwo = createProvider("provider-other-offerings", "provider-other-offerings@example.com", "123");
+
+		offeringRepository.save(new Offering(
+				providerOne,
+				"Own Offering",
+				"Visible only to provider one",
+				new BigDecimal("20.00"),
+				30
+				));
+
+		offeringRepository.save(new Offering(
+				providerTwo,
+				"Foreign Offering",
+				"Should not be visible to provider one",
+				new BigDecimal("90.00"),
+				90
+				));
+
+		MockHttpSession providerOneSession = createSessionWithCurrentUser(providerOne);
+
+		mockMvc.perform(get("/provider").session(providerOneSession))
+		.andExpect(status().isOk())
+		.andExpect(content().string(containsString("Own Offering")))
+		.andExpect(content().string(not(containsString("Foreign Offering"))));
+	}
+
+	/**
+	 * Returns preloaded admin user from test database.
+	 *
+	 * @return admin user
+	 */
+	private User getAdminUser() {
+		return userRepository.findByUsername("admin")
+				.orElseThrow(() -> new IllegalStateException("Admin user not found in test database"));
+	}
+
+	/**
+	 * Creates provider user for test scenario.
+	 *
+	 * @param username provider username
+	 * @param email provider email
+	 * @param password provider password
+	 * @return saved provider user
+	 */
+	private User createProvider(String username, String email, String password) {
+		User provider = new User();
+		provider.setUsername(username);
+		provider.setPassword(password);
+		provider.setEmail(email);
+		provider.setRole(UserRole.PROVIDER);
+		return userRepository.save(provider);
+	}
+
+	/**
+	 * Creates client user for test scenario.
+	 *
+	 * @param username client username
+	 * @param email client email
+	 * @param password client password
+	 * @return saved client user
+	 */
+	private User createClient(String username, String email, String password) {
+		User client = new User();
+		client.setUsername(username);
+		client.setPassword(password);
+		client.setEmail(email);
+		client.setRole(UserRole.CLIENT);
+		return userRepository.save(client);
+	}
+
+	/**
+	 * Creates session containing authenticated current user.
+	 *
+	 * @param user authenticated user
+	 * @return mock HTTP session with currentUser attribute
+	 */
+	private MockHttpSession createSessionWithCurrentUser(User user) {
+		MockHttpSession session = new MockHttpSession();
+		session.setAttribute("currentUser", user);
+		return session;
+	}
+}
 ===== ./src/test/java/life/wellnara/WellnaraApplicationTests.java =====
 package life.wellnara;
 
@@ -518,6 +1569,65 @@ SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
 WHERE NOT EXISTS (
     SELECT 1 FROM users WHERE username = 'admin'
 );
+===== ./src/main/resources/templates/offering-edit.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Offering</title>
+</head>
+<body>
+
+<h2>Edit offering</h2>
+
+<form th:action="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}" method="post">
+    <div>
+        <label for="offeringName">Offering Name:</label>
+        <input id="offeringName" type="text" name="name" th:value="${offering.name}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="offeringDescription">Description:</label>
+        <textarea id="offeringDescription"
+                  name="description"
+                  required
+                  th:text="${offering.description}"></textarea>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="pricePerSession">Price per session:</label>
+        <input id="pricePerSession"
+               type="number"
+               name="pricePerSession"
+               step="0.01"
+               min="0"
+               th:value="${offering.pricePerSession}"
+               required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="durationMinutes">Duration (minutes):</label>
+        <input id="durationMinutes"
+               type="number"
+               name="durationMinutes"
+               min="1"
+               th:value="${offering.durationMinutes}"
+               required>
+    </div>
+
+    <div style="margin-top: 15px;">
+    <button type="submit">Update offering</button>
+
+    <button type="button"
+            onclick="window.location.href='/provider?section=offerings'"
+            style="margin-left: 10px;">
+        Cancel
+    </button>
+</div>
+</form>
+
+</body>
+</html>
 ===== ./src/main/resources/templates/client.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -527,9 +1637,57 @@ WHERE NOT EXISTS (
 </head>
 <body>
 
-<h2>Wellnara: Client</h2>
+<h2>
+    Wellnara: Client -
+    <span th:text="${clientName}"></span>
+</h2>
 
-<a th:href="@{/auth/logout}">Logout</a>
+<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
+    <p th:text="${successMessage}"></p>
+</div>
+
+<div th:if="${clientEmail}" style="margin-bottom: 20px;">
+    <p>
+        Your email:
+        <strong th:text="${clientEmail}"></strong>
+    </p>
+</div>
+
+<div style="margin-top: 30px;">
+    <h3>Offerings of my provider</h3>
+
+    <div th:if="${#lists.isEmpty(offerings)}">
+        <p>No offerings found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(offerings)}"
+           border="1"
+           cellpadding="8"
+           cellspacing="0">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Offering Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Duration</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="offering : ${offerings}">
+            <td th:text="${offering.id}"></td>
+            <td th:text="${offering.name}"></td>
+            <td th:text="${offering.description}"></td>
+            <td th:text="${offering.pricePerSession}"></td>
+            <td th:text="${offering.durationMinutes}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 30px;">
+    <a th:href="@{/auth/logout}">Logout</a>
+</div>
 
 </body>
 </html>
@@ -614,23 +1772,428 @@ WHERE NOT EXISTS (
 <head>
     <meta charset="UTF-8">
     <title>Wellnara Provider</title>
+
+    <link rel="stylesheet" th:href="@{/css/provider.css}">
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.provider-section')
+                .forEach(section => section.style.display = 'none');
+
+            document.querySelectorAll('.tab-button')
+                .forEach(button => button.disabled = false);
+
+            document.getElementById(sectionId).style.display = 'block';
+            document.getElementById('tab-' + sectionId).disabled = true;
+        }
+
+        function fillProviderTimezone() {
+            const timezoneInput = document.getElementById('providerTimezone');
+
+            if (timezoneInput) {
+                timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const section = params.get('section');
+
+            if (document.getElementById('calendar-errors')) {
+                showSection('calendar-section');
+            } else if (section === 'offerings') {
+                showSection('offerings-section');
+            } else if (section === 'calendar') {
+                showSection('calendar-section');
+            } else {
+                showSection('clients-section');
+            }
+
+            fillProviderTimezone();
+        });
+    </script>
 </head>
+
 <body>
 
-<h2>Wellnara: Provider</h2>
+<div class="page-header">
+    <h1>
+        Wellnara: Provider -
+        <span th:text="${providerName}"></span>
+    </h1>
 
-<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
+    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+</div>
+
+<div th:if="${successMessage}" style="color: green;">
     <p th:text="${successMessage}"></p>
 </div>
 
-<div th:if="${providerEmail}" style="margin-bottom: 20px;">
+<div th:if="${providerEmail}">
     <p>
         Your email:
         <strong th:text="${providerEmail}"></strong>
     </p>
 </div>
 
-<a th:href="@{/auth/logout}">Logout</a>
+<div class="tabs">
+    <button id="tab-clients-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('clients-section')">
+        Clients
+    </button>
+
+    <button id="tab-offerings-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('offerings-section')">
+        Offerings
+    </button>
+
+    <button id="tab-calendar-section"
+            class="tab-button"
+            type="button"
+            onclick="showSection('calendar-section')">
+        Calendar
+    </button>
+</div>
+
+<div id="clients-section" class="provider-section" style="display: none;">
+
+    <h2>My clients</h2>
+
+    <form th:action="@{/provider/invite-client}" method="post">
+        <div class="form-row">
+            <input id="clientEmail"
+                   type="email"
+                   name="email"
+                   placeholder="Enter Client email"
+                   required>
+
+            <button type="submit">Invite</button>
+        </div>
+    </form>
+
+    <div th:if="${clientInviteError}" style="color: red;">
+        <p th:text="${clientInviteError}"></p>
+    </div>
+
+    <div th:if="${clientInviteLink}">
+        <p>Client registration link:</p>
+        <p>
+            <a th:href="${clientInviteLink}"
+               th:text="${clientInviteLink}"></a>
+        </p>
+    </div>
+
+    <div th:if="${#lists.isEmpty(clients)}">
+        <p>No clients found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(clients)}">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Invited at</th>
+            <th>Action</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="clientLink : ${clients}">
+            <td th:text="${clientLink.client.id}"></td>
+            <td th:text="${clientLink.client.username}"></td>
+            <td th:text="${clientLink.client.email}"></td>
+            <td th:text="${clientLink.invitedAt}"></td>
+            <td>
+                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this client?');">
+                    <button type="submit">Delete</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="offerings-section" class="provider-section" style="display: none;">
+
+    <h2>My offerings</h2>
+
+    <form th:action="@{/provider/offerings}" method="post">
+        <div class="form-row">
+            <input id="offeringName"
+                   type="text"
+                   name="name"
+                   placeholder="Name"
+                   required>
+
+            <textarea id="offeringDescription"
+                      name="description"
+                      placeholder="Description"
+                      required></textarea>
+
+            <input id="pricePerSession"
+                   type="number"
+                   name="pricePerSession"
+                   step="0.01"
+                   min="0"
+                   placeholder="Price"
+                   required>
+
+            <input id="durationMinutes"
+                   type="number"
+                   name="durationMinutes"
+                   min="1"
+                   placeholder="Duration"
+                   required>
+
+            <button type="submit">Create</button>
+        </div>
+    </form>
+
+    <div th:if="${#lists.isEmpty(offerings)}">
+        <p>No offerings found.</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(offerings)}">
+        <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Price</th>
+            <th>Duration</th>
+            <th>Active</th>
+            <th>Edit</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="offering : ${offerings}">
+            <td th:text="${offering.name}"></td>
+            <td th:text="${offering.description}"></td>
+            <td th:text="${offering.pricePerSession}"></td>
+            <td th:text="${offering.durationMinutes}"></td>
+            <td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
+            <td>
+                <a th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}">
+                    Edit
+                </a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div id="calendar-section" class="provider-section" style="display: none;">
+
+    <h2>Calendar</h2>
+
+    <div id="calendar-errors"
+         th:if="${calendarErrors != null}"
+         style="color: #b00020; margin-bottom: 15px;">
+        <div th:each="err : ${calendarErrors.values()}">
+            ⚠ <span th:text="${err}"></span>
+        </div>
+    </div>
+
+    <p>
+        Period:
+        <span th:if="${planningFrom != null and planningTo != null}"
+              th:text="${planningFrom} + ' - ' + ${planningTo}"></span>
+        <span th:if="${planningFrom == null or planningTo == null}">
+            not selected
+        </span>
+    </p>
+
+    <div th:if="${#lists.isEmpty(calendarTerms)}">
+        <p>No slots</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(calendarTerms)}">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="term : ${calendarTerms}">
+            <td th:text="${term.date}"></td>
+            <td th:text="${term.startTime}"></td>
+            <td th:text="${term.endTime}"></td>
+            <td>Free</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <form th:action="@{/provider/calendar}" method="post">
+
+        <input id="providerTimezone"
+               type="hidden"
+               name="providerTimezone">
+
+        <h3>Period</h3>
+
+        <div class="form-row">
+            <input id="planningFrom"
+                   type="date"
+                   name="planningFrom"
+                   th:value="${planningFrom}"
+                   required>
+
+            <input id="planningTo"
+                   type="date"
+                   name="planningTo"
+                   th:value="${planningTo}"
+                   required>
+        </div>
+
+        <h3>Availability</h3>
+
+        <table class="availability-table">
+            <tbody>
+            <tr>
+                <td>Monday</td>
+                <td>
+                    <input id="monday-start"
+                           name="mondayStart"
+                           type="time"
+                           th:value="${calendarForm.mondayStart}">
+                </td>
+                <td>
+                    <input id="monday-end"
+                           name="mondayEnd"
+                           type="time"
+                           th:value="${calendarForm.mondayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Tuesday</td>
+                <td>
+                    <input id="tuesday-start"
+                           name="tuesdayStart"
+                           type="time"
+                           th:value="${calendarForm.tuesdayStart}">
+                </td>
+                <td>
+                    <input id="tuesday-end"
+                           name="tuesdayEnd"
+                           type="time"
+                           th:value="${calendarForm.tuesdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Wednesday</td>
+                <td>
+                    <input id="wednesday-start"
+                           name="wednesdayStart"
+                           type="time"
+                           th:value="${calendarForm.wednesdayStart}">
+                </td>
+                <td>
+                    <input id="wednesday-end"
+                           name="wednesdayEnd"
+                           type="time"
+                           th:value="${calendarForm.wednesdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Thursday</td>
+                <td>
+                    <input id="thursday-start"
+                           name="thursdayStart"
+                           type="time"
+                           th:value="${calendarForm.thursdayStart}">
+                </td>
+                <td>
+                    <input id="thursday-end"
+                           name="thursdayEnd"
+                           type="time"
+                           th:value="${calendarForm.thursdayEnd}">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Friday</td>
+                <td>
+                    <input id="friday-start"
+                           name="fridayStart"
+                           type="time"
+                           th:value="${calendarForm.fridayStart}">
+                </td>
+                <td>
+                    <input id="friday-end"
+                           name="fridayEnd"
+                           type="time"
+                           th:value="${calendarForm.fridayEnd}">
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <button class="primary-button" type="submit">Save</button>
+    </form>
+</div>
+
+</body>
+</html>
+===== ./src/main/resources/templates/client-register.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara: Client Registration</title>
+</head>
+<body>
+
+<h2>Wellnara: Client Registration</h2>
+
+<form th:action="@{/client/register}" method="post">
+
+    <input type="hidden" name="token" th:value="${token}"/>
+
+    <div style="margin-bottom: 15px;">
+        <p>
+            Registration email:
+            <strong th:text="${email}"></strong>
+        </p>
+    </div>
+
+    <div>
+        <label for="name">Имя:</label>
+        <input id="name" type="text" name="name" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="password">Пароль:</label>
+        <input id="password" type="password" name="password" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="confirmPassword">Повторите пароль:</label>
+        <input id="confirmPassword" type="password" name="confirmPassword" required>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <button type="submit">Зарегистрироваться</button>
+    </div>
+
+</form>
+
+<div th:if="${error}" style="margin-top: 15px; color: red;">
+    <p th:text="${error}"></p>
+</div>
 
 </body>
 </html>
@@ -716,6 +2279,268 @@ WHERE NOT EXISTS (
 
 </body>
 </html>
+===== ./src/main/java/life/wellnara/dto/CalendarTerm.java =====
+package life.wellnara.dto;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+/**
+ * Represents one generated calendar slot.
+ */
+public class CalendarTerm {
+
+    private LocalDate date;
+    private LocalTime startTime;
+    private LocalTime endTime;
+
+    public CalendarTerm(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        this.date = date;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+}
+===== ./src/main/java/life/wellnara/dto/ProviderCalendarForm.java =====
+package life.wellnara.dto;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+/**
+ * Form object for provider calendar availability input.
+ * 
+ * Represents raw data coming from UI.
+ * Not a domain model.
+ */
+public class ProviderCalendarForm {
+
+    private LocalDate planningFrom;
+    private LocalDate planningTo;
+
+    /**
+     * Timezone of provider at the moment of form submission.
+     * Example: Europe/Bratislava
+     */
+    private String providerTimezone;
+
+    private LocalTime mondayStart;
+    private LocalTime mondayEnd;
+
+    private LocalTime tuesdayStart;
+    private LocalTime tuesdayEnd;
+
+    private LocalTime wednesdayStart;
+    private LocalTime wednesdayEnd;
+
+    private LocalTime thursdayStart;
+    private LocalTime thursdayEnd;
+
+    private LocalTime fridayStart;
+    private LocalTime fridayEnd;
+
+    public LocalDate getPlanningFrom() {
+        return planningFrom;
+    }
+
+    public void setPlanningFrom(LocalDate planningFrom) {
+        this.planningFrom = planningFrom;
+    }
+
+    public LocalDate getPlanningTo() {
+        return planningTo;
+    }
+
+    public void setPlanningTo(LocalDate planningTo) {
+        this.planningTo = planningTo;
+    }
+
+    public String getProviderTimezone() {
+        return providerTimezone;
+    }
+
+    public void setProviderTimezone(String providerTimezone) {
+        this.providerTimezone = providerTimezone;
+    }
+
+    public LocalTime getMondayStart() {
+        return mondayStart;
+    }
+
+    public void setMondayStart(LocalTime mondayStart) {
+        this.mondayStart = mondayStart;
+    }
+
+    public LocalTime getMondayEnd() {
+        return mondayEnd;
+    }
+
+    public void setMondayEnd(LocalTime mondayEnd) {
+        this.mondayEnd = mondayEnd;
+    }
+
+    public LocalTime getTuesdayStart() {
+        return tuesdayStart;
+    }
+
+    public void setTuesdayStart(LocalTime tuesdayStart) {
+        this.tuesdayStart = tuesdayStart;
+    }
+
+    public LocalTime getTuesdayEnd() {
+        return tuesdayEnd;
+    }
+
+    public void setTuesdayEnd(LocalTime tuesdayEnd) {
+        this.tuesdayEnd = tuesdayEnd;
+    }
+
+    public LocalTime getWednesdayStart() {
+        return wednesdayStart;
+    }
+
+    public void setWednesdayStart(LocalTime wednesdayStart) {
+        this.wednesdayStart = wednesdayStart;
+    }
+
+    public LocalTime getWednesdayEnd() {
+        return wednesdayEnd;
+    }
+
+    public void setWednesdayEnd(LocalTime wednesdayEnd) {
+        this.wednesdayEnd = wednesdayEnd;
+    }
+
+    public LocalTime getThursdayStart() {
+        return thursdayStart;
+    }
+
+    public void setThursdayStart(LocalTime thursdayStart) {
+        this.thursdayStart = thursdayStart;
+    }
+
+    public LocalTime getThursdayEnd() {
+        return thursdayEnd;
+    }
+
+    public void setThursdayEnd(LocalTime thursdayEnd) {
+        this.thursdayEnd = thursdayEnd;
+    }
+
+    public LocalTime getFridayStart() {
+        return fridayStart;
+    }
+
+    public void setFridayStart(LocalTime fridayStart) {
+        this.fridayStart = fridayStart;
+    }
+
+    public LocalTime getFridayEnd() {
+        return fridayEnd;
+    }
+
+    public void setFridayEnd(LocalTime fridayEnd) {
+        this.fridayEnd = fridayEnd;
+    }
+}
+===== ./src/main/java/life/wellnara/repository/ProviderClientLinkRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Repository for provider-client links.
+ */
+public interface ProviderClientLinkRepository extends JpaRepository<ProviderClientLink, Long> {
+
+    /**
+     * Returns all client links for provider.
+     *
+     * @param provider provider user
+     * @return list of provider-client links
+     */
+    List<ProviderClientLink> findAllByProvider(User provider);
+
+    /**
+     * Finds provider-client link by provider and client id.
+     *
+     * @param provider provider user
+     * @param clientId client identifier
+     * @return found link or empty result
+     */
+    Optional<ProviderClientLink> findByProviderAndClientId(User provider, Long clientId);
+
+    /**
+     * Finds provider-client link by client.
+     *
+     * @param client client user
+     * @return found link or empty result
+     */
+    Optional<ProviderClientLink> findByClient(User client);
+
+    /**
+     * Deletes all links for client.
+     *
+     * @param client client user
+     */
+    void deleteAllByClient(User client);
+}
+===== ./src/main/java/life/wellnara/repository/OfferingRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Repository for offerings.
+ */
+public interface OfferingRepository extends JpaRepository<Offering, Long> {
+
+    /**
+     * Returns all offerings of provider.
+     *
+     * @param provider provider owner
+     * @return list of offerings
+     */
+    List<Offering> findAllByProvider(User provider);
+
+    /**
+     * Returns all active offerings of provider.
+     *
+     * @param provider provider owner
+     * @return list of active offerings
+     */
+    List<Offering> findAllByProviderAndActiveTrue(User provider);
+
+    /**
+     * Finds offering by provider and offering id.
+     *
+     * @param provider provider owner
+     * @param offeringId offering identifier
+     * @return found offering or empty result
+     */
+    Optional<Offering> findByProviderAndId(User provider, Long offeringId);
+}
 ===== ./src/main/java/life/wellnara/repository/ProviderInvitationRepository.java =====
 package life.wellnara.repository;
 
@@ -728,6 +2553,35 @@ public interface ProviderInvitationRepository extends JpaRepository<ProviderInvi
 
     Optional<ProviderInvitation> findByToken(String token);
 
+    boolean existsByEmail(String email);
+}
+===== ./src/main/java/life/wellnara/repository/ClientInvitationRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.ClientInvitation;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+/**
+ * Repository for client invitations.
+ */
+public interface ClientInvitationRepository extends JpaRepository<ClientInvitation, Long> {
+
+    /**
+     * Finds client invitation by token.
+     *
+     * @param token invitation token
+     * @return found invitation or empty result
+     */
+    Optional<ClientInvitation> findByToken(String token);
+
+    /**
+     * Checks whether invitation for email already exists.
+     *
+     * @param email invited email
+     * @return true if invitation exists
+     */
     boolean existsByEmail(String email);
 }
 ===== ./src/main/java/life/wellnara/repository/UserRepository.java =====
@@ -778,6 +2632,41 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return found user or empty result
      */
     Optional<User> findByIdAndRoleNot(Long id, UserRole role);
+}
+===== ./src/main/java/life/wellnara/repository/AvailabilityRuleRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+/**
+ * Repository for provider availability rules.
+ */
+public interface AvailabilityRuleRepository extends JpaRepository<AvailabilityRule, Long> {
+
+    List<AvailabilityRule> findAllByAvailabilityPeriod(AvailabilityPeriod availabilityPeriod);
+}
+===== ./src/main/java/life/wellnara/repository/AvailabilityPeriodRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Repository for provider availability planning periods.
+ */
+public interface AvailabilityPeriodRepository extends JpaRepository<AvailabilityPeriod, Long> {
+
+    List<AvailabilityPeriod> findAllByProvider(User provider);
+
+    Optional<AvailabilityPeriod> findTopByProviderOrderByCreatedAtDesc(User provider);
 }
 ===== ./src/main/java/life/wellnara/controller/AdminController.java =====
 package life.wellnara.controller;
@@ -869,7 +2758,9 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.ClientOfferingService;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
@@ -878,14 +2769,26 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class ClientController {
 
+    private final ClientOfferingService clientOfferingService;
+
+    /**
+     * Creates client controller.
+     *
+     * @param clientOfferingService service for client access to provider offerings
+     */
+    public ClientController(ClientOfferingService clientOfferingService) {
+        this.clientOfferingService = clientOfferingService;
+    }
+
     /**
      * Shows client page for authenticated client user.
      *
      * @param session current HTTP session
+     * @param model MVC model
      * @return client page view name or redirect to login page
      */
     @GetMapping("/client")
-    public String showPage(HttpSession session) {
+    public String showPage(HttpSession session, Model model) {
         Object sessionUser = session.getAttribute("currentUser");
 
         if (!(sessionUser instanceof User currentUser)) {
@@ -896,7 +2799,62 @@ public class ClientController {
             return "redirect:/auth/login";
         }
 
+        model.addAttribute("clientName", currentUser.getUsername());
+        model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(currentUser));
+
         return "client";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ProviderClientController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.service.ProviderClientService;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+
+/**
+ * Controller for provider client management.
+ */
+@Controller
+public class ProviderClientController {
+
+    private final ProviderClientService providerClientService;
+
+    /**
+     * Creates provider client controller.
+     *
+     * @param providerClientService service for provider client operations
+     */
+    public ProviderClientController(ProviderClientService providerClientService) {
+        this.providerClientService = providerClientService;
+    }
+
+    /**
+     * Deletes client of current provider.
+     *
+     * @param clientId client identifier
+     * @param session current HTTP session
+     * @return redirect to provider page or login page
+     */
+    @PostMapping("/provider/clients/{clientId}/delete")
+    public String deleteClient(@PathVariable Long clientId, HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return "redirect:/auth/login";
+        }
+
+        providerClientService.deleteClient(currentUser, clientId);
+
+        return "redirect:/provider";
     }
 }
 ===== ./src/main/java/life/wellnara/controller/AuthController.java =====
@@ -992,6 +2950,314 @@ public class AuthController {
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/auth/login";
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ClientRegistrationController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.service.ClientInvitationService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+/**
+ * Controller for client registration by invitation token.
+ */
+@Controller
+public class ClientRegistrationController {
+
+    private final ClientInvitationService clientInvitationService;
+
+    /**
+     * Creates client registration controller.
+     *
+     * @param clientInvitationService service for client invitation flow
+     */
+    public ClientRegistrationController(ClientInvitationService clientInvitationService) {
+        this.clientInvitationService = clientInvitationService;
+    }
+
+    /**
+     * Shows client registration page.
+     *
+     * @param token invitation token
+     * @param model MVC model
+     * @return registration page view name
+     */
+    @GetMapping("/client/register")
+    public String showRegisterPage(@RequestParam String token, Model model) {
+        try {
+            String email = clientInvitationService.getEmailByToken(token);
+            model.addAttribute("token", token);
+            model.addAttribute("email", email);
+            return "client-register";
+        } catch (IllegalArgumentException exception) {
+            model.addAttribute("error", exception.getMessage());
+            return "login";
+        }
+    }
+
+    /**
+     * Registers client by invitation token.
+     *
+     * @param token invitation token
+     * @param name client name
+     * @param password client password
+     * @param confirmPassword repeated client password
+     * @param session current HTTP session
+     * @param model MVC model
+     * @return client page on success or registration page on validation error
+     */
+    @PostMapping("/client/register")
+    public String register(@RequestParam String token,
+                           @RequestParam String name,
+                           @RequestParam String password,
+                           @RequestParam String confirmPassword,
+                           HttpSession session,
+                           Model model) {
+        String email;
+
+        try {
+            email = clientInvitationService.getEmailByToken(token);
+        } catch (IllegalArgumentException exception) {
+            model.addAttribute("error", exception.getMessage());
+            return "login";
+        }
+
+        if (!password.equals(confirmPassword)) {
+            model.addAttribute("token", token);
+            model.addAttribute("email", email);
+            model.addAttribute("error", "Passwords do not match");
+            return "client-register";
+        }
+
+        try {
+            User registeredUser = clientInvitationService.register(token, name, password);
+            session.setAttribute("currentUser", registeredUser);
+
+            model.addAttribute("successMessage", "Registration completed successfully");
+            model.addAttribute("clientEmail", registeredUser.getEmail());
+
+            return "client";
+        } catch (IllegalArgumentException exception) {
+            model.addAttribute("token", token);
+            model.addAttribute("email", email);
+            model.addAttribute("error", exception.getMessage());
+            return "client-register";
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/controller/ClientInvitationController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.service.ClientInvitationService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+/**
+ * Controller for client invitation from provider page.
+ */
+@Controller
+public class ClientInvitationController {
+
+    private final ClientInvitationService clientInvitationService;
+
+    /**
+     * Creates client invitation controller.
+     *
+     * @param clientInvitationService service for client invitations
+     */
+    public ClientInvitationController(ClientInvitationService clientInvitationService) {
+        this.clientInvitationService = clientInvitationService;
+    }
+
+    /**
+     * Creates client invitation and stores registration link in session.
+     *
+     * @param email invited client email
+     * @param session current HTTP session
+     * @param model MVC model
+     * @return redirect to provider page or provider page with validation error
+     */
+    @PostMapping("/provider/invite-client")
+    public String inviteClient(@RequestParam String email,
+                               HttpSession session,
+                               Model model) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return "redirect:/auth/login";
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return "redirect:/auth/login";
+        }
+
+        try {
+            String token = clientInvitationService.invite(currentUser, email);
+            String registrationLink = "http://localhost:8080/client/register?token=" + token;
+
+            session.setAttribute("clientInviteLink", registrationLink);
+
+            return "redirect:/provider";
+        } catch (IllegalArgumentException exception) {
+            session.removeAttribute("clientInviteLink");
+            model.addAttribute("clientInviteError", exception.getMessage());
+            return "provider";
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/controller/OfferingController.java =====
+package life.wellnara.controller;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.service.OfferingService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.math.BigDecimal;
+
+/**
+ * Controller for offering management.
+ */
+@Controller
+public class OfferingController {
+
+    private final OfferingService offeringService;
+
+    /**
+     * Creates offering controller.
+     *
+     * @param offeringService service for offering management
+     */
+    public OfferingController(OfferingService offeringService) {
+        this.offeringService = offeringService;
+    }
+
+    /**
+     * Creates offering.
+     *
+     * @param name offering name
+     * @param description offering description
+     * @param pricePerSession price per session
+     * @param durationMinutes session duration in minutes
+     * @param session current HTTP session
+     * @return redirect to provider page or login page
+     */
+    @PostMapping("/provider/offerings")
+    public String createOffering(@RequestParam String name,
+                                 @RequestParam String description,
+                                 @RequestParam BigDecimal pricePerSession,
+                                 @RequestParam Integer durationMinutes,
+                                 HttpSession session) {
+        User currentUser = getCurrentProvider(session);
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
+
+        offeringService.createOffering(
+                currentUser,
+                name,
+                description,
+                pricePerSession,
+                durationMinutes
+        );
+
+        return "redirect:/provider?section=offerings";
+    }
+
+    /**
+     * Shows offering edit page.
+     *
+     * @param offeringId offering identifier
+     * @param session current HTTP session
+     * @param model MVC model
+     * @return edit page or redirect to login page
+     */
+    @GetMapping("/provider/offerings/{offeringId}/edit")
+    public String showEditPage(@PathVariable Long offeringId,
+                               HttpSession session,
+                               Model model) {
+        User currentUser = getCurrentProvider(session);
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
+
+        Offering offering = offeringService.getOfferingOfProvider(currentUser, offeringId);
+        model.addAttribute("offering", offering);
+
+        return "offering-edit";
+    }
+
+    /**
+     * Updates offering.
+     *
+     * @param offeringId offering identifier
+     * @param name offering name
+     * @param description offering description
+     * @param pricePerSession price per session
+     * @param durationMinutes session duration in minutes
+     * @param session current HTTP session
+     * @return redirect to provider page or login page
+     */
+    @PostMapping("/provider/offerings/{offeringId}/edit")
+    public String updateOffering(@PathVariable Long offeringId,
+                                 @RequestParam String name,
+                                 @RequestParam String description,
+                                 @RequestParam BigDecimal pricePerSession,
+                                 @RequestParam Integer durationMinutes,
+                                 HttpSession session) {
+        User currentUser = getCurrentProvider(session);
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
+
+        offeringService.updateOffering(
+                currentUser,
+                offeringId,
+                name,
+                description,
+                pricePerSession,
+                durationMinutes
+        );
+
+        return "redirect:/provider?section=offerings";
+    }
+
+    /**
+     * Returns authenticated provider from session.
+     *
+     * @param session current HTTP session
+     * @return provider user or null
+     */
+    private User getCurrentProvider(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return null;
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return null;
+        }
+
+        return currentUser;
     }
 }
 ===== ./src/main/java/life/wellnara/controller/ProviderInvitationController.java =====
@@ -1169,37 +3435,146 @@ public class ProviderRegistrationController {
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.dto.ProviderCalendarForm;
+import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.OfferingService;
+import life.wellnara.service.ProviderCalendarService;
+import life.wellnara.service.ProviderClientService;
+
+import java.util.List;
+
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
 
 /**
- * Controller for provider page access.
+ * Controller for provider page access and provider calendar form submission.
  */
 @Controller
 public class ProviderController {
 
-    /**
-     * Shows provider page for authenticated provider user.
-     *
-     * @param session current HTTP session
-     * @return provider page view name or redirect to login page
-     */
-    @GetMapping("/provider")
-    public String showPage(HttpSession session) {
-        Object sessionUser = session.getAttribute("currentUser");
+	private final ProviderClientService providerClientService;
+	private final OfferingService offeringService;
+	private final ProviderCalendarService providerCalendarService;
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+	/**
+	 * Creates provider controller.
+	 *
+	 * @param providerClientService service for provider client operations
+	 * @param offeringService service for offering management
+	 * @param providerCalendarService service for provider calendar management
+	 */
+	public ProviderController(ProviderClientService providerClientService,
+			OfferingService offeringService,
+			ProviderCalendarService providerCalendarService) {
+		this.providerClientService = providerClientService;
+		this.offeringService = offeringService;
+		this.providerCalendarService = providerCalendarService;
+	}
 
-        if (currentUser.getRole() != UserRole.PROVIDER) {
-            return "redirect:/auth/login";
-        }
+	/**
+	 * Shows provider page for authenticated provider user.
+	 *
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return provider page view name or redirect to login page
+	 */
+	@GetMapping("/provider")
+	public String showPage(HttpSession session, Model model) {
+		User currentUser = getAuthenticatedProvider(session);
 
-        return "provider";
-    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		Object clientInviteLink = session.getAttribute("clientInviteLink");
+		if (clientInviteLink != null) {
+			model.addAttribute("clientInviteLink", clientInviteLink);
+			session.removeAttribute("clientInviteLink");
+		}
+
+		model.addAttribute("clients", providerClientService.getClientsOfProvider(currentUser));
+		model.addAttribute("offerings", offeringService.getOfferingsOfProvider(currentUser));
+		model.addAttribute("providerName", currentUser.getUsername());
+
+		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(currentUser);
+
+		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+		model.addAttribute("planningTo", calendarForm.getPlanningTo());
+		model.addAttribute("calendarForm", calendarForm);
+
+		List<CalendarTerm> terms = providerCalendarService.generateCalendar(currentUser);
+		model.addAttribute("calendarTerms", terms);
+
+		return "provider";
+	}
+
+	/**
+	 * Saves provider calendar availability settings.
+	 *
+	 * @param form provider calendar form
+	 * @param session current HTTP session
+	 * @return redirect to provider calendar section or login page
+	 */
+	@PostMapping("/provider/calendar")
+	public String saveCalendar(@ModelAttribute ProviderCalendarForm form,
+			HttpSession session,
+			Model model) {
+
+		User currentUser = getAuthenticatedProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			providerCalendarService.saveCalendar(currentUser, form);
+
+			return "redirect:/provider?section=calendar";
+
+		} catch (CalendarValidationException exception) {
+
+			ProviderCalendarForm savedForm = providerCalendarService.getLatestCalendarForm(currentUser);
+
+			model.addAttribute("clients", providerClientService.getClientsOfProvider(currentUser));
+			model.addAttribute("offerings", offeringService.getOfferingsOfProvider(currentUser));
+			model.addAttribute("providerName", currentUser.getUsername());
+
+			model.addAttribute("calendarForm", savedForm);
+			model.addAttribute("planningFrom", savedForm.getPlanningFrom());
+			model.addAttribute("planningTo", savedForm.getPlanningTo());
+			model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(currentUser));
+
+			model.addAttribute("calendarErrors", exception.getFieldErrors());
+
+			return "provider";
+		}
+	}
+
+	/**
+	 * Returns authenticated provider from current session.
+	 *
+	 * @param session current HTTP session
+	 * @return authenticated provider or null
+	 */
+	private User getAuthenticatedProvider(HttpSession session) {
+		Object sessionUser = session.getAttribute("currentUser");
+
+		if (!(sessionUser instanceof User currentUser)) {
+			return null;
+		}
+
+		if (currentUser.getRole() != UserRole.PROVIDER) {
+			return null;
+		}
+
+		return currentUser;
+	}
 }
 ===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
 package life.wellnara.model;
@@ -1249,6 +3624,123 @@ public enum UserRole {
     ADMIN,
     PROVIDER,
     CLIENT
+}
+===== ./src/main/java/life/wellnara/model/Offering.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+import java.math.BigDecimal;
+
+/**
+ * Offering created and owned by provider.
+ */
+@Entity
+@Table(name = "offerings")
+public class Offering {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false, length = 2000)
+    private String description;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal pricePerSession;
+
+    @Column(nullable = false)
+    private Integer durationMinutes;
+
+    @Column(nullable = false)
+    private boolean active;
+
+    /**
+     * Required by JPA.
+     */
+    protected Offering() {
+    }
+
+    /**
+     * Creates offering.
+     *
+     * @param provider provider owner
+     * @param name offering name
+     * @param description offering description
+     * @param pricePerSession price per session
+     * @param durationMinutes session duration in minutes
+     */
+    public Offering(User provider,
+                    String name,
+                    String description,
+                    BigDecimal pricePerSession,
+                    Integer durationMinutes) {
+        this.provider = provider;
+        this.name = name;
+        this.description = description;
+        this.pricePerSession = pricePerSession;
+        this.durationMinutes = durationMinutes;
+        this.active = true;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public BigDecimal getPricePerSession() {
+        return pricePerSession;
+    }
+
+    public void setPricePerSession(BigDecimal pricePerSession) {
+        this.pricePerSession = pricePerSession;
+    }
+
+    public Integer getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(Integer durationMinutes) {
+        this.durationMinutes = durationMinutes;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
 }
 ===== ./src/main/java/life/wellnara/model/User.java =====
 package life.wellnara.model;
@@ -1328,6 +3820,303 @@ public class User {
         this.role = role;
     }
 }
+===== ./src/main/java/life/wellnara/model/AvailabilityPeriod.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+/**
+ * Planning period for provider availability.
+ */
+@Entity
+@Table(name = "availability_periods")
+public class AvailabilityPeriod {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @Column(nullable = false)
+    private LocalDate dateFrom;
+
+    @Column(nullable = false)
+    private LocalDate dateTo;
+
+    @Column(nullable = false)
+    private String providerTimezone;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    protected AvailabilityPeriod() {
+    }
+
+    public AvailabilityPeriod(User provider, LocalDate dateFrom, LocalDate dateTo, String providerTimezone) {
+        this.provider = provider;
+        this.dateFrom = dateFrom;
+        this.dateTo = dateTo;
+        this.providerTimezone = providerTimezone;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+    
+    public User getProvider() {
+        return provider;
+    }
+
+    public LocalDate getDateFrom() {
+        return dateFrom;
+    }
+
+    public LocalDate getDateTo() {
+        return dateTo;
+    }
+
+    public String getProviderTimezone() {
+        return providerTimezone;
+    }
+}
+===== ./src/main/java/life/wellnara/model/ProviderClientLink.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+import java.time.LocalDateTime;
+
+/**
+ * Permanent link between provider and client.
+ */
+@Entity
+@Table(name = "provider_client_links")
+public class ProviderClientLink {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "client_id", nullable = false)
+    private User client;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime invitedAt;
+
+    /**
+     * Required by JPA.
+     */
+    protected ProviderClientLink() {
+    }
+
+    /**
+     * Creates provider-client link.
+     *
+     * @param provider provider user
+     * @param client client user
+     * @param invitedAt client invitation date
+     */
+    public ProviderClientLink(User provider, User client, LocalDateTime invitedAt) {
+        this.provider = provider;
+        this.client = client;
+        this.invitedAt = invitedAt;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public User getClient() {
+        return client;
+    }
+
+    public LocalDateTime getInvitedAt() {
+        return invitedAt;
+    }
+}
+===== ./src/main/java/life/wellnara/model/AvailabilityRule.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+/**
+ * Weekly availability rule inside provider planning period.
+ */
+@Entity
+@Table(name = "availability_rules")
+public class AvailabilityRule {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "availability_period_id", nullable = false)
+    private AvailabilityPeriod availabilityPeriod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AvailabilityDay dayOfWeek;
+
+    @Column(nullable = false)
+    private LocalTime startTime;
+
+    @Column(nullable = false)
+    private LocalTime endTime;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    protected AvailabilityRule() {
+    }
+
+    public AvailabilityRule(AvailabilityPeriod availabilityPeriod,
+                            AvailabilityDay dayOfWeek,
+                            LocalTime startTime,
+                            LocalTime endTime) {
+        this.availabilityPeriod = availabilityPeriod;
+        this.dayOfWeek = dayOfWeek;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    public AvailabilityDay getDayOfWeek() {
+        return dayOfWeek;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+}
+===== ./src/main/java/life/wellnara/model/ClientInvitation.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * Invitation for client registration from provider.
+ * Removed after successful registration.
+ */
+@Entity
+@Table(name = "client_invitations")
+public class ClientInvitation {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false, unique = true, updatable = false)
+    private String token;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime invitedAt;
+
+    /**
+     * Required by JPA.
+     */
+    protected ClientInvitation() {
+    }
+
+    /**
+     * Creates client invitation.
+     *
+     * @param provider provider who invites client
+     * @param email invited client email
+     */
+    public ClientInvitation(User provider, String email) {
+        this.provider = provider;
+        this.email = email;
+        this.token = UUID.randomUUID().toString();
+        this.invitedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public LocalDateTime getInvitedAt() {
+        return invitedAt;
+    }
+}
+===== ./src/main/java/life/wellnara/model/AvailabilityDay.java =====
+package life.wellnara.model;
+
+/**
+ * Weekday used in provider availability rules.
+ */
+public enum AvailabilityDay {
+    MONDAY,
+    TUESDAY,
+    WEDNESDAY,
+    THURSDAY,
+    FRIDAY
+}
 ===== ./src/main/java/life/wellnara/WellnaraApplication.java =====
 package life.wellnara;
 
@@ -1351,6 +4140,277 @@ public class WellnaraApplication {
 //http://localhost:8080/client/register?token=
 
 
+===== ./src/main/java/life/wellnara/service/ProviderCalendarService.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.dto.ProviderCalendarForm;
+import life.wellnara.exception.CalendarValidationException;
+import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.User;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Service for provider calendar availability management.
+ */
+@Service
+public class ProviderCalendarService {
+
+	private final AvailabilityPeriodRepository availabilityPeriodRepository;
+	private final AvailabilityRuleRepository availabilityRuleRepository;
+
+	/**
+	 * Creates provider calendar service.
+	 *
+	 * @param availabilityPeriodRepository repository for availability periods
+	 * @param availabilityRuleRepository repository for availability rules
+	 */
+	public ProviderCalendarService(AvailabilityPeriodRepository availabilityPeriodRepository,
+			AvailabilityRuleRepository availabilityRuleRepository) {
+		this.availabilityPeriodRepository = availabilityPeriodRepository;
+		this.availabilityRuleRepository = availabilityRuleRepository;
+	}
+
+	/**
+	 * Saves provider calendar availability from form input.
+	 *
+	 * @param provider provider who owns the calendar
+	 * @param form calendar form input
+	 */
+	@Transactional
+	public void saveCalendar(User provider, ProviderCalendarForm form) {
+		validateForm(form);
+
+		AvailabilityPeriod period = new AvailabilityPeriod(
+				provider,
+				form.getPlanningFrom(),
+				form.getPlanningTo(),
+				form.getProviderTimezone()
+				);
+
+		AvailabilityPeriod savedPeriod = availabilityPeriodRepository.save(period);
+
+		saveRuleIfComplete(savedPeriod, AvailabilityDay.MONDAY, form.getMondayStart(), form.getMondayEnd());
+		saveRuleIfComplete(savedPeriod, AvailabilityDay.TUESDAY, form.getTuesdayStart(), form.getTuesdayEnd());
+		saveRuleIfComplete(savedPeriod, AvailabilityDay.WEDNESDAY, form.getWednesdayStart(), form.getWednesdayEnd());
+		saveRuleIfComplete(savedPeriod, AvailabilityDay.THURSDAY, form.getThursdayStart(), form.getThursdayEnd());
+		saveRuleIfComplete(savedPeriod, AvailabilityDay.FRIDAY, form.getFridayStart(), form.getFridayEnd());
+	}
+
+	/**
+	 * Validates basic calendar form consistency.
+	 *
+	 * @param form calendar form input
+	 */
+	private void validateForm(ProviderCalendarForm form) {
+		Map<String, String> errors = new HashMap<>();
+
+		if (form.getPlanningFrom() == null) {
+			errors.put("planningFrom", "Start date is required");
+		}
+
+		if (form.getPlanningTo() == null) {
+			errors.put("planningTo", "End date is required");
+		}
+
+		if (form.getPlanningFrom() != null
+				&& form.getPlanningTo() != null
+				&& form.getPlanningTo().isBefore(form.getPlanningFrom())) {
+			errors.put("planningTo", "End date must not be before start date");
+		}
+
+		if (form.getProviderTimezone() == null || form.getProviderTimezone().isBlank()) {
+			errors.put("providerTimezone", "Timezone is required");
+		}
+
+		validateTimeRange(errors, "tuesday", form.getTuesdayStart(), form.getTuesdayEnd(), "Tuesday");
+		validateTimeRange(errors, "monday", form.getMondayStart(), form.getMondayEnd(), "Monday");
+		validateTimeRange(errors, "wednesday", form.getWednesdayStart(), form.getWednesdayEnd(), "Wednesday");
+		validateTimeRange(errors, "thursday", form.getThursdayStart(), form.getThursdayEnd(), "Thursday");
+		validateTimeRange(errors, "friday", form.getFridayStart(), form.getFridayEnd(), "Friday");
+
+		if (!errors.isEmpty()) {
+			throw new CalendarValidationException(errors);
+		}
+	}
+	/**
+	 * Validates one weekday time range.
+	 *
+	 * @param start start time
+	 * @param end end time
+	 * @param dayLabel day label for error message
+	 */
+	private void validateTimeRange(Map<String, String> errors,
+			String fieldPrefix,
+			LocalTime start,
+			LocalTime end,
+			String dayLabel) {
+		if (start == null && end == null) {
+			return;
+		}
+
+		if (isEmptyDay(start, end)) {
+			return;
+		}
+
+		if (start == null || end == null) {
+			errors.put(fieldPrefix, dayLabel + " must have both start and end time");
+			return;
+		}
+
+		if (!end.isAfter(start)) {
+			errors.put(fieldPrefix, dayLabel + " end time must be after start time");
+		}
+	}    
+	/**
+	 * Checks whether weekday input should be treated as empty.
+	 *
+	 * @param start start time
+	 * @param end end time
+	 * @return true if both values represent empty availability
+	 */
+	private boolean isEmptyDay(LocalTime start, LocalTime end) {
+	    return LocalTime.MIDNIGHT.equals(start) && LocalTime.MIDNIGHT.equals(end);
+	}
+	
+	/**
+	 * Saves availability rule only when both start and end time are present.
+	 *
+	 * @param period availability period
+	 * @param day day of week
+	 * @param start start time
+	 * @param end end time
+	 */
+	private void saveRuleIfComplete(AvailabilityPeriod period,
+			AvailabilityDay day,
+			LocalTime start,
+			LocalTime end) {
+		if (isEmptyDay(start, end)) {
+			return;
+		}
+
+		if (start == null || end == null) {
+			return;
+		}
+
+		availabilityRuleRepository.save(new AvailabilityRule(period, day, start, end));
+	}
+
+	/**
+	 * Returns latest saved provider calendar as form object.
+	 *
+	 * @param provider provider who owns the calendar
+	 * @return calendar form filled from latest saved availability period
+	 */
+	@Transactional(readOnly = true)
+	public ProviderCalendarForm getLatestCalendarForm(User provider) {
+		Optional<AvailabilityPeriod> periodOptional =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+
+		if (periodOptional.isEmpty()) {
+			return new ProviderCalendarForm();
+		}
+
+		AvailabilityPeriod period = periodOptional.get();
+
+		ProviderCalendarForm form = new ProviderCalendarForm();
+		form.setPlanningFrom(period.getDateFrom());
+		form.setPlanningTo(period.getDateTo());
+		form.setProviderTimezone(period.getProviderTimezone());
+
+		availabilityRuleRepository.findAllByAvailabilityPeriod(period)
+		.forEach(rule -> applyRuleToForm(form, rule));
+
+		return form;
+	}
+
+	/**
+	 * Applies saved availability rule to calendar form.
+	 *
+	 * @param form calendar form
+	 * @param rule saved availability rule
+	 */
+	private void applyRuleToForm(ProviderCalendarForm form, AvailabilityRule rule) {
+		if (rule.getDayOfWeek() == AvailabilityDay.MONDAY) {
+			form.setMondayStart(rule.getStartTime());
+			form.setMondayEnd(rule.getEndTime());
+		}
+
+		if (rule.getDayOfWeek() == AvailabilityDay.TUESDAY) {
+			form.setTuesdayStart(rule.getStartTime());
+			form.setTuesdayEnd(rule.getEndTime());
+		}
+
+		if (rule.getDayOfWeek() == AvailabilityDay.WEDNESDAY) {
+			form.setWednesdayStart(rule.getStartTime());
+			form.setWednesdayEnd(rule.getEndTime());
+		}
+
+		if (rule.getDayOfWeek() == AvailabilityDay.THURSDAY) {
+			form.setThursdayStart(rule.getStartTime());
+			form.setThursdayEnd(rule.getEndTime());
+		}
+
+		if (rule.getDayOfWeek() == AvailabilityDay.FRIDAY) {
+			form.setFridayStart(rule.getStartTime());
+			form.setFridayEnd(rule.getEndTime());
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public List<CalendarTerm> generateCalendar(User provider) {
+
+		Optional<AvailabilityPeriod> periodOpt =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+
+		if (periodOpt.isEmpty()) {
+			return List.of();
+		}
+
+		AvailabilityPeriod period = periodOpt.get();
+
+		List<AvailabilityRule> rules =
+				availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+
+		List<CalendarTerm> result = new ArrayList<>();
+
+		LocalDate current = period.getDateFrom();
+
+		while (!current.isAfter(period.getDateTo())) {
+
+			for (AvailabilityRule rule : rules) {
+				if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
+					result.add(new CalendarTerm(
+							current,
+							rule.getStartTime(),
+							rule.getEndTime()
+							));
+				}
+			}
+
+			current = current.plusDays(1);
+		}
+
+		result.sort(Comparator.comparing(CalendarTerm::getDate)
+				.thenComparing(CalendarTerm::getStartTime));
+
+		return result;
+	}
+}
 ===== ./src/main/java/life/wellnara/service/ProviderInvitationService.java =====
 package life.wellnara.service;
 
@@ -1449,6 +4509,7 @@ package life.wellnara.service;
 
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -1462,14 +4523,18 @@ import java.util.List;
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final ProviderClientLinkRepository providerClientLinkRepository;
 
     /**
      * Creates admin user service.
      *
      * @param userRepository repository for user operations
+     * @param providerClientLinkRepository repository for provider-client links
      */
-    public AdminUserService(UserRepository userRepository) {
+    public AdminUserService(UserRepository userRepository,
+                            ProviderClientLinkRepository providerClientLinkRepository) {
         this.userRepository = userRepository;
+        this.providerClientLinkRepository = providerClientLinkRepository;
     }
 
     /**
@@ -1492,6 +4557,7 @@ public class AdminUserService {
         User user = userRepository.findByIdAndRoleNot(userId, UserRole.ADMIN)
                 .orElseThrow(() -> new IllegalArgumentException("User not found or cannot be deleted"));
 
+        providerClientLinkRepository.deleteAllByClient(user);
         userRepository.delete(user);
     }
 }
@@ -1531,5 +4597,430 @@ public class AuthService {
     public Optional<User> authenticate(String username, String password) {
         return userRepository.findByUsername(username)
                 .filter(user -> user.getPassword().equals(password));
+    }
+}
+===== ./src/main/java/life/wellnara/service/ClientOfferingService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * Service for client access to provider offerings.
+ */
+@Service
+public class ClientOfferingService {
+
+    private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final OfferingRepository offeringRepository;
+
+    /**
+     * Creates client offering service.
+     *
+     * @param providerClientLinkRepository repository for provider-client links
+     * @param offeringRepository repository for offerings
+     */
+    public ClientOfferingService(ProviderClientLinkRepository providerClientLinkRepository,
+                                 OfferingRepository offeringRepository) {
+        this.providerClientLinkRepository = providerClientLinkRepository;
+        this.offeringRepository = offeringRepository;
+    }
+
+    /**
+     * Returns active offerings of provider linked to current client.
+     *
+     * @param client client user
+     * @return list of active offerings of client's provider
+     */
+    @Transactional(readOnly = true)
+    public List<Offering> getOfferingsOfClientProvider(User client) {
+        validateClient(client);
+
+        ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+
+        return offeringRepository.findAllByProviderAndActiveTrue(providerClientLink.getProvider());
+    }
+
+    /**
+     * Validates client role.
+     *
+     * @param client client user
+     */
+    private void validateClient(User client) {
+        if (client.getRole() != UserRole.CLIENT) {
+            throw new IllegalArgumentException("Only client can view provider offerings");
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/service/ProviderClientService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * Service for provider client operations.
+ */
+@Service
+public class ProviderClientService {
+
+    private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final UserRepository userRepository;
+
+    /**
+     * Creates provider client service.
+     *
+     * @param providerClientLinkRepository repository for provider-client links
+     * @param userRepository repository for users
+     */
+    public ProviderClientService(ProviderClientLinkRepository providerClientLinkRepository,
+                                 UserRepository userRepository) {
+        this.providerClientLinkRepository = providerClientLinkRepository;
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * Returns all clients of provider.
+     *
+     * @param provider provider user
+     * @return list of provider-client links
+     */
+    @Transactional(readOnly = true)
+    public List<ProviderClientLink> getClientsOfProvider(User provider) {
+        validateProvider(provider);
+        return providerClientLinkRepository.findAllByProvider(provider);
+    }
+
+    /**
+     * Deletes client belonging to provider.
+     *
+     * @param provider provider user
+     * @param clientId client identifier
+     */
+    @Transactional
+    public void deleteClient(User provider, Long clientId) {
+        validateProvider(provider);
+
+        Optional<ProviderClientLink> linkOpt =
+                providerClientLinkRepository.findByProviderAndClientId(provider, clientId);
+
+        if (linkOpt.isEmpty()) {
+            return; // чужой клиент или не существует — просто игнорируем
+        }
+
+        ProviderClientLink link = linkOpt.get();
+
+        providerClientLinkRepository.delete(link);
+        userRepository.delete(link.getClient());
+    }
+
+    /**
+     * Validates provider role.
+     *
+     * @param provider provider user
+     */
+    private void validateProvider(User provider) {
+        if (provider.getRole() != UserRole.PROVIDER) {
+            throw new IllegalArgumentException("Only provider can manage clients");
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/service/OfferingService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.OfferingRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+/**
+ * Service for offering management.
+ */
+@Service
+public class OfferingService {
+
+    private final OfferingRepository offeringRepository;
+
+    /**
+     * Creates offering service.
+     *
+     * @param offeringRepository repository for offerings
+     */
+    public OfferingService(OfferingRepository offeringRepository) {
+        this.offeringRepository = offeringRepository;
+    }
+
+    /**
+     * Creates offering for provider.
+     *
+     * @param provider provider owner
+     * @param name offering name
+     * @param description offering description
+     * @param pricePerSession price per session
+     * @param durationMinutes session duration in minutes
+     */
+    @Transactional
+    public void createOffering(User provider,
+                               String name,
+                               String description,
+                               BigDecimal pricePerSession,
+                               Integer durationMinutes) {
+        validateProvider(provider);
+
+        Offering offering = new Offering(
+                provider,
+                name,
+                description,
+                pricePerSession,
+                durationMinutes
+        );
+
+        offeringRepository.save(offering);
+    }
+
+    /**
+     * Returns all offerings of provider.
+     *
+     * @param provider provider owner
+     * @return list of offerings
+     */
+    @Transactional(readOnly = true)
+    public List<Offering> getOfferingsOfProvider(User provider) {
+        validateProvider(provider);
+        return offeringRepository.findAllByProvider(provider);
+    }
+
+    /**
+     * Returns offering owned by provider.
+     *
+     * @param provider provider owner
+     * @param offeringId offering identifier
+     * @return offering owned by provider
+     */
+    @Transactional(readOnly = true)
+    public Offering getOfferingOfProvider(User provider, Long offeringId) {
+        validateProvider(provider);
+        return getOwnedOffering(provider, offeringId);
+    }
+
+    /**
+     * Updates offering owned by provider.
+     *
+     * @param provider provider owner
+     * @param offeringId offering identifier
+     * @param name offering name
+     * @param description offering description
+     * @param pricePerSession price per session
+     * @param durationMinutes session duration in minutes
+     */
+    @Transactional
+    public void updateOffering(User provider,
+                               Long offeringId,
+                               String name,
+                               String description,
+                               BigDecimal pricePerSession,
+                               Integer durationMinutes) {
+        validateProvider(provider);
+
+        Offering offering = getOwnedOffering(provider, offeringId);
+        offering.setName(name);
+        offering.setDescription(description);
+        offering.setPricePerSession(pricePerSession);
+        offering.setDurationMinutes(durationMinutes);
+    }
+
+    /**
+     * Returns offering owned by provider.
+     *
+     * @param provider provider owner
+     * @param offeringId offering identifier
+     * @return offering
+     */
+    private Offering getOwnedOffering(User provider, Long offeringId) {
+        return offeringRepository.findByProviderAndId(provider, offeringId)
+                .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
+    }
+
+    /**
+     * Validates provider role.
+     *
+     * @param provider provider user
+     */
+    private void validateProvider(User provider) {
+        if (provider.getRole() != UserRole.PROVIDER) {
+            throw new IllegalArgumentException("Only provider can manage offerings");
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/service/ClientInvitationService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.ClientInvitation;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.ClientInvitationRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Service for client invitation and registration flow.
+ */
+@Service
+public class ClientInvitationService {
+
+    private final ClientInvitationRepository clientInvitationRepository;
+    private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final UserRepository userRepository;
+
+    /**
+     * Creates client invitation service.
+     *
+     * @param clientInvitationRepository repository for client invitations
+     * @param providerClientLinkRepository repository for provider-client links
+     * @param userRepository repository for users
+     */
+    public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
+                                   ProviderClientLinkRepository providerClientLinkRepository,
+                                   UserRepository userRepository) {
+        this.clientInvitationRepository = clientInvitationRepository;
+        this.providerClientLinkRepository = providerClientLinkRepository;
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * Creates client invitation for given provider and email.
+     *
+     * @param provider inviting provider
+     * @param email invited client email
+     * @return generated invitation token
+     */
+    @Transactional
+    public String invite(User provider, String email) {
+        validateProvider(provider);
+        validateEmail(email);
+
+        ClientInvitation invitation = new ClientInvitation(provider, email);
+        clientInvitationRepository.save(invitation);
+
+        return invitation.getToken();
+    }
+
+    /**
+     * Returns invited client email by invitation token.
+     *
+     * @param token invitation token
+     * @return email from invitation
+     */
+    @Transactional(readOnly = true)
+    public String getEmailByToken(String token) {
+        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        return invitation.getEmail();
+    }
+
+    /**
+     * Registers client by invitation token.
+     *
+     * @param token invitation token
+     * @param name client username
+     * @param password client password
+     * @return created client user
+     */
+    @Transactional
+    public User register(String token, String name, String password) {
+        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        User client = new User();
+        client.setEmail(invitation.getEmail());
+        client.setUsername(name);
+        client.setPassword(password);
+        client.setRole(UserRole.CLIENT);
+
+        User savedClient = userRepository.save(client);
+
+        ProviderClientLink providerClientLink = new ProviderClientLink(
+                invitation.getProvider(),
+                savedClient,
+                invitation.getInvitedAt()
+        );
+        providerClientLinkRepository.save(providerClientLink);
+
+        clientInvitationRepository.delete(invitation);
+
+        return savedClient;
+    }
+
+    /**
+     * Validates inviting user role.
+     *
+     * @param provider inviting user
+     */
+    private void validateProvider(User provider) {
+        if (provider.getRole() != UserRole.PROVIDER) {
+            throw new IllegalArgumentException("Only provider can invite client");
+        }
+    }
+
+    /**
+     * Validates invited client email.
+     *
+     * @param email invited email
+     */
+    private void validateEmail(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already used");
+        }
+
+        if (clientInvitationRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Invitation already exists");
+        }
+    }
+}
+===== ./src/main/java/life/wellnara/exception/CalendarValidationException.java =====
+package life.wellnara.exception;
+
+import java.util.Map;
+
+/**
+ * Exception for provider calendar validation errors.
+ */
+public class CalendarValidationException extends RuntimeException {
+
+    private final Map<String, String> fieldErrors;
+
+    public CalendarValidationException(Map<String, String> fieldErrors) {
+        super("Provider calendar form contains validation errors");
+        this.fieldErrors = fieldErrors;
+    }
+
+    public Map<String, String> getFieldErrors() {
+        return fieldErrors;
     }
 }
