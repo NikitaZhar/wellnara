@@ -78,3 +78,17 @@ th {
     color: white;
     border: none;
 }
+
+.offering-name-column {
+    width: 40ch;
+    max-width: 60ch;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.offering-description-column {
+    width: 60ch;
+    max-width: 100ch;
+    white-space: normal;
+    word-break: break-word;
+}

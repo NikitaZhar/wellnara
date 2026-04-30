@@ -139,7 +139,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 				.param("pricePerSession", "45.00")
 				.param("durationMinutes", "60"))
 		.andExpect(status().is3xxRedirection())
-		.andExpect(redirectedUrl("/provider"));
+		.andExpect(redirectedUrl("/provider?section=offerings"));
 
 		List<Offering> offerings = offeringRepository.findAllByProvider(provider);
 

@@ -13,7 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -267,4 +271,70 @@ public class ProviderCalendarService {
 
 		return result;
 	}
+	
+	/**
+	 * Checks whether requested appointment time is inside provider availability.
+	 *
+	 * @param provider provider who owns availability
+	 * @param startDateTimeUtc requested appointment start in UTC
+	 * @param durationMinutes appointment duration in minutes
+	 * @return true if appointment fits into provider availability
+	 */
+	@Transactional(readOnly = true)
+	public boolean isAvailable(User provider,
+	                           LocalDateTime startDateTimeUtc,
+	                           Integer durationMinutes) {
+	    if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
+	        return false;
+	    }
+
+	    Optional<AvailabilityPeriod> periodOptional =
+	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+
+	    if (periodOptional.isEmpty()) {
+	        return false;
+	    }
+
+	    AvailabilityPeriod period = periodOptional.get();
+	    ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
+
+	    ZonedDateTime startInProviderZone = startDateTimeUtc
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone);
+
+	    ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
+
+	    LocalDate appointmentDate = startInProviderZone.toLocalDate();
+
+	    if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
+	        return false;
+	    }
+
+	    if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
+	        return false;
+	    }
+
+	    List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+
+	    return rules.stream().anyMatch(rule ->
+	            rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
+	                    && !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
+	                    && !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
+	    );
+	}
+	
+	/**
+	 * Returns timezone from latest provider availability period.
+	 *
+	 * @param provider provider user
+	 * @return provider timezone
+	 */
+	@Transactional(readOnly = true)
+	public ZoneId getProviderTimezone(User provider) {
+	    AvailabilityPeriod period = availabilityPeriodRepository
+	            .findTopByProviderOrderByCreatedAtDesc(provider)
+	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
+
+	    return ZoneId.of(period.getProviderTimezone());
+	}	
 }

@@ -47,6 +47,22 @@ public class ClientOfferingService {
 
         return offeringRepository.findAllByProviderAndActiveTrue(providerClientLink.getProvider());
     }
+    
+    /**
+     * Returns provider linked to current client.
+     *
+     * @param client client user
+     * @return provider linked to client
+     */
+    @Transactional(readOnly = true)
+    public User getProviderOfClient(User client) {
+        validateClient(client);
+
+        ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+
+        return providerClientLink.getProvider();
+    }
 
     /**
      * Validates client role.
@@ -57,5 +73,16 @@ public class ClientOfferingService {
         if (client.getRole() != UserRole.CLIENT) {
             throw new IllegalArgumentException("Only client can view provider offerings");
         }
+    }
+    
+    @Transactional(readOnly = true)
+    public Offering getOfferingOfClientProvider(User client, Long offeringId) {
+        validateClient(client);
+
+        ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+
+        return offeringRepository.findByProviderAndId(providerClientLink.getProvider(), offeringId)
+                .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
     }
 }

@@ -55,7 +55,7 @@ public class ProviderRegistrationController {
      * @param confirmPassword repeated provider password
      * @param session current HTTP session
      * @param model MVC model
-     * @return provider page on success or registration page on validation error
+     * @return redirect to provider page on success or registration page on validation error
      */
     @PostMapping("/provider/register")
     public String register(@RequestParam String token,
@@ -83,11 +83,10 @@ public class ProviderRegistrationController {
         try {
             User registeredUser = service.register(token, name, password);
             session.setAttribute("currentUser", registeredUser);
-
-            model.addAttribute("successMessage", "Registration completed successfully");
-            model.addAttribute("providerEmail", registeredUser.getEmail());
-
-            return "provider";
+//            model.addAttribute("successMessage", "Registration completed successfully");
+//            model.addAttribute("providerEmail", registeredUser.getEmail());
+//            return "provider";
+            return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("token", token);
             model.addAttribute("email", email);

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Offering</title>
+
+    <link rel="stylesheet" th:href="@{/css/provider.css}">
+</head>
+
+<body>
+
+<div class="page-header">
+    <h1>
+        Wellnara: Client - <span th:text="${clientName}"></span>
+    </h1>
+
+    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+</div>
+
+<h2 th:text="${offering.name}"></h2>
+
+<p>
+    <strong>Description:</strong>
+    <span th:text="${offering.description}"></span>
+</p>
+
+<p>
+    <strong>Price:</strong>
+    <span th:text="${offering.pricePerSession}"></span>
+</p>
+
+<p>
+    <strong>Duration:</strong>
+    <span th:text="${offering.durationMinutes}"></span> minutes
+</p>
+
+<!-- ===== AVAILABLE SLOTS ===== -->
+
+<div style="margin-top: 30px;">
+    <h3>Available slots</h3>
+
+    <div th:if="${#lists.isEmpty(calendarTerms)}">
+        <p>No available slots</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(calendarTerms)}">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Start</th>
+            <th>End</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="term : ${calendarTerms}">
+            <td th:text="${term.date}"></td>
+            <td th:text="${term.startTime}"></td>
+            <td th:text="${term.endTime}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ===== BOOKING ===== -->
+
+<form th:action="@{/client/appointments}" method="post"
+      th:if="${not #lists.isEmpty(bookableDateOptions)}">
+
+    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
+    <input type="hidden" name="offeringId" th:value="${offering.id}">
+
+    <div style="margin-top: 30px;">
+        <h3>Select slot</h3>
+
+        <!-- DATE -->
+        <div>
+            <label for="selectedDate">Date:</label>
+            <select id="selectedDate" name="selectedDate" required>
+                <option th:each="option : ${bookableDateOptions}"
+                        th:value="${option.date}"
+                        th:text="${option.date}"
+                        th:data-times="${option.timesValue}">
+                </option>
+            </select>
+        </div>
+
+        <!-- TIME -->
+        <div style="margin-top: 10px;">
+            <label for="selectedTime">Time:</label>
+            <select id="selectedTime" name="selectedTime" required></select>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <a th:href="@{/client}">
+            <button type="button">Cancel</button>
+        </a>
+
+        <button type="submit" style="margin-left: 10px;">
+            Send Request
+        </button>
+    </div>
+
+</form>
+
+<div th:if="${#lists.isEmpty(bookableDateOptions)}"
+     style="margin-top: 30px;">
+    <p>No bookable times for this offering</p>
+</div>
+
+<!-- ===== SCRIPT ===== -->
+
+<script>
+    function generateTimeOptions() {
+        const dateSelect = document.getElementById('selectedDate');
+        const timeSelect = document.getElementById('selectedTime');
+
+        if (!dateSelect || !timeSelect || dateSelect.options.length === 0) {
+            return;
+        }
+
+        const selectedOption = dateSelect.options[dateSelect.selectedIndex];
+        const timesValue = selectedOption.dataset.times;
+
+        timeSelect.innerHTML = '';
+
+        if (!timesValue) {
+            return;
+        }
+
+        timesValue.split(',').forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.text = time;
+            timeSelect.appendChild(option);
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', generateTimeOptions);
+
+    document.getElementById('selectedDate')
+        ?.addEventListener('change', generateTimeOptions);
+</script>
+
+</body>
+</html>

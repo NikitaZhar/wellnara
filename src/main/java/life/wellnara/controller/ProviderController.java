@@ -5,6 +5,7 @@ import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
@@ -23,6 +24,7 @@ public class ProviderController {
 	private final ProviderClientService providerClientService;
 	private final OfferingService offeringService;
 	private final ProviderCalendarService providerCalendarService;
+	private final AppointmentService appointmentService;
 
 	/**
 	 * Creates provider controller.
@@ -33,10 +35,12 @@ public class ProviderController {
 	 */
 	public ProviderController(ProviderClientService providerClientService,
 			OfferingService offeringService,
-			ProviderCalendarService providerCalendarService) {
+			ProviderCalendarService providerCalendarService,
+			AppointmentService appointmentService) {
 		this.providerClientService = providerClientService;
 		this.offeringService = offeringService;
 		this.providerCalendarService = providerCalendarService;
+		this.appointmentService = appointmentService;
 	}
 
 	/**
@@ -48,23 +52,28 @@ public class ProviderController {
 	 */
 	@GetMapping("/provider")
 	public String showPage(HttpSession session, Model model) {
-		User currentUser = getAuthenticatedProvider(session);
+	    User currentUser = getAuthenticatedProvider(session);
 
-		if (currentUser == null) {
-			return "redirect:/auth/login";
-		}
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
 
-		Object clientInviteLink = session.getAttribute("clientInviteLink");
-		if (clientInviteLink != null) {
-			model.addAttribute("clientInviteLink", clientInviteLink);
-			session.removeAttribute("clientInviteLink");
-		}
+	    Object clientInviteLink = session.getAttribute("clientInviteLink");
+	    if (clientInviteLink != null) {
+	        model.addAttribute("clientInviteLink", clientInviteLink);
+	        session.removeAttribute("clientInviteLink");
+	    }
 
-		populateProviderPageModel(model, currentUser);
-		
-		return "provider";
+	    Object clientInviteError = session.getAttribute("clientInviteError");
+	    if (clientInviteError != null) {
+	        model.addAttribute("clientInviteError", clientInviteError);
+	        session.removeAttribute("clientInviteError");
+	    }
+
+	    populateProviderPageModel(model, currentUser);
+
+	    return "provider";
 	}
-
 	/**
 	 * Saves provider calendar availability settings.
 	 *
@@ -126,6 +135,7 @@ public class ProviderController {
 	    model.addAttribute("clients", providerClientService.getClientsOfProvider(provider));
 	    model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
 	    model.addAttribute("providerName", provider.getUsername());
+	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
 
 	    populateCalendarModel(model, provider);
 	}
@@ -142,6 +152,6 @@ public class ProviderController {
 	    model.addAttribute("calendarForm", calendarForm);
 	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
 	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
-	    model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(provider));
+	    model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
 	}
 }

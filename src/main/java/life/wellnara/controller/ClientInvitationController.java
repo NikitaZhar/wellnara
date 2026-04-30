@@ -36,29 +36,44 @@ public class ClientInvitationController {
      */
     @PostMapping("/provider/invite-client")
     public String inviteClient(@RequestParam String email,
-                               HttpSession session,
-                               Model model) {
-        Object sessionUser = session.getAttribute("currentUser");
+                               HttpSession session) {
+        User currentUser = getAuthenticatedProvider(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
-
-        if (currentUser.getRole() != UserRole.PROVIDER) {
+        if (currentUser == null) {
             return "redirect:/auth/login";
         }
 
         try {
             String token = clientInvitationService.invite(currentUser, email);
-            String registrationLink = "http://localhost:8080/client/register?token=" + token;
+            String link = "http://localhost:8080/client/register?token=" + token;
 
-            session.setAttribute("clientInviteLink", registrationLink);
+            session.setAttribute("clientInviteLink", link);
+            session.removeAttribute("clientInviteError");
 
-            return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
+            session.setAttribute("clientInviteError", exception.getMessage());
             session.removeAttribute("clientInviteLink");
-            model.addAttribute("clientInviteError", exception.getMessage());
-            return "provider";
         }
+
+        return "redirect:/provider";
+    }    
+    /**
+     * Returns authenticated provider from current session.
+     *
+     * @param session current HTTP session
+     * @return authenticated provider or null
+     */
+    private User getAuthenticatedProvider(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return null;
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return null;
+        }
+
+        return currentUser;
     }
 }

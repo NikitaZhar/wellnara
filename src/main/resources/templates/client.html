@@ -1,62 +1,83 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Client</title>
+<meta charset="UTF-8">
+<title>Wellnara Client</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 </head>
+
 <body>
 
-<h2>
-    Wellnara: Client -
-    <span th:text="${clientName}"></span>
-</h2>
+	<div class="page-header">
+		<h1>
+			Wellnara: Client - <span th:text="${clientName}"></span>
+		</h1>
 
-<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
+	<!-- Имя клиента -->
+	<div>
+		<strong th:text="${clientName}"></strong>
+	</div>
 
-<div th:if="${clientEmail}" style="margin-bottom: 20px;">
-    <p>
-        Your email:
-        <strong th:text="${clientEmail}"></strong>
-    </p>
-</div>
+	<!-- Услуги провайдера -->
+	<div style="margin-top: 30px;">
+		<h3>Offerings of my provider</h3>
 
-<div style="margin-top: 30px;">
-    <h3>Offerings of my provider</h3>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings available</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}"
+			class="client-offerings-table">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+				</tr>
+			</thead>
 
-    <table th:if="${not #lists.isEmpty(offerings)}"
-           border="1"
-           cellpadding="8"
-           cellspacing="0">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Offering Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.id}"></td>
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-<div style="margin-top: 30px;">
-    <a th:href="@{/auth/logout}">Logout</a>
-</div>
+	<div style="margin-top: 30px;">
+		<h3>My appointment requests</h3>
+
+		<div th:if="${#lists.isEmpty(appointments)}">
+			<p>No appointment requests</p>
+		</div>
+
+		<table th:if="${not #lists.isEmpty(appointments)}">
+			<thead>
+				<tr>
+					<th>Offering</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Status</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="appointment : ${appointments}">
+					<td th:text="${appointment.offeringName}"></td>
+					<td th:text="${appointment.localDate}"></td>
+					<td th:text="${appointment.localTime}"></td>
+					<td th:text="${appointment.status}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Logout -->
+	<div style="margin-top: 30px;">
+		<a href="/auth/logout">Logout</a>
+	</div>
 
 </body>
 </html>

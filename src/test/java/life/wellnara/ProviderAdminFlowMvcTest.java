@@ -195,9 +195,8 @@ class ProviderAdminFlowMvcTest {
                         .param("name", username)
                         .param("password", password)
                         .param("confirmPassword", password))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Registration completed successfully")))
-                .andExpect(content().string(containsString(email)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"))
                 .andReturn();
 
         HttpSession registrationSession = registrationResult.getRequest().getSession(false);
@@ -207,6 +206,11 @@ class ProviderAdminFlowMvcTest {
         assertThat(savedUser).isPresent();
         assertThat(savedUser.get().getEmail()).isEqualTo(email);
         assertThat(savedUser.get().getRole()).isEqualTo(UserRole.PROVIDER);
+
+        mockMvc.perform(get("/provider").session((MockHttpSession) registrationSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString(username)));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) registrationSession))
                 .andExpect(status().is3xxRedirection())
@@ -224,8 +228,8 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/provider").session((MockHttpSession) loginSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Registration completed successfully"))))
-                .andExpect(content().string(not(containsString(email))));
+                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString(username)));
     }
 
     /**

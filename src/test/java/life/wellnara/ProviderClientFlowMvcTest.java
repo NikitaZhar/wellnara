@@ -227,14 +227,23 @@ class ProviderClientFlowMvcTest {
         existingClient.setRole(UserRole.CLIENT);
         userRepository.save(existingClient);
 
-        mockMvc.perform(post("/provider/invite-client")
+        var result = mockMvc.perform(post("/provider/invite-client")
                         .session(providerSession)
                         .param("email", "existing-client@example.com"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"))
+                .andReturn();
+
+        MockHttpSession updatedSession =
+                (MockHttpSession) result.getRequest().getSession(false);
+
+        assertThat(updatedSession).isNotNull();
+
+        mockMvc.perform(get("/provider").session(updatedSession))
                 .andExpect(status().isOk())
-                .andExpect(model().attributeExists("clientInviteError"))
                 .andExpect(content().string(containsString("Email already used")));
     }
-
+    
     /**
      * Creates provider user for test scenario.
      *

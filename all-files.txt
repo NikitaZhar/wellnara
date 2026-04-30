@@ -5,6 +5,154 @@ SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
 WHERE NOT EXISTS (
     SELECT 1 FROM users WHERE username = 'admin'
 );
+===== ./target/classes/templates/client-offering.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Offering</title>
+
+    <link rel="stylesheet" th:href="@{/css/provider.css}">
+</head>
+
+<body>
+
+<div class="page-header">
+    <h1>
+        Wellnara: Client - <span th:text="${clientName}"></span>
+    </h1>
+
+    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+</div>
+
+<h2 th:text="${offering.name}"></h2>
+
+<p>
+    <strong>Description:</strong>
+    <span th:text="${offering.description}"></span>
+</p>
+
+<p>
+    <strong>Price:</strong>
+    <span th:text="${offering.pricePerSession}"></span>
+</p>
+
+<p>
+    <strong>Duration:</strong>
+    <span th:text="${offering.durationMinutes}"></span> minutes
+</p>
+
+<!-- ===== AVAILABLE SLOTS ===== -->
+
+<div style="margin-top: 30px;">
+    <h3>Available slots</h3>
+
+    <div th:if="${#lists.isEmpty(calendarTerms)}">
+        <p>No available slots</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(calendarTerms)}">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Start</th>
+            <th>End</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="term : ${calendarTerms}">
+            <td th:text="${term.date}"></td>
+            <td th:text="${term.startTime}"></td>
+            <td th:text="${term.endTime}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ===== BOOKING ===== -->
+
+<form th:action="@{/client/appointments}" method="post"
+      th:if="${not #lists.isEmpty(bookableDateOptions)}">
+
+    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
+    <input type="hidden" name="offeringId" th:value="${offering.id}">
+
+    <div style="margin-top: 30px;">
+        <h3>Select slot</h3>
+
+        <!-- DATE -->
+        <div>
+            <label for="selectedDate">Date:</label>
+            <select id="selectedDate" name="selectedDate" required>
+                <option th:each="option : ${bookableDateOptions}"
+                        th:value="${option.date}"
+                        th:text="${option.date}"
+                        th:data-times="${option.timesValue}">
+                </option>
+            </select>
+        </div>
+
+        <!-- TIME -->
+        <div style="margin-top: 10px;">
+            <label for="selectedTime">Time:</label>
+            <select id="selectedTime" name="selectedTime" required></select>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <a th:href="@{/client}">
+            <button type="button">Cancel</button>
+        </a>
+
+        <button type="submit" style="margin-left: 10px;">
+            Send Request
+        </button>
+    </div>
+
+</form>
+
+<div th:if="${#lists.isEmpty(bookableDateOptions)}"
+     style="margin-top: 30px;">
+    <p>No bookable times for this offering</p>
+</div>
+
+<!-- ===== SCRIPT ===== -->
+
+<script>
+    function generateTimeOptions() {
+        const dateSelect = document.getElementById('selectedDate');
+        const timeSelect = document.getElementById('selectedTime');
+
+        if (!dateSelect || !timeSelect || dateSelect.options.length === 0) {
+            return;
+        }
+
+        const selectedOption = dateSelect.options[dateSelect.selectedIndex];
+        const timesValue = selectedOption.dataset.times;
+
+        timeSelect.innerHTML = '';
+
+        if (!timesValue) {
+            return;
+        }
+
+        timesValue.split(',').forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.text = time;
+            timeSelect.appendChild(option);
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', generateTimeOptions);
+
+    document.getElementById('selectedDate')
+        ?.addEventListener('change', generateTimeOptions);
+</script>
+
+</body>
+</html>
 ===== ./target/classes/templates/offering-edit.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -68,62 +216,83 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Client</title>
+<meta charset="UTF-8">
+<title>Wellnara Client</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 </head>
+
 <body>
 
-<h2>
-    Wellnara: Client -
-    <span th:text="${clientName}"></span>
-</h2>
+	<div class="page-header">
+		<h1>
+			Wellnara: Client - <span th:text="${clientName}"></span>
+		</h1>
 
-<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
+	<!-- Имя клиента -->
+	<div>
+		<strong th:text="${clientName}"></strong>
+	</div>
 
-<div th:if="${clientEmail}" style="margin-bottom: 20px;">
-    <p>
-        Your email:
-        <strong th:text="${clientEmail}"></strong>
-    </p>
-</div>
+	<!-- Услуги провайдера -->
+	<div style="margin-top: 30px;">
+		<h3>Offerings of my provider</h3>
 
-<div style="margin-top: 30px;">
-    <h3>Offerings of my provider</h3>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings available</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}"
+			class="client-offerings-table">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+				</tr>
+			</thead>
 
-    <table th:if="${not #lists.isEmpty(offerings)}"
-           border="1"
-           cellpadding="8"
-           cellspacing="0">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Offering Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.id}"></td>
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-<div style="margin-top: 30px;">
-    <a th:href="@{/auth/logout}">Logout</a>
-</div>
+	<div style="margin-top: 30px;">
+		<h3>My appointment requests</h3>
+
+		<div th:if="${#lists.isEmpty(appointments)}">
+			<p>No appointment requests</p>
+		</div>
+
+		<table th:if="${not #lists.isEmpty(appointments)}">
+			<thead>
+				<tr>
+					<th>Offering</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Status</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="appointment : ${appointments}">
+					<td th:text="${appointment.offeringName}"></td>
+					<td th:text="${appointment.localDate}"></td>
+					<td th:text="${appointment.localTime}"></td>
+					<td th:text="${appointment.status}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Logout -->
+	<div style="margin-top: 30px;">
+		<a href="/auth/logout">Logout</a>
+	</div>
 
 </body>
 </html>
@@ -206,12 +375,12 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Provider</title>
+<meta charset="UTF-8">
+<title>Wellnara Provider</title>
 
-    <link rel="stylesheet" th:href="@{/css/provider.css}">
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 
-    <script>
+<script>
         function showSection(sectionId) {
             document.querySelectorAll('.provider-section')
                 .forEach(section => section.style.display = 'none');
@@ -252,335 +421,281 @@ WHERE NOT EXISTS (
 
 <body>
 
-<div class="page-header">
-    <h1>
-        Wellnara: Provider -
-        <span th:text="${providerName}"></span>
-    </h1>
+	<div class="page-header">
+		<h1>
+			Wellnara: Provider - <span th:text="${providerName}"></span>
+		</h1>
 
-    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
 
-<div th:if="${successMessage}" style="color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+	<div th:if="${successMessage}" style="color: green;">
+		<p th:text="${successMessage}"></p>
+	</div>
 
-<div th:if="${providerEmail}">
-    <p>
-        Your email:
-        <strong th:text="${providerEmail}"></strong>
-    </p>
-</div>
+	<div th:if="${providerEmail}">
+		<p>
+			Your email: <strong th:text="${providerEmail}"></strong>
+		</p>
+	</div>
 
-<div class="tabs">
-    <button id="tab-clients-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('clients-section')">
-        Clients
-    </button>
+	<div class="tabs">
+		<button id="tab-clients-section" class="tab-button" type="button"
+			onclick="showSection('clients-section')">Clients</button>
 
-    <button id="tab-offerings-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('offerings-section')">
-        Offerings
-    </button>
+		<button id="tab-offerings-section" class="tab-button" type="button"
+			onclick="showSection('offerings-section')">Offerings</button>
 
-    <button id="tab-calendar-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('calendar-section')">
-        Calendar
-    </button>
-</div>
+		<button id="tab-calendar-section" class="tab-button" type="button"
+			onclick="showSection('calendar-section')">Availability</button>
+	</div>
 
-<div id="clients-section" class="provider-section" style="display: none;">
+	<div id="clients-section" class="provider-section"
+		style="display: none;">
 
-    <h2>My clients</h2>
+		<h2>My clients</h2>
 
-    <form th:action="@{/provider/invite-client}" method="post">
-        <div class="form-row">
-            <input id="clientEmail"
-                   type="email"
-                   name="email"
-                   placeholder="Enter Client email"
-                   required>
+		<form th:action="@{/provider/invite-client}" method="post">
+			<div class="form-row">
+				<input id="clientEmail" type="email" name="email"
+					placeholder="Enter Client email" required>
 
-            <button type="submit">Invite</button>
-        </div>
-    </form>
+				<button type="submit">Invite</button>
+			</div>
+		</form>
 
-    <div th:if="${clientInviteError}" style="color: red;">
-        <p th:text="${clientInviteError}"></p>
-    </div>
+		<div th:if="${clientInviteError}" style="color: red;">
+			<p th:text="${clientInviteError}"></p>
+		</div>
 
-    <div th:if="${clientInviteLink}">
-        <p>Client registration link:</p>
-        <p>
-            <a th:href="${clientInviteLink}"
-               th:text="${clientInviteLink}"></a>
-        </p>
-    </div>
+		<div th:if="${clientInviteLink}">
+			<p>Client registration link:</p>
+			<p>
+				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
+			</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(clients)}">
-        <p>No clients found.</p>
-    </div>
+		<div th:if="${#lists.isEmpty(clients)}">
+			<p>No clients found.</p>
+		</div>
 
-    <table th:if="${not #lists.isEmpty(clients)}">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Invited at</th>
-            <th>Action</th>
-        </tr>
-        </thead>
+		<table th:if="${not #lists.isEmpty(clients)}">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Username</th>
+					<th>Email</th>
+					<th>Invited at</th>
+					<th>Action</th>
+				</tr>
+			</thead>
 
-        <tbody>
-        <tr th:each="clientLink : ${clients}">
-            <td th:text="${clientLink.client.id}"></td>
-            <td th:text="${clientLink.client.username}"></td>
-            <td th:text="${clientLink.client.email}"></td>
-            <td th:text="${clientLink.invitedAt}"></td>
-            <td>
-                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
-                      method="post"
-                      onsubmit="return confirm('Are you sure you want to delete this client?');">
-                    <button type="submit">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="clientLink : ${clients}">
+					<td th:text="${clientLink.client.id}"></td>
+					<td th:text="${clientLink.client.username}"></td>
+					<td th:text="${clientLink.client.email}"></td>
+					<td th:text="${clientLink.invitedAt}"></td>
+					<td>
+						<form
+							th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+							method="post"
+							onsubmit="return confirm('Are you sure you want to delete this client?');">
+							<button type="submit">Delete</button>
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 
-<div id="offerings-section" class="provider-section" style="display: none;">
+		<div style="margin-top: 30px;">
+			<h2>Appointment requests</h2>
 
-    <h2>My offerings</h2>
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
 
-    <form th:action="@{/provider/offerings}" method="post">
-        <div class="form-row">
-            <input id="offeringName"
-                   type="text"
-                   name="name"
-                   placeholder="Name"
-                   required>
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Client</th>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+					</tr>
+				</thead>
 
-            <textarea id="offeringDescription"
-                      name="description"
-                      placeholder="Description"
-                      required></textarea>
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.clientName}"></td>
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
-            <input id="pricePerSession"
-                   type="number"
-                   name="pricePerSession"
-                   step="0.01"
-                   min="0"
-                   placeholder="Price"
-                   required>
+	</div>
 
-            <input id="durationMinutes"
-                   type="number"
-                   name="durationMinutes"
-                   min="1"
-                   placeholder="Duration"
-                   required>
+	<div id="offerings-section" class="provider-section"
+		style="display: none;">
 
-            <button type="submit">Create</button>
-        </div>
-    </form>
+		<h2>My offerings</h2>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<form th:action="@{/provider/offerings}" method="post">
+			<div class="form-row">
+				<input id="offeringName" type="text" name="name" placeholder="Price"
+					required>
 
-    <table th:if="${not #lists.isEmpty(offerings)}">
-        <thead>
-        <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-            <th>Active</th>
-            <th>Edit</th>
-        </tr>
-        </thead>
+				<textarea id="offeringDescription" name="description"
+					placeholder="Description" required></textarea>
 
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-            <td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
-            <td>
-                <a th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}">
-                    Edit
-                </a>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+				<input id="pricePerSession" type="number" name="pricePerSession"
+					step="0.01" min="0" placeholder="Price" required> <input
+					id="durationMinutes" type="number" name="durationMinutes" min="1"
+					placeholder="Duration" required>
 
-<div id="calendar-section" class="provider-section" style="display: none;">
+				<button type="submit">Create</button>
+			</div>
+		</form>
 
-    <h2>Calendar</h2>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings found.</p>
+		</div>
 
-    <div id="calendar-errors"
-         th:if="${calendarErrors != null}"
-         style="color: #b00020; margin-bottom: 15px;">
-        <div th:each="err : ${calendarErrors.values()}">
-            ⚠ <span th:text="${err}"></span>
-        </div>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+					<th class="offering-description-column">Description</th>
+					<th>Price</th>
+					<th>Duration</th>
+					<th>Active</th>
+				</tr>
+			</thead>
 
-    <p>
-        Period:
-        <span th:if="${planningFrom != null and planningTo != null}"
-              th:text="${planningFrom} + ' - ' + ${planningTo}"></span>
-        <span th:if="${planningFrom == null or planningTo == null}">
-            not selected
-        </span>
-    </p>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
 
-    <div th:if="${#lists.isEmpty(calendarTerms)}">
-        <p>No slots</p>
-    </div>
+					<td class="offering-description-column"
+						th:text="${offering.description}"></td>
 
-    <table th:if="${not #lists.isEmpty(calendarTerms)}">
-        <thead>
-        <tr>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Status</th>
-        </tr>
-        </thead>
+					<td th:text="${offering.pricePerSession}"></td>
+					<td th:text="${offering.durationMinutes}"></td>
+					<td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-        <tbody>
-        <tr th:each="term : ${calendarTerms}">
-            <td th:text="${term.date}"></td>
-            <td th:text="${term.startTime}"></td>
-            <td th:text="${term.endTime}"></td>
-            <td>Free</td>
-        </tr>
-        </tbody>
-    </table>
+	<div id="calendar-section" class="provider-section"
+		style="display: none;">
 
-    <form th:action="@{/provider/calendar}" method="post">
+		<h2>My availability</h2>
 
-        <input id="providerTimezone"
-               type="hidden"
-               name="providerTimezone">
+		<div id="calendar-errors" th:if="${calendarErrors != null}"
+			style="color: #b00020; margin-bottom: 15px;">
+			<div th:each="err : ${calendarErrors.values()}">
+				⚠ <span th:text="${err}"></span>
+			</div>
+		</div>
 
-        <h3>Period</h3>
+		<p>
+			Period: <span th:if="${planningFrom != null and planningTo != null}"
+				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
+				th:if="${planningFrom == null or planningTo == null}"> not
+				selected </span>
+		</p>
 
-        <div class="form-row">
-            <input id="planningFrom"
-                   type="date"
-                   name="planningFrom"
-                   th:value="${planningFrom}"
-                   required>
+		<div th:if="${#lists.isEmpty(calendarTerms)}">
+			<p>No slots</p>
+		</div>
 
-            <input id="planningTo"
-                   type="date"
-                   name="planningTo"
-                   th:value="${planningTo}"
-                   required>
-        </div>
+		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Start</th>
+					<th>End</th>
+				</tr>
+			</thead>
 
-        <h3>Availability</h3>
+			<tbody>
+				<tr th:each="term : ${calendarTerms}">
+					<td th:text="${term.date}"></td>
+					<td th:text="${term.startTime}"></td>
+					<td th:text="${term.endTime}"></td>
+				</tr>
+			</tbody>
+		</table>
 
-        <table class="availability-table">
-            <tbody>
-            <tr>
-                <td>Monday</td>
-                <td>
-                    <input id="monday-start"
-                           name="mondayStart"
-                           type="time"
-                           th:value="${calendarForm.mondayStart}">
-                </td>
-                <td>
-                    <input id="monday-end"
-                           name="mondayEnd"
-                           type="time"
-                           th:value="${calendarForm.mondayEnd}">
-                </td>
-            </tr>
+		<form th:action="@{/provider/calendar}" method="post">
 
-            <tr>
-                <td>Tuesday</td>
-                <td>
-                    <input id="tuesday-start"
-                           name="tuesdayStart"
-                           type="time"
-                           th:value="${calendarForm.tuesdayStart}">
-                </td>
-                <td>
-                    <input id="tuesday-end"
-                           name="tuesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.tuesdayEnd}">
-                </td>
-            </tr>
+			<input id="providerTimezone" type="hidden" name="providerTimezone">
 
-            <tr>
-                <td>Wednesday</td>
-                <td>
-                    <input id="wednesday-start"
-                           name="wednesdayStart"
-                           type="time"
-                           th:value="${calendarForm.wednesdayStart}">
-                </td>
-                <td>
-                    <input id="wednesday-end"
-                           name="wednesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.wednesdayEnd}">
-                </td>
-            </tr>
+			<h3>Period</h3>
 
-            <tr>
-                <td>Thursday</td>
-                <td>
-                    <input id="thursday-start"
-                           name="thursdayStart"
-                           type="time"
-                           th:value="${calendarForm.thursdayStart}">
-                </td>
-                <td>
-                    <input id="thursday-end"
-                           name="thursdayEnd"
-                           type="time"
-                           th:value="${calendarForm.thursdayEnd}">
-                </td>
-            </tr>
+			<div class="form-row">
+				<input id="planningFrom" type="date" name="planningFrom"
+					th:value="${planningFrom}" required> <input id="planningTo"
+					type="date" name="planningTo" th:value="${planningTo}" required>
+			</div>
 
-            <tr>
-                <td>Friday</td>
-                <td>
-                    <input id="friday-start"
-                           name="fridayStart"
-                           type="time"
-                           th:value="${calendarForm.fridayStart}">
-                </td>
-                <td>
-                    <input id="friday-end"
-                           name="fridayEnd"
-                           type="time"
-                           th:value="${calendarForm.fridayEnd}">
-                </td>
-            </tr>
-            </tbody>
-        </table>
+			<h3>Availability</h3>
 
-        <button class="primary-button" type="submit">Save</button>
-    </form>
-</div>
+			<table class="availability-table">
+				<tbody>
+					<tr>
+						<td>Monday</td>
+						<td><input id="monday-start" name="mondayStart" type="time"
+							th:value="${calendarForm.mondayStart}"></td>
+						<td><input id="monday-end" name="mondayEnd" type="time"
+							th:value="${calendarForm.mondayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Tuesday</td>
+						<td><input id="tuesday-start" name="tuesdayStart" type="time"
+							th:value="${calendarForm.tuesdayStart}"></td>
+						<td><input id="tuesday-end" name="tuesdayEnd" type="time"
+							th:value="${calendarForm.tuesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Wednesday</td>
+						<td><input id="wednesday-start" name="wednesdayStart"
+							type="time" th:value="${calendarForm.wednesdayStart}"></td>
+						<td><input id="wednesday-end" name="wednesdayEnd" type="time"
+							th:value="${calendarForm.wednesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Thursday</td>
+						<td><input id="thursday-start" name="thursdayStart"
+							type="time" th:value="${calendarForm.thursdayStart}"></td>
+						<td><input id="thursday-end" name="thursdayEnd" type="time"
+							th:value="${calendarForm.thursdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Friday</td>
+						<td><input id="friday-start" name="fridayStart" type="time"
+							th:value="${calendarForm.fridayStart}"></td>
+						<td><input id="friday-end" name="fridayEnd" type="time"
+							th:value="${calendarForm.fridayEnd}"></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<button class="primary-button" type="submit">Save</button>
+		</form>
+	</div>
 
 </body>
 </html>
@@ -945,14 +1060,23 @@ class ProviderClientFlowMvcTest {
         existingClient.setRole(UserRole.CLIENT);
         userRepository.save(existingClient);
 
-        mockMvc.perform(post("/provider/invite-client")
+        var result = mockMvc.perform(post("/provider/invite-client")
                         .session(providerSession)
                         .param("email", "existing-client@example.com"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"))
+                .andReturn();
+
+        MockHttpSession updatedSession =
+                (MockHttpSession) result.getRequest().getSession(false);
+
+        assertThat(updatedSession).isNotNull();
+
+        mockMvc.perform(get("/provider").session(updatedSession))
                 .andExpect(status().isOk())
-                .andExpect(model().attributeExists("clientInviteError"))
                 .andExpect(content().string(containsString("Email already used")));
     }
-
+    
     /**
      * Creates provider user for test scenario.
      *
@@ -1008,6 +1132,172 @@ class ProviderClientFlowMvcTest {
                 .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
     }
 }
+===== ./src/test/java/life/wellnara/AppointmentRepositoryTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.*;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Repository tests for Appointment entity.
+ */
+@DataJpaTest
+class AppointmentRepositoryTest {
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    /**
+     * Verifies that appointment is created with REQUESTED status.
+     */
+    @Test
+    @DisplayName("Should create appointment with REQUESTED status")
+    void shouldCreateAppointmentWithRequestedStatus() {
+        User provider = createUser("provider", "p@test.com", UserRole.PROVIDER);
+        User client = createUser("client", "c@test.com", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider);
+
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.of(2026, 5, 1, 10, 0)
+        );
+
+        appointmentRepository.save(appointment);
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+    }
+
+    /**
+     * Verifies status transitions.
+     */
+    @Test
+    @DisplayName("Should change appointment status correctly")
+    void shouldChangeAppointmentStatusCorrectly() {
+        User provider = createUser("provider2", "p2@test.com", UserRole.PROVIDER);
+        User client = createUser("client2", "c2@test.com", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider);
+
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now()
+        );
+
+        appointment.confirm();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+
+        appointment.cancel();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+
+        appointment.complete();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+    }
+
+    /**
+     * Verifies repository query by provider.
+     */
+    @Test
+    @DisplayName("Should find appointments by provider")
+    void shouldFindAppointmentsByProvider() {
+        User provider = createUser("provider3", "p3@test.com", UserRole.PROVIDER);
+        User client = createUser("client3", "c3@test.com", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider);
+
+        Appointment a1 = new Appointment(provider, client, offering,
+                LocalDateTime.of(2026, 5, 1, 10, 0));
+        Appointment a2 = new Appointment(provider, client, offering,
+                LocalDateTime.of(2026, 5, 2, 10, 0));
+
+        appointmentRepository.save(a1);
+        appointmentRepository.save(a2);
+
+        List<Appointment> result =
+                appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider);
+
+        assertThat(result).hasSize(2);
+    }
+
+    /**
+     * Verifies filtering by status and time range.
+     */
+    @Test
+    @DisplayName("Should filter appointments by status and time range")
+    void shouldFilterAppointmentsByStatusAndTimeRange() {
+        User provider = createUser("provider4", "p4@test.com", UserRole.PROVIDER);
+        User client = createUser("client4", "c4@test.com", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider);
+
+        Appointment a1 = new Appointment(provider, client, offering,
+                LocalDateTime.of(2026, 5, 1, 10, 0));
+
+        Appointment a2 = new Appointment(provider, client, offering,
+                LocalDateTime.of(2026, 5, 10, 10, 0));
+
+        a2.confirm();
+
+        appointmentRepository.save(a1);
+        appointmentRepository.save(a2);
+
+        List<Appointment> result =
+                appointmentRepository.findAllByProviderAndStatusInAndStartDateTimeUtcBetween(
+                        provider,
+                        List.of(AppointmentStatus.CONFIRMED),
+                        LocalDateTime.of(2026, 5, 1, 0, 0),
+                        LocalDateTime.of(2026, 5, 31, 23, 59)
+                );
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    // ===== helpers =====
+
+    private User createUser(String username, String email, UserRole role) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPassword("123");
+        user.setRole(role);
+        return userRepository.save(user);
+    }
+
+    private Offering createOffering(User provider) {
+        Offering offering = new Offering(
+                provider,
+                "Test offering",
+                "desc",
+                BigDecimal.valueOf(100.0),
+                60
+        );
+
+        return offeringRepository.save(offering);
+    }
+}
 ===== ./src/test/java/life/wellnara/UserRepositoryTest.java =====
 package life.wellnara;
 
@@ -1047,6 +1337,318 @@ class UserRepositoryTest {
                 .get()
                 .extracting(User::getEmail)
                 .isEqualTo("test@example.com");
+    }
+}
+===== ./src/test/java/life/wellnara/ClientAppointmentMvcTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * MVC tests for client appointment request flow.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class ClientAppointmentMvcTest {
+
+    @Autowired
+    private org.springframework.test.web.servlet.MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    @Autowired
+    private AvailabilityPeriodRepository availabilityPeriodRepository;
+
+    @Autowired
+    private AvailabilityRuleRepository availabilityRuleRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    /**
+     * Verifies that client can create appointment request from selected date and time.
+     *
+     * @throws Exception if MVC request fails
+     */
+    @Test
+    @DisplayName("Should create appointment request from selected date and time")
+    void shouldCreateAppointmentRequestFromSelectedDateAndTime() throws Exception {
+        User provider = createProvider("provider-client-mvc");
+        User client = createClient("client-mvc");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider, 60);
+
+        createAvailability(provider);
+
+        MockHttpSession session = createSessionWithCurrentUser(client);
+
+        mockMvc.perform(post("/client/appointments")
+                        .session(session)
+                        .param("providerId", provider.getId().toString())
+                        .param("offeringId", offering.getId().toString())
+                        .param("selectedDate", "2026-05-04")
+                        .param("selectedTime", "10:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client"));
+
+        assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
+                .hasSize(1);
+
+        Appointment appointment = appointmentRepository
+                .findAllByProviderOrderByStartDateTimeUtcAsc(provider)
+                .get(0);
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+        assertThat(appointment.getProvider().getId()).isEqualTo(provider.getId());
+        assertThat(appointment.getClient().getId()).isEqualTo(client.getId());
+        assertThat(appointment.getOffering().getId()).isEqualTo(offering.getId());
+
+        /*
+         * Provider timezone is Europe/Bratislava.
+         * 2026-05-04 10:00 local time is 2026-05-04 08:00 UTC.
+         */
+        assertThat(appointment.getStartDateTimeUtc())
+                .isEqualTo(LocalDateTime.of(2026, 5, 4, 8, 0));
+    }
+
+    /**
+     * Verifies that client receives error when selected time is outside provider availability.
+     *
+     * @throws Exception if MVC request fails
+     */
+    @Test
+    @DisplayName("Should show appointment error when client requests unavailable time")
+    void shouldShowAppointmentErrorWhenClientRequestsUnavailableTime() throws Exception {
+        User provider = createProvider("provider-client-mvc-error");
+        User client = createClient("client-mvc-error");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider, 60);
+
+        createAvailability(provider);
+
+        MockHttpSession session = createSessionWithCurrentUser(client);
+
+        mockMvc.perform(post("/client/appointments")
+                        .session(session)
+                        .param("providerId", provider.getId().toString())
+                        .param("offeringId", offering.getId().toString())
+                        .param("selectedDate", "2026-05-04")
+                        .param("selectedTime", "15:00"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("appointmentError"))
+                .andExpect(model().attribute("appointmentError", "Requested time is not available"));
+
+        assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
+                .isEmpty();
+    }
+
+    /**
+     * Verifies that requested appointment blocks another overlapping client request.
+     *
+     * @throws Exception if MVC request fails
+     */
+    @Test
+    @DisplayName("Should show appointment error when selected time overlaps existing request")
+    void shouldShowAppointmentErrorWhenSelectedTimeOverlapsExistingRequest() throws Exception {
+        User provider = createProvider("provider-client-mvc-conflict");
+        User firstClient = createClient("client-mvc-conflict-one");
+        User secondClient = createClient("client-mvc-conflict-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider, 60);
+
+        createAvailability(provider);
+
+        appointmentRepository.save(new Appointment(
+                provider,
+                firstClient,
+                offering,
+                LocalDateTime.of(2026, 5, 4, 8, 0)
+        ));
+
+        MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
+
+        mockMvc.perform(post("/client/appointments")
+                        .session(secondClientSession)
+                        .param("providerId", provider.getId().toString())
+                        .param("offeringId", offering.getId().toString())
+                        .param("selectedDate", "2026-05-04")
+                        .param("selectedTime", "10:15"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("appointmentError"))
+                .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
+
+        assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
+                .hasSize(1);
+    }
+
+    /**
+     * Verifies that unauthenticated user is redirected to login page.
+     *
+     * @throws Exception if MVC request fails
+     */
+    @Test
+    @DisplayName("Should redirect unauthenticated user to login when requesting appointment")
+    void shouldRedirectUnauthenticatedUserToLoginWhenRequestingAppointment() throws Exception {
+        mockMvc.perform(post("/client/appointments")
+                        .param("providerId", "1")
+                        .param("offeringId", "1")
+                        .param("selectedDate", "2026-05-04")
+                        .param("selectedTime", "10:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/login"));
+    }
+
+    /**
+     * Creates provider user.
+     *
+     * @param usernamePrefix username prefix
+     * @return saved provider
+     */
+    private User createProvider(String usernamePrefix) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(UserRole.PROVIDER);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Creates client user.
+     *
+     * @param usernamePrefix username prefix
+     * @return saved client
+     */
+    private User createClient(String usernamePrefix) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(UserRole.CLIENT);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Creates offering for provider.
+     *
+     * @param provider provider user
+     * @param durationMinutes offering duration
+     * @return saved offering
+     */
+    private Offering createOffering(User provider, int durationMinutes) {
+        Offering offering = new Offering(
+                provider,
+                "Consultation",
+                "Test consultation",
+                new BigDecimal("100.00"),
+                durationMinutes
+        );
+
+        return offeringRepository.save(offering);
+    }
+
+    /**
+     * Links client to provider.
+     *
+     * @param provider provider user
+     * @param client client user
+     */
+    private void linkClient(User provider, User client) {
+        providerClientLinkRepository.save(
+                new ProviderClientLink(provider, client, LocalDateTime.now())
+        );
+    }
+
+    /**
+     * Creates provider availability for Monday 09:00-13:00 Europe/Bratislava.
+     *
+     * @param provider provider user
+     */
+    private void createAvailability(User provider) {
+        AvailabilityPeriod period = availabilityPeriodRepository.save(
+                new AvailabilityPeriod(
+                        provider,
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        "Europe/Bratislava"
+                )
+        );
+
+        availabilityRuleRepository.save(
+                new AvailabilityRule(
+                        period,
+                        AvailabilityDay.MONDAY,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(13, 0)
+                )
+        );
+    }
+
+    /**
+     * Creates authenticated session for current user.
+     *
+     * @param user authenticated user
+     * @return mock HTTP session
+     */
+    private MockHttpSession createSessionWithCurrentUser(User user) {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("currentUser", user);
+        return session;
     }
 }
 ===== ./src/test/java/life/wellnara/ProviderAdminFlowMvcTest.java =====
@@ -1247,9 +1849,8 @@ class ProviderAdminFlowMvcTest {
                         .param("name", username)
                         .param("password", password)
                         .param("confirmPassword", password))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Registration completed successfully")))
-                .andExpect(content().string(containsString(email)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"))
                 .andReturn();
 
         HttpSession registrationSession = registrationResult.getRequest().getSession(false);
@@ -1259,6 +1860,11 @@ class ProviderAdminFlowMvcTest {
         assertThat(savedUser).isPresent();
         assertThat(savedUser.get().getEmail()).isEqualTo(email);
         assertThat(savedUser.get().getRole()).isEqualTo(UserRole.PROVIDER);
+
+        mockMvc.perform(get("/provider").session((MockHttpSession) registrationSession))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString(username)));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) registrationSession))
                 .andExpect(status().is3xxRedirection())
@@ -1276,8 +1882,8 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/provider").session((MockHttpSession) loginSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Registration completed successfully"))))
-                .andExpect(content().string(not(containsString(email))));
+                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString(username)));
     }
 
     /**
@@ -1288,6 +1894,405 @@ class ProviderAdminFlowMvcTest {
     private User getAdminUser() {
         return userRepository.findByUsername("admin")
                 .orElseThrow(() -> new IllegalStateException("Admin user not found in test database"));
+    }
+
+    /**
+     * Creates session containing authenticated current user.
+     *
+     * @param user authenticated user
+     * @return mock HTTP session with currentUser attribute
+     */
+    private MockHttpSession createSessionWithCurrentUser(User user) {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("currentUser", user);
+        return session;
+    }
+}
+===== ./src/test/java/life/wellnara/ProviderCalendarMvcTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Integration MVC tests for provider calendar management.
+ *
+ * <p>These tests verify calendar validation, database persistence,
+ * rollback-like behavior on invalid input and access protection.</p>
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class ProviderCalendarMvcTest {
+
+    @Autowired
+    private org.springframework.test.web.servlet.MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AvailabilityPeriodRepository availabilityPeriodRepository;
+
+    @Autowired
+    private AvailabilityRuleRepository availabilityRuleRepository;
+
+    /**
+     * Verifies that a valid calendar form creates one availability period
+     * and one rule for each filled weekday.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should save valid provider calendar into database")
+    void shouldSaveValidProviderCalendarIntoDatabase() throws Exception {
+        User provider = createProvider("calendar-provider-valid", "calendar-valid@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00")
+                        .param("wednesdayStart", "14:00")
+                        .param("wednesdayEnd", "18:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=calendar"));
+
+        List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+        assertThat(periods).hasSize(1);
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(periods.get(0).getProviderTimezone()).isEqualTo("Europe/Bratislava");
+
+        List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
+
+        assertThat(rules).hasSize(2);
+        assertThat(rules)
+                .extracting(AvailabilityRule::getStartTime)
+                .containsExactlyInAnyOrder(LocalTime.of(9, 0), LocalTime.of(14, 0));
+    }
+
+    /**
+     * Verifies that 00:00-00:00 is treated as empty day
+     * and does not create availability rule.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should treat midnight to midnight as empty weekday")
+    void shouldTreatMidnightToMidnightAsEmptyWeekday() throws Exception {
+        User provider = createProvider("calendar-provider-midnight", "calendar-midnight@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("tuesdayStart", "00:00")
+                        .param("tuesdayEnd", "00:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=calendar"));
+
+        List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+        assertThat(periods).hasSize(1);
+        assertThat(availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0))).isEmpty();
+    }
+
+    /**
+     * Verifies that equal non-midnight start and end time is rejected
+     * and no database records are created.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject equal non-midnight time range")
+    void shouldRejectEqualNonMidnightTimeRange() throws Exception {
+        User provider = createProvider("calendar-provider-equal", "calendar-equal@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "12:00")
+                        .param("mondayEnd", "12:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Monday end time must be after start time")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that end time before start time is rejected
+     * and no database records are created.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject end time before start time")
+    void shouldRejectEndTimeBeforeStartTime() throws Exception {
+        User provider = createProvider("calendar-provider-reversed", "calendar-reversed@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("tuesdayStart", "15:00")
+                        .param("tuesdayEnd", "11:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Tuesday end time must be after start time")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that start time without end time is rejected
+     * and no database records are created.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject weekday with start time only")
+    void shouldRejectWeekdayWithStartTimeOnly() throws Exception {
+        User provider = createProvider("calendar-provider-start-only", "calendar-start-only@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("wednesdayStart", "09:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Wednesday must have both start and end time")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that end time without start time is rejected
+     * and no database records are created.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject weekday with end time only")
+    void shouldRejectWeekdayWithEndTimeOnly() throws Exception {
+        User provider = createProvider("calendar-provider-end-only", "calendar-end-only@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("thursdayEnd", "13:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Thursday must have both start and end time")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that missing planning start date is rejected.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject calendar without start date")
+    void shouldRejectCalendarWithoutStartDate() throws Exception {
+        User provider = createProvider("calendar-provider-no-start", "calendar-no-start@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Start date is required")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that missing planning end date is rejected.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject calendar without end date")
+    void shouldRejectCalendarWithoutEndDate() throws Exception {
+        User provider = createProvider("calendar-provider-no-end", "calendar-no-end@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("End date is required")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that planning end date before start date is rejected.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject planning period when end date is before start date")
+    void shouldRejectPlanningPeriodWhenEndDateIsBeforeStartDate() throws Exception {
+        User provider = createProvider("calendar-provider-bad-period", "calendar-bad-period@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-31")
+                        .param("planningTo", "2026-05-01")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("End date must not be before start date")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that missing timezone is rejected.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should reject calendar without provider timezone")
+    void shouldRejectCalendarWithoutProviderTimezone() throws Exception {
+        User provider = createProvider("calendar-provider-no-timezone", "calendar-no-timezone@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Timezone is required")));
+
+        assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
+    }
+
+    /**
+     * Verifies that invalid calendar update does not overwrite previously saved valid calendar.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should keep previous valid calendar when new submission is invalid")
+    void shouldKeepPreviousValidCalendarWhenNewSubmissionIsInvalid() throws Exception {
+        User provider = createProvider("calendar-provider-keep-old", "calendar-keep-old@example.com");
+        MockHttpSession session = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(post("/provider/calendar")
+                        .session(session)
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("tuesdayStart", "15:00")
+                        .param("tuesdayEnd", "11:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Tuesday end time must be after start time")));
+
+        List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+        assertThat(periods).hasSize(1);
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+
+        List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
+
+        assertThat(rules).hasSize(1);
+        assertThat(rules.get(0).getStartTime()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(rules.get(0).getEndTime()).isEqualTo(LocalTime.of(13, 0));
+    }
+
+    /**
+     * Verifies that unauthenticated user cannot save calendar.
+     *
+     * @throws Exception if MockMvc request fails
+     */
+    @Test
+    @DisplayName("Should redirect unauthenticated user to login when saving calendar")
+    void shouldRedirectUnauthenticatedUserToLoginWhenSavingCalendar() throws Exception {
+        mockMvc.perform(post("/provider/calendar")
+                        .param("planningFrom", "2026-05-01")
+                        .param("planningTo", "2026-05-31")
+                        .param("providerTimezone", "Europe/Bratislava")
+                        .param("mondayStart", "09:00")
+                        .param("mondayEnd", "13:00"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/auth/login"));
+    }
+
+    /**
+     * Creates provider user for test scenario.
+     *
+     * @param username provider username
+     * @param email provider email
+     * @return saved provider user
+     */
+    private User createProvider(String username, String email) {
+        User provider = new User();
+        provider.setUsername(username);
+        provider.setEmail(email);
+        provider.setPassword("123");
+        provider.setRole(UserRole.PROVIDER);
+        return userRepository.save(provider);
     }
 
     /**
@@ -1444,7 +2449,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 				.param("pricePerSession", "45.00")
 				.param("durationMinutes", "60"))
 		.andExpect(status().is3xxRedirection())
-		.andExpect(redirectedUrl("/provider"));
+		.andExpect(redirectedUrl("/provider?section=offerings"));
 
 		List<Offering> offerings = offeringRepository.findAllByProvider(provider);
 
@@ -1563,12 +2568,1002 @@ class WellnaraApplicationTests {
 
 }
 
+===== ./src/test/java/life/wellnara/AppointmentServiceTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import life.wellnara.service.AppointmentService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Tests for appointment request business logic.
+ */
+@SpringBootTest
+@Transactional
+class AppointmentServiceTest {
+
+    private static final String PROVIDER_TIMEZONE = "Europe/Bratislava";
+
+    @Autowired
+    private AppointmentService appointmentService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    @Autowired
+    private AvailabilityPeriodRepository availabilityPeriodRepository;
+
+    @Autowired
+    private AvailabilityRuleRepository availabilityRuleRepository;
+
+    @Test
+    @DisplayName("Should create appointment when all conditions are valid")
+    void shouldCreateAppointmentWhenAllConditionsAreValid() {
+        User provider = createProvider("provider-valid");
+        User client = createClient("client-valid");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        Appointment appointment = appointmentService.requestAppointment(
+                client,
+                provider.getId(),
+                offering.getId(),
+                LocalDateTime.of(2026, 5, 4, 8, 0)
+        );
+
+        assertThat(appointment).isNotNull();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+        assertThat(appointment.getProvider().getId()).isEqualTo(provider.getId());
+        assertThat(appointment.getClient().getId()).isEqualTo(client.getId());
+        assertThat(appointment.getOffering().getId()).isEqualTo(offering.getId());
+    }
+
+    @Test
+    @DisplayName("Should reject client not linked to provider")
+    void shouldRejectClientNotLinkedToProvider() {
+        User provider = createProvider("provider-not-linked");
+        User client = createClient("client-not-linked");
+
+        Offering offering = createOffering(provider);
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        provider.getId(),
+                        offering.getId(),
+                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                )
+        ).hasMessageContaining("Client is not linked to provider");
+    }
+
+    @Test
+    @DisplayName("Should reject offering not belonging to provider")
+    void shouldRejectOfferingNotBelongingToProvider() {
+        User providerOne = createProvider("provider-one");
+        User providerTwo = createProvider("provider-two");
+        User client = createClient("client-foreign-offering");
+
+        linkClient(providerOne, client);
+
+        Offering foreignOffering = createOffering(providerTwo);
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        providerOne.getId(),
+                        foreignOffering.getId(),
+                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                )
+        ).hasMessageContaining("Offering not found for provider");
+    }
+
+    @Test
+    @DisplayName("Should reject non-client user")
+    void shouldRejectNonClientUser() {
+        User provider = createProvider("provider-as-client");
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        provider,
+                        provider.getId(),
+                        1L,
+                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                )
+        ).hasMessageContaining("Only client can request appointment");
+    }
+
+    @Test
+    @DisplayName("Should reject null start time")
+    void shouldRejectNullStartTime() {
+        User provider = createProvider("provider-null-start");
+        User client = createClient("client-null-start");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        provider.getId(),
+                        offering.getId(),
+                        null
+                )
+        ).hasMessageContaining("Appointment start time is required");
+    }
+
+    @Test
+    @DisplayName("Should reject appointment outside provider availability")
+    void shouldRejectAppointmentOutsideProviderAvailability() {
+        User provider = createProvider("provider-outside-availability");
+        User client = createClient("client-outside-availability");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        provider.getId(),
+                        offering.getId(),
+                        LocalDateTime.of(2026, 5, 4, 12, 30)
+                )
+        ).hasMessageContaining("Requested time is not available");
+    }
+
+    @Test
+    @DisplayName("Should reject appointment on day without availability")
+    void shouldRejectAppointmentOnDayWithoutAvailability() {
+        User provider = createProvider("provider-no-day");
+        User client = createClient("client-no-day");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        provider.getId(),
+                        offering.getId(),
+                        LocalDateTime.of(2026, 5, 5, 8, 0)
+                )
+        ).hasMessageContaining("Requested time is not available");
+    }
+
+    @Test
+    @DisplayName("Should reject appointment when provider has no availability")
+    void shouldRejectAppointmentWhenProviderHasNoAvailability() {
+        User provider = createProvider("provider-no-availability");
+        User client = createClient("client-no-availability");
+
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        client,
+                        provider.getId(),
+                        offering.getId(),
+                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                )
+        ).hasMessageContaining("Requested time is not available");
+    }
+    
+    @Test
+    @DisplayName("Should reject appointment when time conflicts with existing appointment")
+    void shouldRejectAppointmentWhenTimeConflictsWithExistingAppointment() {
+        User provider = createProvider("provider-conflict");
+        User firstClient = createClient("client-conflict-one");
+        User secondClient = createClient("client-conflict-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        appointmentService.requestAppointment(
+                firstClient,
+                provider.getId(),
+                offering.getId(),
+                LocalDateTime.of(2026, 5, 4, 8, 0)
+        );
+
+        assertThatThrownBy(() ->
+                appointmentService.requestAppointment(
+                        secondClient,
+                        provider.getId(),
+                        offering.getId(),
+                        LocalDateTime.of(2026, 5, 4, 8, 30)
+                )
+        ).hasMessageContaining("Time slot is already booked");
+    }
+    
+    @Test
+    @DisplayName("Should allow appointment starting when existing appointment ends")
+    void shouldAllowAppointmentStartingWhenExistingAppointmentEnds() {
+        User provider = createProvider("provider-no-conflict");
+        User firstClient = createClient("client-no-conflict-one");
+        User secondClient = createClient("client-no-conflict-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        appointmentService.requestAppointment(
+                firstClient,
+                provider.getId(),
+                offering.getId(),
+                LocalDateTime.of(2026, 5, 4, 8, 0)
+        );
+
+        Appointment secondAppointment = appointmentService.requestAppointment(
+                secondClient,
+                provider.getId(),
+                offering.getId(),
+                LocalDateTime.of(2026, 5, 4, 9, 0)
+        );
+
+        assertThat(secondAppointment).isNotNull();
+        assertThat(secondAppointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+    }
+
+    private User createProvider(String usernamePrefix) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(UserRole.PROVIDER);
+
+        return userRepository.save(user);
+    }
+
+    private User createClient(String usernamePrefix) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(UserRole.CLIENT);
+
+        return userRepository.save(user);
+    }
+
+    private void linkClient(User provider, User client) {
+        providerClientLinkRepository.save(
+                new ProviderClientLink(provider, client, LocalDateTime.now())
+        );
+    }
+
+    private Offering createOffering(User provider) {
+        Offering offering = new Offering(
+                provider,
+                "Test offering",
+                "desc",
+                new BigDecimal("100.00"),
+                60
+        );
+
+        return offeringRepository.save(offering);
+    }
+
+    private void createAvailability(User provider,
+                                    AvailabilityDay day,
+                                    LocalTime startTime,
+                                    LocalTime endTime) {
+        AvailabilityPeriod period = availabilityPeriodRepository.save(
+                new AvailabilityPeriod(
+                        provider,
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        PROVIDER_TIMEZONE
+                )
+        );
+
+        availabilityRuleRepository.save(
+                new AvailabilityRule(
+                        period,
+                        day,
+                        startTime,
+                        endTime
+                )
+        );
+    }
+    
+    @Test
+    @DisplayName("Should exclude requested appointment time from bookable times")
+    void shouldExcludeRequestedAppointmentTimeFromBookableTimes() {
+        User provider = createProvider("provider-bookable");
+        User firstClient = createClient("client-bookable-one");
+        User secondClient = createClient("client-bookable-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        appointmentService.requestAppointment(
+                firstClient,
+                provider.getId(),
+                offering.getId(),
+                LocalDateTime.of(2026, 5, 4, 8, 30)
+        );
+
+        List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
+                provider,
+                offering,
+                LocalDate.of(2026, 5, 4)
+        );
+
+        assertThat(bookableTimes)
+        .doesNotContain(LocalTime.of(10, 0))
+        .doesNotContain(LocalTime.of(10, 15))
+        .doesNotContain(LocalTime.of(10, 30))
+        .doesNotContain(LocalTime.of(10, 45))
+        .doesNotContain(LocalTime.of(11, 0))
+        .contains(LocalTime.of(9, 0))
+        .contains(LocalTime.of(9, 30))
+        .contains(LocalTime.of(11, 30))
+        .contains(LocalTime.of(12, 0));
+    }
+}
+===== ./src/test/java/life/wellnara/AppointmentSchedulingFlowTest.java =====
+package life.wellnara;
+
+import life.wellnara.dto.BookableDateOption;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import life.wellnara.service.AppointmentService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Integration tests for appointment scheduling, free interval calculation
+ * and bookable time generation.
+ */
+@SpringBootTest
+@Transactional
+class AppointmentSchedulingFlowTest {
+
+    private static final String PROVIDER_TIMEZONE = "Europe/Bratislava";
+
+    @Autowired
+    private AppointmentService appointmentService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Autowired
+    private AvailabilityPeriodRepository availabilityPeriodRepository;
+
+    @Autowired
+    private AvailabilityRuleRepository availabilityRuleRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    /**
+     * Verifies that an existing requested appointment splits provider availability
+     * into free parts and removes the occupied interval.
+     */
+    @Test
+    @DisplayName("Should split free calendar terms by existing requested appointment")
+    void shouldSplitFreeCalendarTermsByExistingRequestedAppointment() {
+        User provider = createUser("provider-split", UserRole.PROVIDER);
+        User client = createUser("client-split", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider, "Split test", 60);
+
+        createAvailability(
+                provider,
+                LocalDate.of(2026, 5, 1),
+                LocalDate.of(2026, 5, 31),
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(15, 0)
+        );
+
+        createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDate.of(2026, 5, 4),
+                LocalTime.of(10, 30)
+        );
+
+        List<CalendarTerm> terms = appointmentService.getFreeCalendarTerms(provider);
+
+        assertThat(terms)
+                .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
+                .containsExactly(
+                        "2026-05-04 09:00-10:30",
+                        "2026-05-04 11:30-15:00",
+                        "2026-05-11 09:00-15:00",
+                        "2026-05-18 09:00-15:00",
+                        "2026-05-25 09:00-15:00"
+                );
+    }
+
+    /**
+     * Verifies that occupied intervals on one date are excluded and the remaining
+     * bookable times are grouped under the same date.
+     */
+    @Test
+    @DisplayName("Should build bookable times for one date after excluding existing appointments")
+    void shouldBuildBookableTimesForOneDateAfterExcludingExistingAppointments() {
+        User provider = createUser("provider-bookable", UserRole.PROVIDER);
+        User clientOne = createUser("client-bookable-one", UserRole.CLIENT);
+        User clientTwo = createUser("client-bookable-two", UserRole.CLIENT);
+
+        Offering shortOffering = createOffering(provider, "Booked 30", 30);
+        Offering selectedOffering = createOffering(provider, "Selected 90", 90);
+
+        createAvailability(
+                provider,
+                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 4, 29),
+                AvailabilityDay.WEDNESDAY,
+                LocalTime.of(10, 0),
+                LocalTime.of(15, 0)
+        );
+
+        createAppointment(
+                provider,
+                clientOne,
+                shortOffering,
+                LocalDate.of(2026, 4, 29),
+                LocalTime.of(10, 30)
+        );
+
+        createAppointment(
+                provider,
+                clientTwo,
+                shortOffering,
+                LocalDate.of(2026, 4, 29),
+                LocalTime.of(11, 0)
+        );
+
+        List<CalendarTerm> freeTerms = appointmentService.getFreeCalendarTerms(provider);
+
+        assertThat(freeTerms)
+                .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
+                .containsExactly(
+                        "2026-04-29 10:00-10:30",
+                        "2026-04-29 11:30-15:00"
+                );
+
+        List<BookableDateOption> options =
+                appointmentService.getBookableDateOptions(provider, selectedOffering);
+
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+
+        assertThat(options.get(0).getTimes()).containsExactly(
+                LocalTime.of(11, 30),
+                LocalTime.of(11, 45),
+                LocalTime.of(12, 0),
+                LocalTime.of(12, 15),
+                LocalTime.of(12, 30),
+                LocalTime.of(12, 45),
+                LocalTime.of(13, 0),
+                LocalTime.of(13, 15),
+                LocalTime.of(13, 30)
+        );
+    }
+
+    /**
+     * Verifies that a short free interval remains visible as free calendar time,
+     * but does not become a bookable start time when the selected offering does not fit.
+     */
+    @Test
+    @DisplayName("Should not create bookable time when offering does not fit into short free interval")
+    void shouldNotCreateBookableTimeWhenOfferingDoesNotFitIntoShortFreeInterval() {
+        User provider = createUser("provider-short-term", UserRole.PROVIDER);
+        User client = createUser("client-short-term", UserRole.CLIENT);
+
+        Offering blockingOffering = createOffering(provider, "Blocking 30", 30);
+        Offering selectedOffering = createOffering(provider, "Selected 90", 90);
+
+        createAvailability(
+                provider,
+                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 4, 29),
+                AvailabilityDay.WEDNESDAY,
+                LocalTime.of(10, 0),
+                LocalTime.of(15, 0)
+        );
+
+        createAppointment(
+                provider,
+                client,
+                blockingOffering,
+                LocalDate.of(2026, 4, 29),
+                LocalTime.of(10, 30)
+        );
+
+        List<CalendarTerm> freeTerms = appointmentService.getFreeCalendarTerms(provider);
+
+        assertThat(freeTerms)
+                .extracting(term -> term.getStartTime() + "-" + term.getEndTime())
+                .containsExactly(
+                        "10:00-10:30",
+                        "11:00-15:00"
+                );
+
+        List<BookableDateOption> options =
+                appointmentService.getBookableDateOptions(provider, selectedOffering);
+
+        assertThat(options).hasSize(1);
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+
+        assertThat(options.get(0).getTimes())
+                .doesNotContain(LocalTime.of(10, 0))
+                .contains(LocalTime.of(11, 0), LocalTime.of(13, 30))
+                .doesNotContain(LocalTime.of(13, 45), LocalTime.of(14, 0));
+    }
+
+    /**
+     * Verifies that a requested appointment blocks the same interval for another client.
+     */
+    @Test
+    @DisplayName("Should reject appointment request when another client already requested overlapping time")
+    void shouldRejectAppointmentRequestWhenAnotherClientAlreadyRequestedOverlappingTime() {
+        User provider = createUser("provider-conflict", UserRole.PROVIDER);
+        User firstClient = createUser("client-conflict-one", UserRole.CLIENT);
+        User secondClient = createUser("client-conflict-two", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider, "Conflict offering", 60);
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        createAvailability(
+                provider,
+                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 5, 4),
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(15, 0)
+        );
+
+        createAppointment(
+                provider,
+                firstClient,
+                offering,
+                LocalDate.of(2026, 5, 4),
+                LocalTime.of(10, 0)
+        );
+
+        assertThatThrownBy(() -> appointmentService.requestAppointment(
+                secondClient,
+                provider.getId(),
+                offering.getId(),
+                toUtc(LocalDate.of(2026, 5, 4), LocalTime.of(10, 15))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Time slot is already booked");
+    }
+
+    /**
+     * Verifies that cancelled appointments do not block provider free time.
+     */
+    @Test
+    @DisplayName("Should ignore cancelled appointments when calculating free calendar terms")
+    void shouldIgnoreCancelledAppointmentsWhenCalculatingFreeCalendarTerms() {
+        User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+        User client = createUser("client-cancelled", UserRole.CLIENT);
+
+        Offering offering = createOffering(provider, "Cancelled offering", 60);
+
+        createAvailability(
+                provider,
+                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 5, 4),
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(15, 0)
+        );
+
+        Appointment appointment = createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDate.of(2026, 5, 4),
+                LocalTime.of(10, 0)
+        );
+
+        appointment.cancel();
+        appointmentRepository.save(appointment);
+
+        List<CalendarTerm> terms = appointmentService.getFreeCalendarTerms(provider);
+
+        assertThat(terms)
+                .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
+                .containsExactly("2026-05-04 09:00-15:00");
+    }
+
+    /**
+     * Creates and saves user.
+     *
+     * @param username username prefix
+     * @param role user role
+     * @return saved user
+     */
+    private User createUser(String username, UserRole role) {
+        User user = new User();
+        user.setUsername(username + "-" + System.nanoTime());
+        user.setEmail(user.getUsername() + "@test.com");
+        user.setPassword("123");
+        user.setRole(role);
+
+        return userRepository.save(user);
+    }
+
+    /**
+     * Creates and saves offering.
+     *
+     * @param provider provider user
+     * @param name offering name
+     * @param durationMinutes offering duration in minutes
+     * @return saved offering
+     */
+    private Offering createOffering(User provider, String name, int durationMinutes) {
+        Offering offering = new Offering(
+                provider,
+                name,
+                "Test description",
+                new BigDecimal("100.00"),
+                durationMinutes
+        );
+
+        return offeringRepository.save(offering);
+    }
+
+    /**
+     * Creates and saves provider availability.
+     *
+     * @param provider provider user
+     * @param from period start date
+     * @param to period end date
+     * @param day availability weekday
+     * @param start availability start time
+     * @param end availability end time
+     */
+    private void createAvailability(User provider,
+                                    LocalDate from,
+                                    LocalDate to,
+                                    AvailabilityDay day,
+                                    LocalTime start,
+                                    LocalTime end) {
+        AvailabilityPeriod period = availabilityPeriodRepository.save(
+                new AvailabilityPeriod(provider, from, to, PROVIDER_TIMEZONE)
+        );
+
+        availabilityRuleRepository.save(
+                new AvailabilityRule(period, day, start, end)
+        );
+    }
+
+    /**
+     * Creates and saves requested appointment at provider-local date and time.
+     *
+     * @param provider provider user
+     * @param client client user
+     * @param offering appointment offering
+     * @param date provider-local date
+     * @param time provider-local start time
+     * @return saved appointment
+     */
+    private Appointment createAppointment(User provider,
+                                          User client,
+                                          Offering offering,
+                                          LocalDate date,
+                                          LocalTime time) {
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                toUtc(date, time)
+        );
+
+        return appointmentRepository.save(appointment);
+    }
+
+    /**
+     * Links client to provider.
+     *
+     * @param provider provider user
+     * @param client client user
+     */
+    private void linkClient(User provider, User client) {
+        providerClientLinkRepository.save(
+                new ProviderClientLink(provider, client, LocalDateTime.now())
+        );
+    }
+
+    /**
+     * Converts provider-local date and time to UTC local date-time.
+     *
+     * @param date provider-local date
+     * @param time provider-local time
+     * @return UTC date-time without timezone
+     */
+    private LocalDateTime toUtc(LocalDate date, LocalTime time) {
+        return LocalDateTime.of(date, time)
+                .atZone(ZoneId.of(PROVIDER_TIMEZONE))
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+    }
+}
 ===== ./src/main/resources/data.sql =====
 INSERT INTO users (username, email, password, role)
 SELECT 'admin', 'adm@gmail.com', '123', 'ADMIN'
 WHERE NOT EXISTS (
     SELECT 1 FROM users WHERE username = 'admin'
 );
+===== ./src/main/resources/templates/client-offering.html =====
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara Offering</title>
+
+    <link rel="stylesheet" th:href="@{/css/provider.css}">
+</head>
+
+<body>
+
+<div class="page-header">
+    <h1>
+        Wellnara: Client - <span th:text="${clientName}"></span>
+    </h1>
+
+    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+</div>
+
+<h2 th:text="${offering.name}"></h2>
+
+<p>
+    <strong>Description:</strong>
+    <span th:text="${offering.description}"></span>
+</p>
+
+<p>
+    <strong>Price:</strong>
+    <span th:text="${offering.pricePerSession}"></span>
+</p>
+
+<p>
+    <strong>Duration:</strong>
+    <span th:text="${offering.durationMinutes}"></span> minutes
+</p>
+
+<!-- ===== AVAILABLE SLOTS ===== -->
+
+<div style="margin-top: 30px;">
+    <h3>Available slots</h3>
+
+    <div th:if="${#lists.isEmpty(calendarTerms)}">
+        <p>No available slots</p>
+    </div>
+
+    <table th:if="${not #lists.isEmpty(calendarTerms)}">
+        <thead>
+        <tr>
+            <th>Date</th>
+            <th>Start</th>
+            <th>End</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr th:each="term : ${calendarTerms}">
+            <td th:text="${term.date}"></td>
+            <td th:text="${term.startTime}"></td>
+            <td th:text="${term.endTime}"></td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ===== BOOKING ===== -->
+
+<form th:action="@{/client/appointments}" method="post"
+      th:if="${not #lists.isEmpty(bookableDateOptions)}">
+
+    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
+    <input type="hidden" name="offeringId" th:value="${offering.id}">
+
+    <div style="margin-top: 30px;">
+        <h3>Select slot</h3>
+
+        <!-- DATE -->
+        <div>
+            <label for="selectedDate">Date:</label>
+            <select id="selectedDate" name="selectedDate" required>
+                <option th:each="option : ${bookableDateOptions}"
+                        th:value="${option.date}"
+                        th:text="${option.date}"
+                        th:data-times="${option.timesValue}">
+                </option>
+            </select>
+        </div>
+
+        <!-- TIME -->
+        <div style="margin-top: 10px;">
+            <label for="selectedTime">Time:</label>
+            <select id="selectedTime" name="selectedTime" required></select>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <a th:href="@{/client}">
+            <button type="button">Cancel</button>
+        </a>
+
+        <button type="submit" style="margin-left: 10px;">
+            Send Request
+        </button>
+    </div>
+
+</form>
+
+<div th:if="${#lists.isEmpty(bookableDateOptions)}"
+     style="margin-top: 30px;">
+    <p>No bookable times for this offering</p>
+</div>
+
+<!-- ===== SCRIPT ===== -->
+
+<script>
+    function generateTimeOptions() {
+        const dateSelect = document.getElementById('selectedDate');
+        const timeSelect = document.getElementById('selectedTime');
+
+        if (!dateSelect || !timeSelect || dateSelect.options.length === 0) {
+            return;
+        }
+
+        const selectedOption = dateSelect.options[dateSelect.selectedIndex];
+        const timesValue = selectedOption.dataset.times;
+
+        timeSelect.innerHTML = '';
+
+        if (!timesValue) {
+            return;
+        }
+
+        timesValue.split(',').forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.text = time;
+            timeSelect.appendChild(option);
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', generateTimeOptions);
+
+    document.getElementById('selectedDate')
+        ?.addEventListener('change', generateTimeOptions);
+</script>
+
+</body>
+</html>
 ===== ./src/main/resources/templates/offering-edit.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -1632,62 +3627,83 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Client</title>
+<meta charset="UTF-8">
+<title>Wellnara Client</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 </head>
+
 <body>
 
-<h2>
-    Wellnara: Client -
-    <span th:text="${clientName}"></span>
-</h2>
+	<div class="page-header">
+		<h1>
+			Wellnara: Client - <span th:text="${clientName}"></span>
+		</h1>
 
-<div th:if="${successMessage}" style="margin-bottom: 20px; color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
+	<!-- Имя клиента -->
+	<div>
+		<strong th:text="${clientName}"></strong>
+	</div>
 
-<div th:if="${clientEmail}" style="margin-bottom: 20px;">
-    <p>
-        Your email:
-        <strong th:text="${clientEmail}"></strong>
-    </p>
-</div>
+	<!-- Услуги провайдера -->
+	<div style="margin-top: 30px;">
+		<h3>Offerings of my provider</h3>
 
-<div style="margin-top: 30px;">
-    <h3>Offerings of my provider</h3>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings available</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}"
+			class="client-offerings-table">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+				</tr>
+			</thead>
 
-    <table th:if="${not #lists.isEmpty(offerings)}"
-           border="1"
-           cellpadding="8"
-           cellspacing="0">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Offering Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.id}"></td>
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-<div style="margin-top: 30px;">
-    <a th:href="@{/auth/logout}">Logout</a>
-</div>
+	<div style="margin-top: 30px;">
+		<h3>My appointment requests</h3>
+
+		<div th:if="${#lists.isEmpty(appointments)}">
+			<p>No appointment requests</p>
+		</div>
+
+		<table th:if="${not #lists.isEmpty(appointments)}">
+			<thead>
+				<tr>
+					<th>Offering</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Status</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="appointment : ${appointments}">
+					<td th:text="${appointment.offeringName}"></td>
+					<td th:text="${appointment.localDate}"></td>
+					<td th:text="${appointment.localTime}"></td>
+					<td th:text="${appointment.status}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Logout -->
+	<div style="margin-top: 30px;">
+		<a href="/auth/logout">Logout</a>
+	</div>
 
 </body>
 </html>
@@ -1770,12 +3786,12 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Provider</title>
+<meta charset="UTF-8">
+<title>Wellnara Provider</title>
 
-    <link rel="stylesheet" th:href="@{/css/provider.css}">
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 
-    <script>
+<script>
         function showSection(sectionId) {
             document.querySelectorAll('.provider-section')
                 .forEach(section => section.style.display = 'none');
@@ -1816,335 +3832,281 @@ WHERE NOT EXISTS (
 
 <body>
 
-<div class="page-header">
-    <h1>
-        Wellnara: Provider -
-        <span th:text="${providerName}"></span>
-    </h1>
+	<div class="page-header">
+		<h1>
+			Wellnara: Provider - <span th:text="${providerName}"></span>
+		</h1>
 
-    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
 
-<div th:if="${successMessage}" style="color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+	<div th:if="${successMessage}" style="color: green;">
+		<p th:text="${successMessage}"></p>
+	</div>
 
-<div th:if="${providerEmail}">
-    <p>
-        Your email:
-        <strong th:text="${providerEmail}"></strong>
-    </p>
-</div>
+	<div th:if="${providerEmail}">
+		<p>
+			Your email: <strong th:text="${providerEmail}"></strong>
+		</p>
+	</div>
 
-<div class="tabs">
-    <button id="tab-clients-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('clients-section')">
-        Clients
-    </button>
+	<div class="tabs">
+		<button id="tab-clients-section" class="tab-button" type="button"
+			onclick="showSection('clients-section')">Clients</button>
 
-    <button id="tab-offerings-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('offerings-section')">
-        Offerings
-    </button>
+		<button id="tab-offerings-section" class="tab-button" type="button"
+			onclick="showSection('offerings-section')">Offerings</button>
 
-    <button id="tab-calendar-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('calendar-section')">
-        Calendar
-    </button>
-</div>
+		<button id="tab-calendar-section" class="tab-button" type="button"
+			onclick="showSection('calendar-section')">Availability</button>
+	</div>
 
-<div id="clients-section" class="provider-section" style="display: none;">
+	<div id="clients-section" class="provider-section"
+		style="display: none;">
 
-    <h2>My clients</h2>
+		<h2>My clients</h2>
 
-    <form th:action="@{/provider/invite-client}" method="post">
-        <div class="form-row">
-            <input id="clientEmail"
-                   type="email"
-                   name="email"
-                   placeholder="Enter Client email"
-                   required>
+		<form th:action="@{/provider/invite-client}" method="post">
+			<div class="form-row">
+				<input id="clientEmail" type="email" name="email"
+					placeholder="Enter Client email" required>
 
-            <button type="submit">Invite</button>
-        </div>
-    </form>
+				<button type="submit">Invite</button>
+			</div>
+		</form>
 
-    <div th:if="${clientInviteError}" style="color: red;">
-        <p th:text="${clientInviteError}"></p>
-    </div>
+		<div th:if="${clientInviteError}" style="color: red;">
+			<p th:text="${clientInviteError}"></p>
+		</div>
 
-    <div th:if="${clientInviteLink}">
-        <p>Client registration link:</p>
-        <p>
-            <a th:href="${clientInviteLink}"
-               th:text="${clientInviteLink}"></a>
-        </p>
-    </div>
+		<div th:if="${clientInviteLink}">
+			<p>Client registration link:</p>
+			<p>
+				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
+			</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(clients)}">
-        <p>No clients found.</p>
-    </div>
+		<div th:if="${#lists.isEmpty(clients)}">
+			<p>No clients found.</p>
+		</div>
 
-    <table th:if="${not #lists.isEmpty(clients)}">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Invited at</th>
-            <th>Action</th>
-        </tr>
-        </thead>
+		<table th:if="${not #lists.isEmpty(clients)}">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Username</th>
+					<th>Email</th>
+					<th>Invited at</th>
+					<th>Action</th>
+				</tr>
+			</thead>
 
-        <tbody>
-        <tr th:each="clientLink : ${clients}">
-            <td th:text="${clientLink.client.id}"></td>
-            <td th:text="${clientLink.client.username}"></td>
-            <td th:text="${clientLink.client.email}"></td>
-            <td th:text="${clientLink.invitedAt}"></td>
-            <td>
-                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
-                      method="post"
-                      onsubmit="return confirm('Are you sure you want to delete this client?');">
-                    <button type="submit">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="clientLink : ${clients}">
+					<td th:text="${clientLink.client.id}"></td>
+					<td th:text="${clientLink.client.username}"></td>
+					<td th:text="${clientLink.client.email}"></td>
+					<td th:text="${clientLink.invitedAt}"></td>
+					<td>
+						<form
+							th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+							method="post"
+							onsubmit="return confirm('Are you sure you want to delete this client?');">
+							<button type="submit">Delete</button>
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 
-<div id="offerings-section" class="provider-section" style="display: none;">
+		<div style="margin-top: 30px;">
+			<h2>Appointment requests</h2>
 
-    <h2>My offerings</h2>
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
 
-    <form th:action="@{/provider/offerings}" method="post">
-        <div class="form-row">
-            <input id="offeringName"
-                   type="text"
-                   name="name"
-                   placeholder="Name"
-                   required>
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Client</th>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+					</tr>
+				</thead>
 
-            <textarea id="offeringDescription"
-                      name="description"
-                      placeholder="Description"
-                      required></textarea>
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.clientName}"></td>
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
-            <input id="pricePerSession"
-                   type="number"
-                   name="pricePerSession"
-                   step="0.01"
-                   min="0"
-                   placeholder="Price"
-                   required>
+	</div>
 
-            <input id="durationMinutes"
-                   type="number"
-                   name="durationMinutes"
-                   min="1"
-                   placeholder="Duration"
-                   required>
+	<div id="offerings-section" class="provider-section"
+		style="display: none;">
 
-            <button type="submit">Create</button>
-        </div>
-    </form>
+		<h2>My offerings</h2>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<form th:action="@{/provider/offerings}" method="post">
+			<div class="form-row">
+				<input id="offeringName" type="text" name="name" placeholder="Price"
+					required>
 
-    <table th:if="${not #lists.isEmpty(offerings)}">
-        <thead>
-        <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-            <th>Active</th>
-            <th>Edit</th>
-        </tr>
-        </thead>
+				<textarea id="offeringDescription" name="description"
+					placeholder="Description" required></textarea>
 
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-            <td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
-            <td>
-                <a th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}">
-                    Edit
-                </a>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+				<input id="pricePerSession" type="number" name="pricePerSession"
+					step="0.01" min="0" placeholder="Price" required> <input
+					id="durationMinutes" type="number" name="durationMinutes" min="1"
+					placeholder="Duration" required>
 
-<div id="calendar-section" class="provider-section" style="display: none;">
+				<button type="submit">Create</button>
+			</div>
+		</form>
 
-    <h2>Calendar</h2>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings found.</p>
+		</div>
 
-    <div id="calendar-errors"
-         th:if="${calendarErrors != null}"
-         style="color: #b00020; margin-bottom: 15px;">
-        <div th:each="err : ${calendarErrors.values()}">
-            ⚠ <span th:text="${err}"></span>
-        </div>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+					<th class="offering-description-column">Description</th>
+					<th>Price</th>
+					<th>Duration</th>
+					<th>Active</th>
+				</tr>
+			</thead>
 
-    <p>
-        Period:
-        <span th:if="${planningFrom != null and planningTo != null}"
-              th:text="${planningFrom} + ' - ' + ${planningTo}"></span>
-        <span th:if="${planningFrom == null or planningTo == null}">
-            not selected
-        </span>
-    </p>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
 
-    <div th:if="${#lists.isEmpty(calendarTerms)}">
-        <p>No slots</p>
-    </div>
+					<td class="offering-description-column"
+						th:text="${offering.description}"></td>
 
-    <table th:if="${not #lists.isEmpty(calendarTerms)}">
-        <thead>
-        <tr>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Status</th>
-        </tr>
-        </thead>
+					<td th:text="${offering.pricePerSession}"></td>
+					<td th:text="${offering.durationMinutes}"></td>
+					<td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-        <tbody>
-        <tr th:each="term : ${calendarTerms}">
-            <td th:text="${term.date}"></td>
-            <td th:text="${term.startTime}"></td>
-            <td th:text="${term.endTime}"></td>
-            <td>Free</td>
-        </tr>
-        </tbody>
-    </table>
+	<div id="calendar-section" class="provider-section"
+		style="display: none;">
 
-    <form th:action="@{/provider/calendar}" method="post">
+		<h2>My availability</h2>
 
-        <input id="providerTimezone"
-               type="hidden"
-               name="providerTimezone">
+		<div id="calendar-errors" th:if="${calendarErrors != null}"
+			style="color: #b00020; margin-bottom: 15px;">
+			<div th:each="err : ${calendarErrors.values()}">
+				⚠ <span th:text="${err}"></span>
+			</div>
+		</div>
 
-        <h3>Period</h3>
+		<p>
+			Period: <span th:if="${planningFrom != null and planningTo != null}"
+				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
+				th:if="${planningFrom == null or planningTo == null}"> not
+				selected </span>
+		</p>
 
-        <div class="form-row">
-            <input id="planningFrom"
-                   type="date"
-                   name="planningFrom"
-                   th:value="${planningFrom}"
-                   required>
+		<div th:if="${#lists.isEmpty(calendarTerms)}">
+			<p>No slots</p>
+		</div>
 
-            <input id="planningTo"
-                   type="date"
-                   name="planningTo"
-                   th:value="${planningTo}"
-                   required>
-        </div>
+		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Start</th>
+					<th>End</th>
+				</tr>
+			</thead>
 
-        <h3>Availability</h3>
+			<tbody>
+				<tr th:each="term : ${calendarTerms}">
+					<td th:text="${term.date}"></td>
+					<td th:text="${term.startTime}"></td>
+					<td th:text="${term.endTime}"></td>
+				</tr>
+			</tbody>
+		</table>
 
-        <table class="availability-table">
-            <tbody>
-            <tr>
-                <td>Monday</td>
-                <td>
-                    <input id="monday-start"
-                           name="mondayStart"
-                           type="time"
-                           th:value="${calendarForm.mondayStart}">
-                </td>
-                <td>
-                    <input id="monday-end"
-                           name="mondayEnd"
-                           type="time"
-                           th:value="${calendarForm.mondayEnd}">
-                </td>
-            </tr>
+		<form th:action="@{/provider/calendar}" method="post">
 
-            <tr>
-                <td>Tuesday</td>
-                <td>
-                    <input id="tuesday-start"
-                           name="tuesdayStart"
-                           type="time"
-                           th:value="${calendarForm.tuesdayStart}">
-                </td>
-                <td>
-                    <input id="tuesday-end"
-                           name="tuesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.tuesdayEnd}">
-                </td>
-            </tr>
+			<input id="providerTimezone" type="hidden" name="providerTimezone">
 
-            <tr>
-                <td>Wednesday</td>
-                <td>
-                    <input id="wednesday-start"
-                           name="wednesdayStart"
-                           type="time"
-                           th:value="${calendarForm.wednesdayStart}">
-                </td>
-                <td>
-                    <input id="wednesday-end"
-                           name="wednesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.wednesdayEnd}">
-                </td>
-            </tr>
+			<h3>Period</h3>
 
-            <tr>
-                <td>Thursday</td>
-                <td>
-                    <input id="thursday-start"
-                           name="thursdayStart"
-                           type="time"
-                           th:value="${calendarForm.thursdayStart}">
-                </td>
-                <td>
-                    <input id="thursday-end"
-                           name="thursdayEnd"
-                           type="time"
-                           th:value="${calendarForm.thursdayEnd}">
-                </td>
-            </tr>
+			<div class="form-row">
+				<input id="planningFrom" type="date" name="planningFrom"
+					th:value="${planningFrom}" required> <input id="planningTo"
+					type="date" name="planningTo" th:value="${planningTo}" required>
+			</div>
 
-            <tr>
-                <td>Friday</td>
-                <td>
-                    <input id="friday-start"
-                           name="fridayStart"
-                           type="time"
-                           th:value="${calendarForm.fridayStart}">
-                </td>
-                <td>
-                    <input id="friday-end"
-                           name="fridayEnd"
-                           type="time"
-                           th:value="${calendarForm.fridayEnd}">
-                </td>
-            </tr>
-            </tbody>
-        </table>
+			<h3>Availability</h3>
 
-        <button class="primary-button" type="submit">Save</button>
-    </form>
-</div>
+			<table class="availability-table">
+				<tbody>
+					<tr>
+						<td>Monday</td>
+						<td><input id="monday-start" name="mondayStart" type="time"
+							th:value="${calendarForm.mondayStart}"></td>
+						<td><input id="monday-end" name="mondayEnd" type="time"
+							th:value="${calendarForm.mondayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Tuesday</td>
+						<td><input id="tuesday-start" name="tuesdayStart" type="time"
+							th:value="${calendarForm.tuesdayStart}"></td>
+						<td><input id="tuesday-end" name="tuesdayEnd" type="time"
+							th:value="${calendarForm.tuesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Wednesday</td>
+						<td><input id="wednesday-start" name="wednesdayStart"
+							type="time" th:value="${calendarForm.wednesdayStart}"></td>
+						<td><input id="wednesday-end" name="wednesdayEnd" type="time"
+							th:value="${calendarForm.wednesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Thursday</td>
+						<td><input id="thursday-start" name="thursdayStart"
+							type="time" th:value="${calendarForm.thursdayStart}"></td>
+						<td><input id="thursday-end" name="thursdayEnd" type="time"
+							th:value="${calendarForm.thursdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Friday</td>
+						<td><input id="friday-start" name="fridayStart" type="time"
+							th:value="${calendarForm.fridayStart}"></td>
+						<td><input id="friday-end" name="fridayEnd" type="time"
+							th:value="${calendarForm.fridayEnd}"></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<button class="primary-button" type="submit">Save</button>
+		</form>
+	</div>
 
 </body>
 </html>
@@ -2312,6 +4274,64 @@ public class CalendarTerm {
         return endTime;
     }
 }
+===== ./src/main/java/life/wellnara/dto/AppointmentView.java =====
+package life.wellnara.dto;
+
+import life.wellnara.model.AppointmentStatus;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+/**
+ * View model for displaying appointment data on UI pages.
+ */
+public class AppointmentView {
+
+    private final Long id;
+    private final String clientName;
+    private final String offeringName;
+    private final LocalDate localDate;
+    private final LocalTime localTime;
+    private final AppointmentStatus status;
+
+    public AppointmentView(Long id,
+                           String clientName,
+                           String offeringName,
+                           LocalDate localDate,
+                           LocalTime localTime,
+                           AppointmentStatus status) {
+        this.id = id;
+        this.clientName = clientName;
+        this.offeringName = offeringName;
+        this.localDate = localDate;
+        this.localTime = localTime;
+        this.status = status;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getClientName() {
+        return clientName;
+    }
+
+    public String getOfferingName() {
+        return offeringName;
+    }
+
+    public LocalDate getLocalDate() {
+        return localDate;
+    }
+
+    public LocalTime getLocalTime() {
+        return localTime;
+    }
+
+    public AppointmentStatus getStatus() {
+        return status;
+    }
+}
 ===== ./src/main/java/life/wellnara/dto/ProviderCalendarForm.java =====
 package life.wellnara.dto;
 
@@ -2454,6 +4474,41 @@ public class ProviderCalendarForm {
         this.fridayEnd = fridayEnd;
     }
 }
+===== ./src/main/java/life/wellnara/dto/BookableDateOption.java =====
+package life.wellnara.dto;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Available booking times for one concrete free calendar term.
+ */
+public class BookableDateOption {
+
+    private final LocalDate date;
+    private final List<LocalTime> times;
+
+    public BookableDateOption(LocalDate date, List<LocalTime> times) {
+        this.date = date;
+        this.times = times;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public List<LocalTime> getTimes() {
+        return times;
+    }
+
+    public String getTimesValue() {
+        return times.stream()
+                .map(LocalTime::toString)
+                .collect(Collectors.joining(","));
+    }
+}
 ===== ./src/main/java/life/wellnara/repository/ProviderClientLinkRepository.java =====
 package life.wellnara.repository;
 
@@ -2500,6 +4555,44 @@ public interface ProviderClientLinkRepository extends JpaRepository<ProviderClie
      * @param client client user
      */
     void deleteAllByClient(User client);
+}
+===== ./src/main/java/life/wellnara/repository/AppointmentRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * Repository for provider-client appointments.
+ */
+public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+
+    List<Appointment> findAllByProviderOrderByStartDateTimeUtcAsc(User provider);
+
+    List<Appointment> findAllByClientOrderByStartDateTimeUtcAsc(User client);
+
+    List<Appointment> findAllByProviderAndStatusInAndStartDateTimeUtcBetween(
+            User provider,
+            Collection<AppointmentStatus> statuses,
+            LocalDateTime from,
+            LocalDateTime to
+    );
+    
+    List<Appointment> findAllByProviderAndStatusIn(
+            User provider,
+            Collection<AppointmentStatus> statuses
+    );
+    
+    List<Appointment> findAllByProviderIdAndStatusIn(
+            Long providerId,
+            List<AppointmentStatus> statuses
+    );
 }
 ===== ./src/main/java/life/wellnara/repository/OfferingRepository.java =====
 package life.wellnara.repository;
@@ -2756,54 +4849,214 @@ public class AdminController {
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
+import life.wellnara.dto.BookableDateOption;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientOfferingService;
+import life.wellnara.service.ProviderCalendarService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
- * Controller for client page access.
+ * Controller for client page access and appointment requests.
  */
 @Controller
 public class ClientController {
 
-    private final ClientOfferingService clientOfferingService;
+	private final ClientOfferingService clientOfferingService;
+	private final AppointmentService appointmentService;
+	private final ProviderCalendarService providerCalendarService;
 
-    /**
-     * Creates client controller.
-     *
-     * @param clientOfferingService service for client access to provider offerings
-     */
-    public ClientController(ClientOfferingService clientOfferingService) {
-        this.clientOfferingService = clientOfferingService;
-    }
+	/**
+	 * Creates client controller.
+	 *
+	 * @param clientOfferingService service for client access to provider offerings
+	 * @param appointmentService service for appointment requests
+	 */
+	public ClientController(ClientOfferingService clientOfferingService,
+			AppointmentService appointmentService,
+			ProviderCalendarService providerCalendarService) {
+		this.clientOfferingService = clientOfferingService;
+		this.appointmentService = appointmentService;
+		this.providerCalendarService = providerCalendarService;
+	}
 
-    /**
-     * Shows client page for authenticated client user.
-     *
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return client page view name or redirect to login page
-     */
-    @GetMapping("/client")
-    public String showPage(HttpSession session, Model model) {
-        Object sessionUser = session.getAttribute("currentUser");
+	/**
+	 * Shows client page for authenticated client user.
+	 *
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return client page view name or redirect to login page
+	 */
+	@GetMapping("/client")
+	public String showPage(HttpSession session, Model model) {
+		User currentUser = getAuthenticatedClient(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-        if (currentUser.getRole() != UserRole.CLIENT) {
-            return "redirect:/auth/login";
-        }
+		populateClientPageModel(model, currentUser);
 
-        model.addAttribute("clientName", currentUser.getUsername());
-        model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(currentUser));
+		return "client";
+	}
 
-        return "client";
-    }
+	/**
+	 * Creates appointment request for current client.
+	 *
+	 * @param providerId provider identifier
+	 * @param offeringId offering identifier
+	 * @param startDateTimeUtc requested start date and time in UTC
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to client page on success or client page with error
+	 */
+	@PostMapping("/client/appointments")
+	public String requestAppointment(@RequestParam Long providerId,
+	                                 @RequestParam Long offeringId,
+	                                 @RequestParam LocalDate selectedDate,
+	                                 @RequestParam LocalTime selectedTime,
+	                                 HttpSession session,
+	                                 Model model) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	    	User provider = clientOfferingService.getProviderOfClient(currentUser);
+	    	ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+	    	LocalDateTime startDateTimeUtc = LocalDateTime
+	    	        .of(selectedDate, selectedTime)
+	    	        .atZone(providerZone)
+	    	        .withZoneSameInstant(ZoneOffset.UTC)
+	    	        .toLocalDateTime();
+
+	        appointmentService.requestAppointment(
+	                currentUser,
+	                providerId,
+	                offeringId,
+	                startDateTimeUtc
+	        );
+
+	        return "redirect:/client";
+
+	    } catch (IllegalArgumentException exception) {
+	        populateClientPageModel(model, currentUser);
+	        model.addAttribute("appointmentError", exception.getMessage());
+
+	        return "client";
+	    }
+	}
+	/**
+	 * Adds client page data to model.
+	 *
+	 * @param model MVC model
+	 * @param client authenticated client
+	 */
+	private void populateClientPageModel(Model model, User client) {
+	    User provider = clientOfferingService.getProviderOfClient(client);
+	    model.addAttribute("clientName", client.getUsername());
+	    model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
+	    model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(provider));
+	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
+	}
+
+	/**
+	 * Returns authenticated client from session.
+	 *
+	 * @param session current HTTP session
+	 * @return authenticated client or null
+	 */
+	private User getAuthenticatedClient(HttpSession session) {
+		Object sessionUser = session.getAttribute("currentUser");
+
+		if (!(sessionUser instanceof User currentUser)) {
+			return null;
+		}
+
+		if (currentUser.getRole() != UserRole.CLIENT) {
+			return null;
+		}
+
+		return currentUser;
+	}
+	
+	@GetMapping("/client/offerings/{offeringId}")
+	public String showOffering(@PathVariable Long offeringId,
+	                           HttpSession session,
+	                           Model model) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    Offering offering = clientOfferingService.getOfferingOfClientProvider(currentUser, offeringId);
+	    User provider = offering.getProvider();
+
+	    List<CalendarTerm> calendarTerms = appointmentService.getFreeCalendarTerms(provider);
+
+	    Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
+
+	    for (CalendarTerm term : calendarTerms) {
+	        List<LocalTime> times = appointmentService.getBookableTimesForTerm(term, offering);
+
+	        if (!times.isEmpty()) {
+	            timesByDate
+	                    .computeIfAbsent(term.getDate(), date -> new ArrayList<>())
+	                    .addAll(times);
+	        }
+	    }
+
+	    List<BookableDateOption> bookableDateOptions = new ArrayList<>();
+
+	    for (Map.Entry<LocalDate, List<LocalTime>> entry : timesByDate.entrySet()) {
+	        List<LocalTime> times = entry.getValue()
+	                .stream()
+	                .distinct()
+	                .sorted()
+	                .collect(Collectors.toList());
+
+	        if (!times.isEmpty()) {
+	            bookableDateOptions.add(new BookableDateOption(entry.getKey(), times));
+	        }
+	    }
+
+	    model.addAttribute("clientName", currentUser.getUsername());
+	    model.addAttribute("offering", offering);
+	    model.addAttribute("calendarTerms", calendarTerms);
+	    model.addAttribute("bookableDateOptions",
+	            appointmentService.getBookableDateOptions(provider, offering));
+
+	    for (BookableDateOption option : bookableDateOptions) {
+	        System.out.println("DATE = " + option.getDate());
+	        System.out.println("TIMES = " + option.getTimes());
+	    }
+	    
+	    return "client-offering";
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/ProviderClientController.java =====
 package life.wellnara.controller;
@@ -3090,30 +5343,45 @@ public class ClientInvitationController {
      */
     @PostMapping("/provider/invite-client")
     public String inviteClient(@RequestParam String email,
-                               HttpSession session,
-                               Model model) {
-        Object sessionUser = session.getAttribute("currentUser");
+                               HttpSession session) {
+        User currentUser = getAuthenticatedProvider(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
-
-        if (currentUser.getRole() != UserRole.PROVIDER) {
+        if (currentUser == null) {
             return "redirect:/auth/login";
         }
 
         try {
             String token = clientInvitationService.invite(currentUser, email);
-            String registrationLink = "http://localhost:8080/client/register?token=" + token;
+            String link = "http://localhost:8080/client/register?token=" + token;
 
-            session.setAttribute("clientInviteLink", registrationLink);
+            session.setAttribute("clientInviteLink", link);
+            session.removeAttribute("clientInviteError");
 
-            return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
+            session.setAttribute("clientInviteError", exception.getMessage());
             session.removeAttribute("clientInviteLink");
-            model.addAttribute("clientInviteError", exception.getMessage());
-            return "provider";
         }
+
+        return "redirect:/provider";
+    }    
+    /**
+     * Returns authenticated provider from current session.
+     *
+     * @param session current HTTP session
+     * @return authenticated provider or null
+     */
+    private User getAuthenticatedProvider(HttpSession session) {
+        Object sessionUser = session.getAttribute("currentUser");
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return null;
+        }
+
+        if (currentUser.getRole() != UserRole.PROVIDER) {
+            return null;
+        }
+
+        return currentUser;
     }
 }
 ===== ./src/main/java/life/wellnara/controller/OfferingController.java =====
@@ -3390,7 +5658,7 @@ public class ProviderRegistrationController {
      * @param confirmPassword repeated provider password
      * @param session current HTTP session
      * @param model MVC model
-     * @return provider page on success or registration page on validation error
+     * @return redirect to provider page on success or registration page on validation error
      */
     @PostMapping("/provider/register")
     public String register(@RequestParam String token,
@@ -3418,11 +5686,10 @@ public class ProviderRegistrationController {
         try {
             User registeredUser = service.register(token, name, password);
             session.setAttribute("currentUser", registeredUser);
-
-            model.addAttribute("successMessage", "Registration completed successfully");
-            model.addAttribute("providerEmail", registeredUser.getEmail());
-
-            return "provider";
+//            model.addAttribute("successMessage", "Registration completed successfully");
+//            model.addAttribute("providerEmail", registeredUser.getEmail());
+//            return "provider";
+            return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("token", token);
             model.addAttribute("email", email);
@@ -3435,17 +5702,14 @@ public class ProviderRegistrationController {
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
-import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
-
-import java.util.List;
-
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -3461,6 +5725,7 @@ public class ProviderController {
 	private final ProviderClientService providerClientService;
 	private final OfferingService offeringService;
 	private final ProviderCalendarService providerCalendarService;
+	private final AppointmentService appointmentService;
 
 	/**
 	 * Creates provider controller.
@@ -3471,10 +5736,12 @@ public class ProviderController {
 	 */
 	public ProviderController(ProviderClientService providerClientService,
 			OfferingService offeringService,
-			ProviderCalendarService providerCalendarService) {
+			ProviderCalendarService providerCalendarService,
+			AppointmentService appointmentService) {
 		this.providerClientService = providerClientService;
 		this.offeringService = offeringService;
 		this.providerCalendarService = providerCalendarService;
+		this.appointmentService = appointmentService;
 	}
 
 	/**
@@ -3486,34 +5753,28 @@ public class ProviderController {
 	 */
 	@GetMapping("/provider")
 	public String showPage(HttpSession session, Model model) {
-		User currentUser = getAuthenticatedProvider(session);
+	    User currentUser = getAuthenticatedProvider(session);
 
-		if (currentUser == null) {
-			return "redirect:/auth/login";
-		}
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
 
-		Object clientInviteLink = session.getAttribute("clientInviteLink");
-		if (clientInviteLink != null) {
-			model.addAttribute("clientInviteLink", clientInviteLink);
-			session.removeAttribute("clientInviteLink");
-		}
+	    Object clientInviteLink = session.getAttribute("clientInviteLink");
+	    if (clientInviteLink != null) {
+	        model.addAttribute("clientInviteLink", clientInviteLink);
+	        session.removeAttribute("clientInviteLink");
+	    }
 
-		model.addAttribute("clients", providerClientService.getClientsOfProvider(currentUser));
-		model.addAttribute("offerings", offeringService.getOfferingsOfProvider(currentUser));
-		model.addAttribute("providerName", currentUser.getUsername());
+	    Object clientInviteError = session.getAttribute("clientInviteError");
+	    if (clientInviteError != null) {
+	        model.addAttribute("clientInviteError", clientInviteError);
+	        session.removeAttribute("clientInviteError");
+	    }
 
-		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(currentUser);
+	    populateProviderPageModel(model, currentUser);
 
-		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-		model.addAttribute("planningTo", calendarForm.getPlanningTo());
-		model.addAttribute("calendarForm", calendarForm);
-
-		List<CalendarTerm> terms = providerCalendarService.generateCalendar(currentUser);
-		model.addAttribute("calendarTerms", terms);
-
-		return "provider";
+	    return "provider";
 	}
-
 	/**
 	 * Saves provider calendar availability settings.
 	 *
@@ -3538,21 +5799,10 @@ public class ProviderController {
 			return "redirect:/provider?section=calendar";
 
 		} catch (CalendarValidationException exception) {
+		    populateProviderPageModel(model, currentUser);
+		    model.addAttribute("calendarErrors", exception.getFieldErrors());
 
-			ProviderCalendarForm savedForm = providerCalendarService.getLatestCalendarForm(currentUser);
-
-			model.addAttribute("clients", providerClientService.getClientsOfProvider(currentUser));
-			model.addAttribute("offerings", offeringService.getOfferingsOfProvider(currentUser));
-			model.addAttribute("providerName", currentUser.getUsername());
-
-			model.addAttribute("calendarForm", savedForm);
-			model.addAttribute("planningFrom", savedForm.getPlanningFrom());
-			model.addAttribute("planningTo", savedForm.getPlanningTo());
-			model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(currentUser));
-
-			model.addAttribute("calendarErrors", exception.getFieldErrors());
-
-			return "provider";
+		    return "provider";
 		}
 	}
 
@@ -3574,6 +5824,36 @@ public class ProviderController {
 		}
 
 		return currentUser;
+	}
+	
+	/**
+	 * Adds common provider page data to model.
+	 *
+	 * @param model MVC model
+	 * @param provider authenticated provider
+	 */
+	private void populateProviderPageModel(Model model, User provider) {
+	    model.addAttribute("clients", providerClientService.getClientsOfProvider(provider));
+	    model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
+	    model.addAttribute("providerName", provider.getUsername());
+	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
+
+	    populateCalendarModel(model, provider);
+	}
+
+	/**
+	 * Adds provider calendar data to model.
+	 *
+	 * @param model MVC model
+	 * @param provider authenticated provider
+	 */
+	private void populateCalendarModel(Model model, User provider) {
+	    ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+
+	    model.addAttribute("calendarForm", calendarForm);
+	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
+	    model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
 	}
 }
 ===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
@@ -3625,6 +5905,167 @@ public enum UserRole {
     PROVIDER,
     CLIENT
 }
+===== ./src/main/java/life/wellnara/model/AppointmentStatus.java =====
+package life.wellnara.model;
+
+/**
+ * Status of a client appointment with provider.
+ */
+public enum AppointmentStatus {
+
+    /**
+     * Client requested an appointment, but provider has not confirmed it yet.
+     */
+    REQUESTED,
+
+    /**
+     * Provider confirmed the appointment.
+     */
+    CONFIRMED,
+
+    /**
+     * Provider rejected the appointment request.
+     */
+    REJECTED,
+
+    /**
+     * Appointment was cancelled.
+     */
+    CANCELLED,
+
+    /**
+     * Appointment was completed.
+     */
+    COMPLETED,
+
+    /**
+     * Client did not attend the appointment.
+     */
+    NO_SHOW
+}
+===== ./src/main/java/life/wellnara/model/Appointment.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+/**
+ * Appointment request or confirmed meeting between client and provider.
+ */
+@Entity
+@Table(name = "appointments")
+public class Appointment {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Provider who owns the appointment.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    /**
+     * Client who requested the appointment.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "client_id", nullable = false)
+    private User client;
+
+    /**
+     * Offering selected for this appointment.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "offering_id", nullable = false)
+    private Offering offering;
+
+    /**
+     * Appointment start date and time in UTC.
+     */
+    @Column(nullable = false)
+    private LocalDateTime startDateTimeUtc;
+
+    /**
+     * Current appointment status.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AppointmentStatus status;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    protected Appointment() {
+    }
+
+    public Appointment(User provider,
+                       User client,
+                       Offering offering,
+                       LocalDateTime startDateTimeUtc) {
+        this.provider = provider;
+        this.client = client;
+        this.offering = offering;
+        this.startDateTimeUtc = startDateTimeUtc;
+        this.status = AppointmentStatus.REQUESTED;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public User getClient() {
+        return client;
+    }
+
+    public Offering getOffering() {
+        return offering;
+    }
+
+    public LocalDateTime getStartDateTimeUtc() {
+        return startDateTimeUtc;
+    }
+
+    public AppointmentStatus getStatus() {
+        return status;
+    }
+
+    public void confirm() {
+        this.status = AppointmentStatus.CONFIRMED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reject() {
+        this.status = AppointmentStatus.REJECTED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void cancel() {
+        this.status = AppointmentStatus.CANCELLED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void complete() {
+        this.status = AppointmentStatus.COMPLETED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markNoShow() {
+        this.status = AppointmentStatus.NO_SHOW;
+        this.updatedAt = LocalDateTime.now();
+    }
+}
 ===== ./src/main/java/life/wellnara/model/Offering.java =====
 package life.wellnara.model;
 
@@ -3673,7 +6114,7 @@ public class Offering {
     /**
      * Required by JPA.
      */
-    protected Offering() {
+    public Offering() {
     }
 
     /**
@@ -4156,7 +6597,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -4237,8 +6682,8 @@ public class ProviderCalendarService {
 			errors.put("providerTimezone", "Timezone is required");
 		}
 
-		validateTimeRange(errors, "tuesday", form.getTuesdayStart(), form.getTuesdayEnd(), "Tuesday");
 		validateTimeRange(errors, "monday", form.getMondayStart(), form.getMondayEnd(), "Monday");
+		validateTimeRange(errors, "tuesday", form.getTuesdayStart(), form.getTuesdayEnd(), "Tuesday");
 		validateTimeRange(errors, "wednesday", form.getWednesdayStart(), form.getWednesdayEnd(), "Wednesday");
 		validateTimeRange(errors, "thursday", form.getThursdayStart(), form.getThursdayEnd(), "Thursday");
 		validateTimeRange(errors, "friday", form.getFridayStart(), form.getFridayEnd(), "Friday");
@@ -4410,6 +6855,72 @@ public class ProviderCalendarService {
 
 		return result;
 	}
+	
+	/**
+	 * Checks whether requested appointment time is inside provider availability.
+	 *
+	 * @param provider provider who owns availability
+	 * @param startDateTimeUtc requested appointment start in UTC
+	 * @param durationMinutes appointment duration in minutes
+	 * @return true if appointment fits into provider availability
+	 */
+	@Transactional(readOnly = true)
+	public boolean isAvailable(User provider,
+	                           LocalDateTime startDateTimeUtc,
+	                           Integer durationMinutes) {
+	    if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
+	        return false;
+	    }
+
+	    Optional<AvailabilityPeriod> periodOptional =
+	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+
+	    if (periodOptional.isEmpty()) {
+	        return false;
+	    }
+
+	    AvailabilityPeriod period = periodOptional.get();
+	    ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
+
+	    ZonedDateTime startInProviderZone = startDateTimeUtc
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone);
+
+	    ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
+
+	    LocalDate appointmentDate = startInProviderZone.toLocalDate();
+
+	    if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
+	        return false;
+	    }
+
+	    if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
+	        return false;
+	    }
+
+	    List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+
+	    return rules.stream().anyMatch(rule ->
+	            rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
+	                    && !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
+	                    && !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
+	    );
+	}
+	
+	/**
+	 * Returns timezone from latest provider availability period.
+	 *
+	 * @param provider provider user
+	 * @return provider timezone
+	 */
+	@Transactional(readOnly = true)
+	public ZoneId getProviderTimezone(User provider) {
+	    AvailabilityPeriod period = availabilityPeriodRepository
+	            .findTopByProviderOrderByCreatedAtDesc(provider)
+	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
+
+	    return ZoneId.of(period.getProviderTimezone());
+	}	
 }
 ===== ./src/main/java/life/wellnara/service/ProviderInvitationService.java =====
 package life.wellnara.service;
@@ -4503,6 +7014,517 @@ public class ProviderInvitationService {
 
         return savedUser;
     }
+}
+===== ./src/main/java/life/wellnara/service/AppointmentService.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.AppointmentView;
+import life.wellnara.dto.BookableDateOption;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+/**
+ * Service for client appointment requests.
+ */
+@Service
+public class AppointmentService {
+
+	private final AppointmentRepository appointmentRepository;
+	private final UserRepository userRepository;
+	private final OfferingRepository offeringRepository;
+	private final ProviderClientLinkRepository providerClientLinkRepository;
+	private final ProviderCalendarService providerCalendarService;
+
+	private static final int BOOKING_STEP_MINUTES = 15;
+
+	/**
+	 * Creates appointment service.
+	 *
+	 * @param appointmentRepository repository for appointments
+	 * @param userRepository repository for users
+	 * @param offeringRepository repository for offerings
+	 * @param providerClientLinkRepository repository for provider-client links
+	 */
+	public AppointmentService(AppointmentRepository appointmentRepository,
+			UserRepository userRepository,
+			OfferingRepository offeringRepository,
+			ProviderClientLinkRepository providerClientLinkRepository,
+			ProviderCalendarService providerCalendarService) {
+		this.appointmentRepository = appointmentRepository;
+		this.userRepository = userRepository;
+		this.offeringRepository = offeringRepository;
+		this.providerClientLinkRepository = providerClientLinkRepository;
+		this.providerCalendarService = providerCalendarService;
+	}
+
+	/**
+	 * Creates appointment request from client to provider.
+	 *
+	 * @param client client who requests appointment
+	 * @param providerId provider identifier
+	 * @param offeringId offering identifier
+	 * @param startDateTimeUtc requested start date and time in UTC
+	 * @return saved appointment request
+	 */
+	@Transactional
+	public Appointment requestAppointment(User client,
+			Long providerId,
+			Long offeringId,
+			LocalDateTime startDateTimeUtc) {
+		validateClient(client);
+		validateStartDateTime(startDateTimeUtc);
+
+		User provider = findProvider(providerId);
+		validateClientBelongsToProvider(client, provider);
+
+		Offering offering = findProviderOffering(provider, offeringId);
+		validateOfferingIsActive(offering);
+		validateProviderAvailability(provider, offering, startDateTimeUtc);
+		validateNoConflicts(provider, offering, startDateTimeUtc);
+
+		Appointment appointment = new Appointment(provider, client, offering, startDateTimeUtc);
+
+		return appointmentRepository.save(appointment);
+	}
+
+	/**
+	 * Validates that requested appointment does not overlap active appointments.
+	 *
+	 * @param provider provider who owns appointments
+	 * @param offering requested offering
+	 * @param startDateTimeUtc requested appointment start in UTC
+	 */
+	private void validateNoConflicts(User provider,
+			Offering offering,
+			LocalDateTime startDateTimeUtc) {
+
+		LocalDateTime endDateTimeUtc =
+				startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
+
+		List<Appointment> activeAppointments = getBlockingAppointments(provider);
+
+		for (Appointment existing : activeAppointments) {
+			LocalDateTime existingStart = existing.getStartDateTimeUtc();
+			LocalDateTime existingEnd = existingStart
+					.plusMinutes(existing.getOffering().getDurationMinutes());
+
+			if (overlaps(startDateTimeUtc, endDateTimeUtc, existingStart, existingEnd)) {
+				throw new IllegalArgumentException("Time slot is already booked");
+			}
+		}
+	}
+
+	/**
+	 * Checks whether two time intervals overlap.
+	 *
+	 * @param firstStart first interval start
+	 * @param firstEnd first interval end
+	 * @param secondStart second interval start
+	 * @param secondEnd second interval end
+	 * @return true if intervals overlap
+	 */
+	private boolean overlaps(LocalDateTime firstStart,
+			LocalDateTime firstEnd,
+			LocalDateTime secondStart,
+			LocalDateTime secondEnd) {
+		return firstStart.isBefore(secondEnd) && firstEnd.isAfter(secondStart);
+	}
+
+	/**
+	 * Validates that requested appointment time is inside provider availability.
+	 *
+	 * @param provider provider who owns availability
+	 * @param offering requested offering
+	 * @param startDateTimeUtc requested appointment start in UTC
+	 */
+	private void validateProviderAvailability(User provider,
+			Offering offering,
+			LocalDateTime startDateTimeUtc) {
+		boolean available = providerCalendarService.isAvailable(
+				provider,
+				startDateTimeUtc,
+				offering.getDurationMinutes()
+				);
+
+		if (!available) {
+			throw new IllegalArgumentException("Requested time is not available");
+		}
+	}
+
+	/**
+	 * Validates that user has client role.
+	 *
+	 * @param client user to validate
+	 */
+	private void validateClient(User client) {
+		if (client == null || client.getRole() != UserRole.CLIENT) {
+			throw new IllegalArgumentException("Only client can request appointment");
+		}
+	}
+
+	/**
+	 * Validates appointment start date and time.
+	 *
+	 * @param startDateTimeUtc requested start date and time
+	 */
+	private void validateStartDateTime(LocalDateTime startDateTimeUtc) {
+		if (startDateTimeUtc == null) {
+			throw new IllegalArgumentException("Appointment start time is required");
+		}
+	}
+
+	/**
+	 * Finds provider by id and validates provider role.
+	 *
+	 * @param providerId provider identifier
+	 * @return provider user
+	 */
+	private User findProvider(Long providerId) {
+		User provider = userRepository.findById(providerId)
+				.orElseThrow(() -> new IllegalArgumentException("Provider not found"));
+
+		if (provider.getRole() != UserRole.PROVIDER) {
+			throw new IllegalArgumentException("User is not a provider");
+		}
+
+		return provider;
+	}
+
+	/**
+	 * Validates that client is linked to provider.
+	 *
+	 * @param client client user
+	 * @param provider provider user
+	 */
+	private void validateClientBelongsToProvider(User client, User provider) {
+		providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
+		.orElseThrow(() -> new IllegalArgumentException("Client is not linked to provider"));
+	}
+
+	/**
+	 * Finds offering owned by provider.
+	 *
+	 * @param provider provider owner
+	 * @param offeringId offering identifier
+	 * @return offering owned by provider
+	 */
+	private Offering findProviderOffering(User provider, Long offeringId) {
+		return offeringRepository.findByProviderAndId(provider, offeringId)
+				.orElseThrow(() -> new IllegalArgumentException("Offering not found for provider"));
+	}
+
+	/**
+	 * Validates that offering can be booked.
+	 *
+	 * @param offering offering to validate
+	 */
+	private void validateOfferingIsActive(Offering offering) {
+		if (!offering.isActive()) {
+			throw new IllegalArgumentException("Offering is not active");
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public List<Appointment> getAppointmentsOfClient(User client) {
+		return appointmentRepository.findAllByClientOrderByStartDateTimeUtcAsc(client);
+	}
+
+	@Transactional(readOnly = true)
+	public List<Appointment> getAppointmentsOfProvider(User provider) {
+		return appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider);
+	}
+
+	private AppointmentView toAppointmentView(Appointment appointment, ZoneId providerZone) {
+		var localDateTime = appointment.getStartDateTimeUtc()
+				.atZone(ZoneOffset.UTC)
+				.withZoneSameInstant(providerZone)
+				.toLocalDateTime();
+
+		return new AppointmentView(
+				appointment.getId(),
+				appointment.getClient().getUsername(),
+				appointment.getOffering().getName(),
+				localDateTime.toLocalDate(),
+				localDateTime.toLocalTime(),
+				appointment.getStatus()
+				);
+	}
+
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getAppointmentViewsOfClient(User client) {
+		return appointmentRepository.findAllByClientOrderByStartDateTimeUtcAsc(client)
+				.stream()
+				.map(appointment -> toAppointmentView(
+						appointment,
+						providerCalendarService.getProviderTimezone(appointment.getProvider())
+						))
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getAppointmentViewsOfProvider(User provider) {
+		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+		return appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider)
+				.stream()
+				.map(appointment -> toAppointmentView(appointment, providerZone))
+				.toList();
+	}
+
+	/**
+	 * Returns possible booking start times for selected offering on selected date.
+	 *
+	 * <p>Times are calculated from already free provider calendar terms,
+	 * therefore requested and confirmed appointments are excluded.
+	 *
+	 * @param provider provider whose calendar is checked
+	 * @param offering offering selected by client
+	 * @param date provider-local booking date
+	 * @return available booking start times
+	 */
+	@Transactional(readOnly = true)
+	public List<LocalTime> getBookableTimes(User provider, Offering offering, LocalDate date) {
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+	    List<CalendarTerm> terms = getFreeCalendarTerms(provider).stream()
+	            .filter(term -> term.getDate().equals(date))
+	            .toList();
+
+	    List<LocalTime> result = new ArrayList<>();
+
+	    for (CalendarTerm term : terms) {
+	        LocalTime latestStart = term.getEndTime()
+	                .minusMinutes(offering.getDurationMinutes());
+
+	        if (latestStart.isBefore(term.getStartTime())) {
+	            continue;
+	        }
+
+	        for (LocalTime current = term.getStartTime();
+	             !current.isAfter(latestStart);
+	             current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
+
+	            LocalDateTime startUtc = LocalDateTime.of(date, current)
+	                    .atZone(providerZone)
+	                    .withZoneSameInstant(ZoneOffset.UTC)
+	                    .toLocalDateTime();
+
+	            LocalDateTime endUtc = startUtc.plusMinutes(offering.getDurationMinutes());
+
+	            if (!hasConflict(getBlockingAppointments(provider), startUtc, endUtc)) {
+	                result.add(current);
+	            }
+	        }
+	    }
+
+	    return result;
+	}
+
+	private List<Appointment> getBlockingAppointments(User provider) {
+	    return appointmentRepository.findAllByProviderIdAndStatusIn(
+	            provider.getId(),
+	            List.of(AppointmentStatus.REQUESTED, AppointmentStatus.CONFIRMED)
+	    );
+	}
+
+	private boolean hasConflict(List<Appointment> appointments,
+			LocalDateTime start,
+			LocalDateTime end) {
+		return appointments.stream()
+				.anyMatch(existing -> overlaps(
+						start,
+						end,
+						existing.getStartDateTimeUtc(),
+						existing.getStartDateTimeUtc()
+						.plusMinutes(existing.getOffering().getDurationMinutes())
+						));
+	}
+	
+	/**
+	 * Returns provider calendar terms excluding already requested or confirmed appointments.
+	 *
+	 * @param provider provider whose free calendar terms should be returned
+	 * @return calendar terms available for booking
+	 */
+	@Transactional(readOnly = true)
+	public List<CalendarTerm> getFreeCalendarTerms(User provider) {
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+	    List<CalendarTerm> calendarTerms = providerCalendarService.generateCalendar(provider);
+	    List<Appointment> blockingAppointments = getBlockingAppointments(provider);
+
+	    List<CalendarTerm> result = new ArrayList<>();
+
+	    for (CalendarTerm term : calendarTerms) {
+	        result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
+	    }
+
+	    return result;
+	}
+	
+	/**
+	 * Splits one calendar term into free parts by excluding blocking appointments.
+	 *
+	 * @param term source calendar term
+	 * @param blockingAppointments requested or confirmed provider appointments
+	 * @param providerZone provider timezone
+	 * @return free parts of the original calendar term
+	 */
+	private List<CalendarTerm> excludeBlockingAppointments(CalendarTerm term,
+	        List<Appointment> blockingAppointments,
+	        ZoneId providerZone) {
+
+	    List<CalendarTerm> freeTerms = new ArrayList<>();
+	    LocalTime freeStart = term.getStartTime();
+
+	    List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
+	            .filter(appointment -> isAppointmentOnDate(appointment, term.getDate(), providerZone))
+	            .toList();
+
+	    for (Appointment appointment : appointmentsOnTermDate) {
+	        LocalDateTime appointmentStartLocal = toProviderLocalDateTime(appointment, providerZone);
+	        LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
+	        LocalTime appointmentEnd = appointmentStart.plusMinutes(
+	                appointment.getOffering().getDurationMinutes()
+	        );
+
+	        if (!overlaps(
+	                LocalDateTime.of(term.getDate(), term.getStartTime()),
+	                LocalDateTime.of(term.getDate(), term.getEndTime()),
+	                LocalDateTime.of(term.getDate(), appointmentStart),
+	                LocalDateTime.of(term.getDate(), appointmentEnd)
+	        )) {
+	            continue;
+	        }
+
+	        if (freeStart.isBefore(appointmentStart)) {
+	            freeTerms.add(new CalendarTerm(term.getDate(), freeStart, appointmentStart));
+	        }
+
+	        if (freeStart.isBefore(appointmentEnd)) {
+	            freeStart = appointmentEnd;
+	        }
+	    }
+
+	    if (freeStart.isBefore(term.getEndTime())) {
+	        freeTerms.add(new CalendarTerm(term.getDate(), freeStart, term.getEndTime()));
+	    }
+
+	    return freeTerms;
+	}
+	
+	/**
+	 * Checks whether appointment starts on given provider-local date.
+	 *
+	 * @param appointment appointment to check
+	 * @param date provider-local date
+	 * @param providerZone provider timezone
+	 * @return true if appointment starts on given date
+	 */
+	private boolean isAppointmentOnDate(Appointment appointment, LocalDate date, ZoneId providerZone) {
+	    return toProviderLocalDateTime(appointment, providerZone)
+	            .toLocalDate()
+	            .equals(date);
+	}
+
+	/**
+	 * Converts appointment start time from UTC to provider-local date and time.
+	 *
+	 * @param appointment appointment to convert
+	 * @param providerZone provider timezone
+	 * @return provider-local appointment start date and time
+	 */
+	private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
+	    return appointment.getStartDateTimeUtc()
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone)
+	            .toLocalDateTime();
+	}
+	
+	/**
+	 * Returns bookable start times grouped by date.
+	 *
+	 * @param provider provider whose calendar is used
+	 * @param offering selected offering
+	 * @return bookable date options
+	 */
+	@Transactional(readOnly = true)
+	public List<BookableDateOption> getBookableDateOptions(User provider, Offering offering) {
+	    Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
+
+	    for (CalendarTerm term : getFreeCalendarTerms(provider)) {
+	        List<LocalTime> times = getBookableTimesForTerm(term, offering);
+
+	        if (!times.isEmpty()) {
+	            timesByDate
+	                    .computeIfAbsent(term.getDate(), date -> new ArrayList<>())
+	                    .addAll(times);
+	        }
+	    }
+
+	    List<BookableDateOption> result = new ArrayList<>();
+
+	    for (Map.Entry<LocalDate, List<LocalTime>> entry : timesByDate.entrySet()) {
+	        List<LocalTime> times = entry.getValue()
+	                .stream()
+	                .distinct()
+	                .sorted()
+	                .collect(Collectors.toList());
+
+	        if (!times.isEmpty()) {
+	            result.add(new BookableDateOption(entry.getKey(), times));
+	        }
+	    }
+
+	    return result;
+	}
+	
+	/**
+	 * Returns possible booking start times inside one free calendar term.
+	 *
+	 * @param term free calendar term
+	 * @param offering selected offering
+	 * @return possible booking start times
+	 */
+	public List<LocalTime> getBookableTimesForTerm(CalendarTerm term, Offering offering) {
+	    List<LocalTime> result = new ArrayList<>();
+
+	    LocalTime latestStart = term.getEndTime()
+	            .minusMinutes(offering.getDurationMinutes());
+
+	    if (latestStart.isBefore(term.getStartTime())) {
+	        return result;
+	    }
+
+	    for (LocalTime current = term.getStartTime();
+	         !current.isAfter(latestStart);
+	         current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
+
+	        result.add(current);
+	    }
+
+	    return result;
+	}
 }
 ===== ./src/main/java/life/wellnara/service/AdminUserService.java =====
 package life.wellnara.service;
@@ -4649,6 +7671,22 @@ public class ClientOfferingService {
 
         return offeringRepository.findAllByProviderAndActiveTrue(providerClientLink.getProvider());
     }
+    
+    /**
+     * Returns provider linked to current client.
+     *
+     * @param client client user
+     * @return provider linked to client
+     */
+    @Transactional(readOnly = true)
+    public User getProviderOfClient(User client) {
+        validateClient(client);
+
+        ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+
+        return providerClientLink.getProvider();
+    }
 
     /**
      * Validates client role.
@@ -4659,6 +7697,17 @@ public class ClientOfferingService {
         if (client.getRole() != UserRole.CLIENT) {
             throw new IllegalArgumentException("Only client can view provider offerings");
         }
+    }
+    
+    @Transactional(readOnly = true)
+    public Offering getOfferingOfClientProvider(User client, Long offeringId) {
+        validateClient(client);
+
+        ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+
+        return offeringRepository.findByProviderAndId(providerClientLink.getProvider(), offeringId)
+                .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
     }
 }
 ===== ./src/main/java/life/wellnara/service/ProviderClientService.java =====

@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Provider</title>
+<meta charset="UTF-8">
+<title>Wellnara Provider</title>
 
-    <link rel="stylesheet" th:href="@{/css/provider.css}">
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 
-    <script>
+<script>
         function showSection(sectionId) {
             document.querySelectorAll('.provider-section')
                 .forEach(section => section.style.display = 'none');
@@ -47,335 +47,281 @@
 
 <body>
 
-<div class="page-header">
-    <h1>
-        Wellnara: Provider -
-        <span th:text="${providerName}"></span>
-    </h1>
+	<div class="page-header">
+		<h1>
+			Wellnara: Provider - <span th:text="${providerName}"></span>
+		</h1>
 
-    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
 
-<div th:if="${successMessage}" style="color: green;">
-    <p th:text="${successMessage}"></p>
-</div>
+	<div th:if="${successMessage}" style="color: green;">
+		<p th:text="${successMessage}"></p>
+	</div>
 
-<div th:if="${providerEmail}">
-    <p>
-        Your email:
-        <strong th:text="${providerEmail}"></strong>
-    </p>
-</div>
+	<div th:if="${providerEmail}">
+		<p>
+			Your email: <strong th:text="${providerEmail}"></strong>
+		</p>
+	</div>
 
-<div class="tabs">
-    <button id="tab-clients-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('clients-section')">
-        Clients
-    </button>
+	<div class="tabs">
+		<button id="tab-clients-section" class="tab-button" type="button"
+			onclick="showSection('clients-section')">Clients</button>
 
-    <button id="tab-offerings-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('offerings-section')">
-        Offerings
-    </button>
+		<button id="tab-offerings-section" class="tab-button" type="button"
+			onclick="showSection('offerings-section')">Offerings</button>
 
-    <button id="tab-calendar-section"
-            class="tab-button"
-            type="button"
-            onclick="showSection('calendar-section')">
-        Calendar
-    </button>
-</div>
+		<button id="tab-calendar-section" class="tab-button" type="button"
+			onclick="showSection('calendar-section')">Availability</button>
+	</div>
 
-<div id="clients-section" class="provider-section" style="display: none;">
+	<div id="clients-section" class="provider-section"
+		style="display: none;">
 
-    <h2>My clients</h2>
+		<h2>My clients</h2>
 
-    <form th:action="@{/provider/invite-client}" method="post">
-        <div class="form-row">
-            <input id="clientEmail"
-                   type="email"
-                   name="email"
-                   placeholder="Enter Client email"
-                   required>
+		<form th:action="@{/provider/invite-client}" method="post">
+			<div class="form-row">
+				<input id="clientEmail" type="email" name="email"
+					placeholder="Enter Client email" required>
 
-            <button type="submit">Invite</button>
-        </div>
-    </form>
+				<button type="submit">Invite</button>
+			</div>
+		</form>
 
-    <div th:if="${clientInviteError}" style="color: red;">
-        <p th:text="${clientInviteError}"></p>
-    </div>
+		<div th:if="${clientInviteError}" style="color: red;">
+			<p th:text="${clientInviteError}"></p>
+		</div>
 
-    <div th:if="${clientInviteLink}">
-        <p>Client registration link:</p>
-        <p>
-            <a th:href="${clientInviteLink}"
-               th:text="${clientInviteLink}"></a>
-        </p>
-    </div>
+		<div th:if="${clientInviteLink}">
+			<p>Client registration link:</p>
+			<p>
+				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
+			</p>
+		</div>
 
-    <div th:if="${#lists.isEmpty(clients)}">
-        <p>No clients found.</p>
-    </div>
+		<div th:if="${#lists.isEmpty(clients)}">
+			<p>No clients found.</p>
+		</div>
 
-    <table th:if="${not #lists.isEmpty(clients)}">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Invited at</th>
-            <th>Action</th>
-        </tr>
-        </thead>
+		<table th:if="${not #lists.isEmpty(clients)}">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Username</th>
+					<th>Email</th>
+					<th>Invited at</th>
+					<th>Action</th>
+				</tr>
+			</thead>
 
-        <tbody>
-        <tr th:each="clientLink : ${clients}">
-            <td th:text="${clientLink.client.id}"></td>
-            <td th:text="${clientLink.client.username}"></td>
-            <td th:text="${clientLink.client.email}"></td>
-            <td th:text="${clientLink.invitedAt}"></td>
-            <td>
-                <form th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
-                      method="post"
-                      onsubmit="return confirm('Are you sure you want to delete this client?');">
-                    <button type="submit">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="clientLink : ${clients}">
+					<td th:text="${clientLink.client.id}"></td>
+					<td th:text="${clientLink.client.username}"></td>
+					<td th:text="${clientLink.client.email}"></td>
+					<td th:text="${clientLink.invitedAt}"></td>
+					<td>
+						<form
+							th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+							method="post"
+							onsubmit="return confirm('Are you sure you want to delete this client?');">
+							<button type="submit">Delete</button>
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 
-<div id="offerings-section" class="provider-section" style="display: none;">
+		<div style="margin-top: 30px;">
+			<h2>Appointment requests</h2>
 
-    <h2>My offerings</h2>
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
 
-    <form th:action="@{/provider/offerings}" method="post">
-        <div class="form-row">
-            <input id="offeringName"
-                   type="text"
-                   name="name"
-                   placeholder="Name"
-                   required>
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Client</th>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+					</tr>
+				</thead>
 
-            <textarea id="offeringDescription"
-                      name="description"
-                      placeholder="Description"
-                      required></textarea>
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.clientName}"></td>
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
-            <input id="pricePerSession"
-                   type="number"
-                   name="pricePerSession"
-                   step="0.01"
-                   min="0"
-                   placeholder="Price"
-                   required>
+	</div>
 
-            <input id="durationMinutes"
-                   type="number"
-                   name="durationMinutes"
-                   min="1"
-                   placeholder="Duration"
-                   required>
+	<div id="offerings-section" class="provider-section"
+		style="display: none;">
 
-            <button type="submit">Create</button>
-        </div>
-    </form>
+		<h2>My offerings</h2>
 
-    <div th:if="${#lists.isEmpty(offerings)}">
-        <p>No offerings found.</p>
-    </div>
+		<form th:action="@{/provider/offerings}" method="post">
+			<div class="form-row">
+				<input id="offeringName" type="text" name="name" placeholder="Price"
+					required>
 
-    <table th:if="${not #lists.isEmpty(offerings)}">
-        <thead>
-        <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Price</th>
-            <th>Duration</th>
-            <th>Active</th>
-            <th>Edit</th>
-        </tr>
-        </thead>
+				<textarea id="offeringDescription" name="description"
+					placeholder="Description" required></textarea>
 
-        <tbody>
-        <tr th:each="offering : ${offerings}">
-            <td th:text="${offering.name}"></td>
-            <td th:text="${offering.description}"></td>
-            <td th:text="${offering.pricePerSession}"></td>
-            <td th:text="${offering.durationMinutes}"></td>
-            <td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
-            <td>
-                <a th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}">
-                    Edit
-                </a>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+				<input id="pricePerSession" type="number" name="pricePerSession"
+					step="0.01" min="0" placeholder="Price" required> <input
+					id="durationMinutes" type="number" name="durationMinutes" min="1"
+					placeholder="Duration" required>
 
-<div id="calendar-section" class="provider-section" style="display: none;">
+				<button type="submit">Create</button>
+			</div>
+		</form>
 
-    <h2>Calendar</h2>
+		<div th:if="${#lists.isEmpty(offerings)}">
+			<p>No offerings found.</p>
+		</div>
 
-    <div id="calendar-errors"
-         th:if="${calendarErrors != null}"
-         style="color: #b00020; margin-bottom: 15px;">
-        <div th:each="err : ${calendarErrors.values()}">
-            ⚠ <span th:text="${err}"></span>
-        </div>
-    </div>
+		<table th:if="${not #lists.isEmpty(offerings)}">
+			<thead>
+				<tr>
+					<th class="offering-name-column">Name</th>
+					<th class="offering-description-column">Description</th>
+					<th>Price</th>
+					<th>Duration</th>
+					<th>Active</th>
+				</tr>
+			</thead>
 
-    <p>
-        Period:
-        <span th:if="${planningFrom != null and planningTo != null}"
-              th:text="${planningFrom} + ' - ' + ${planningTo}"></span>
-        <span th:if="${planningFrom == null or planningTo == null}">
-            not selected
-        </span>
-    </p>
+			<tbody>
+				<tr th:each="offering : ${offerings}">
+					<td class="offering-name-column"><a
+						th:href="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}"
+						th:text="${offering.name}"> </a></td>
 
-    <div th:if="${#lists.isEmpty(calendarTerms)}">
-        <p>No slots</p>
-    </div>
+					<td class="offering-description-column"
+						th:text="${offering.description}"></td>
 
-    <table th:if="${not #lists.isEmpty(calendarTerms)}">
-        <thead>
-        <tr>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Status</th>
-        </tr>
-        </thead>
+					<td th:text="${offering.pricePerSession}"></td>
+					<td th:text="${offering.durationMinutes}"></td>
+					<td th:text="${offering.active ? 'Active' : 'Inactive'}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-        <tbody>
-        <tr th:each="term : ${calendarTerms}">
-            <td th:text="${term.date}"></td>
-            <td th:text="${term.startTime}"></td>
-            <td th:text="${term.endTime}"></td>
-            <td>Free</td>
-        </tr>
-        </tbody>
-    </table>
+	<div id="calendar-section" class="provider-section"
+		style="display: none;">
 
-    <form th:action="@{/provider/calendar}" method="post">
+		<h2>My availability</h2>
 
-        <input id="providerTimezone"
-               type="hidden"
-               name="providerTimezone">
+		<div id="calendar-errors" th:if="${calendarErrors != null}"
+			style="color: #b00020; margin-bottom: 15px;">
+			<div th:each="err : ${calendarErrors.values()}">
+				⚠ <span th:text="${err}"></span>
+			</div>
+		</div>
 
-        <h3>Period</h3>
+		<p>
+			Period: <span th:if="${planningFrom != null and planningTo != null}"
+				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
+				th:if="${planningFrom == null or planningTo == null}"> not
+				selected </span>
+		</p>
 
-        <div class="form-row">
-            <input id="planningFrom"
-                   type="date"
-                   name="planningFrom"
-                   th:value="${planningFrom}"
-                   required>
+		<div th:if="${#lists.isEmpty(calendarTerms)}">
+			<p>No slots</p>
+		</div>
 
-            <input id="planningTo"
-                   type="date"
-                   name="planningTo"
-                   th:value="${planningTo}"
-                   required>
-        </div>
+		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Start</th>
+					<th>End</th>
+				</tr>
+			</thead>
 
-        <h3>Availability</h3>
+			<tbody>
+				<tr th:each="term : ${calendarTerms}">
+					<td th:text="${term.date}"></td>
+					<td th:text="${term.startTime}"></td>
+					<td th:text="${term.endTime}"></td>
+				</tr>
+			</tbody>
+		</table>
 
-        <table class="availability-table">
-            <tbody>
-            <tr>
-                <td>Monday</td>
-                <td>
-                    <input id="monday-start"
-                           name="mondayStart"
-                           type="time"
-                           th:value="${calendarForm.mondayStart}">
-                </td>
-                <td>
-                    <input id="monday-end"
-                           name="mondayEnd"
-                           type="time"
-                           th:value="${calendarForm.mondayEnd}">
-                </td>
-            </tr>
+		<form th:action="@{/provider/calendar}" method="post">
 
-            <tr>
-                <td>Tuesday</td>
-                <td>
-                    <input id="tuesday-start"
-                           name="tuesdayStart"
-                           type="time"
-                           th:value="${calendarForm.tuesdayStart}">
-                </td>
-                <td>
-                    <input id="tuesday-end"
-                           name="tuesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.tuesdayEnd}">
-                </td>
-            </tr>
+			<input id="providerTimezone" type="hidden" name="providerTimezone">
 
-            <tr>
-                <td>Wednesday</td>
-                <td>
-                    <input id="wednesday-start"
-                           name="wednesdayStart"
-                           type="time"
-                           th:value="${calendarForm.wednesdayStart}">
-                </td>
-                <td>
-                    <input id="wednesday-end"
-                           name="wednesdayEnd"
-                           type="time"
-                           th:value="${calendarForm.wednesdayEnd}">
-                </td>
-            </tr>
+			<h3>Period</h3>
 
-            <tr>
-                <td>Thursday</td>
-                <td>
-                    <input id="thursday-start"
-                           name="thursdayStart"
-                           type="time"
-                           th:value="${calendarForm.thursdayStart}">
-                </td>
-                <td>
-                    <input id="thursday-end"
-                           name="thursdayEnd"
-                           type="time"
-                           th:value="${calendarForm.thursdayEnd}">
-                </td>
-            </tr>
+			<div class="form-row">
+				<input id="planningFrom" type="date" name="planningFrom"
+					th:value="${planningFrom}" required> <input id="planningTo"
+					type="date" name="planningTo" th:value="${planningTo}" required>
+			</div>
 
-            <tr>
-                <td>Friday</td>
-                <td>
-                    <input id="friday-start"
-                           name="fridayStart"
-                           type="time"
-                           th:value="${calendarForm.fridayStart}">
-                </td>
-                <td>
-                    <input id="friday-end"
-                           name="fridayEnd"
-                           type="time"
-                           th:value="${calendarForm.fridayEnd}">
-                </td>
-            </tr>
-            </tbody>
-        </table>
+			<h3>Availability</h3>
 
-        <button class="primary-button" type="submit">Save</button>
-    </form>
-</div>
+			<table class="availability-table">
+				<tbody>
+					<tr>
+						<td>Monday</td>
+						<td><input id="monday-start" name="mondayStart" type="time"
+							th:value="${calendarForm.mondayStart}"></td>
+						<td><input id="monday-end" name="mondayEnd" type="time"
+							th:value="${calendarForm.mondayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Tuesday</td>
+						<td><input id="tuesday-start" name="tuesdayStart" type="time"
+							th:value="${calendarForm.tuesdayStart}"></td>
+						<td><input id="tuesday-end" name="tuesdayEnd" type="time"
+							th:value="${calendarForm.tuesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Wednesday</td>
+						<td><input id="wednesday-start" name="wednesdayStart"
+							type="time" th:value="${calendarForm.wednesdayStart}"></td>
+						<td><input id="wednesday-end" name="wednesdayEnd" type="time"
+							th:value="${calendarForm.wednesdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Thursday</td>
+						<td><input id="thursday-start" name="thursdayStart"
+							type="time" th:value="${calendarForm.thursdayStart}"></td>
+						<td><input id="thursday-end" name="thursdayEnd" type="time"
+							th:value="${calendarForm.thursdayEnd}"></td>
+					</tr>
+
+					<tr>
+						<td>Friday</td>
+						<td><input id="friday-start" name="fridayStart" type="time"
+							th:value="${calendarForm.fridayStart}"></td>
+						<td><input id="friday-end" name="fridayEnd" type="time"
+							th:value="${calendarForm.fridayEnd}"></td>
+					</tr>
+				</tbody>
+			</table>
+
+			<button class="primary-button" type="submit">Save</button>
+		</form>
+	</div>
 
 </body>
 </html>

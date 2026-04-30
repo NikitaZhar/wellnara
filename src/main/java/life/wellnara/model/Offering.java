@@ -45,7 +45,7 @@ public class Offering {
     /**
      * Required by JPA.
      */
-    protected Offering() {
+    public Offering() {
     }
 
     /**
