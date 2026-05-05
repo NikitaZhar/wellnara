@@ -7,42 +7,151 @@
 <link rel="stylesheet" th:href="@{/css/provider.css}">
 
 <script>
-        function showSection(sectionId) {
-            document.querySelectorAll('.provider-section')
-                .forEach(section => section.style.display = 'none');
+    function showSection(sectionId) {
+        document.querySelectorAll('.provider-section')
+            .forEach(section => section.style.display = 'none');
 
-            document.querySelectorAll('.tab-button')
-                .forEach(button => button.disabled = false);
+        document.querySelectorAll('.tab-button')
+            .forEach(button => button.disabled = false);
 
-            document.getElementById(sectionId).style.display = 'block';
-            document.getElementById('tab-' + sectionId).disabled = true;
+        document.getElementById(sectionId).style.display = 'block';
+        document.getElementById('tab-' + sectionId).disabled = true;
+    }
+
+    function fillProviderTimezone() {
+        const timezoneInput = document.getElementById('providerTimezone');
+
+        if (timezoneInput) {
+            timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        }
+    }
+
+    function configurePlanningDateLimits() {
+        const planningFrom = document.getElementById('planningFrom');
+        const planningTo = document.getElementById('planningTo');
+
+        if (!planningFrom || !planningTo) {
+            return;
         }
 
-        function fillProviderTimezone() {
-            const timezoneInput = document.getElementById('providerTimezone');
+        const today = new Date().toISOString().split('T')[0];
 
-            if (timezoneInput) {
-                timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            }
+        planningFrom.min = today;
+
+        if (planningFrom.value < today) {
+            planningFrom.value = today;
         }
 
-        window.addEventListener('DOMContentLoaded', function () {
-            const params = new URLSearchParams(window.location.search);
-            const section = params.get('section');
+        planningTo.min = planningFrom.value;
 
-            if (document.getElementById('calendar-errors')) {
-                showSection('calendar-section');
-            } else if (section === 'offerings') {
-                showSection('offerings-section');
-            } else if (section === 'calendar') {
-                showSection('calendar-section');
-            } else {
-                showSection('clients-section');
+        if (planningTo.value < planningFrom.value) {
+            planningTo.value = planningFrom.value;
+        }
+    }
+
+    function updateAvailabilityPreview() {
+        const period = document.getElementById('availabilityPreviewPeriod');
+        const body = document.getElementById('availabilityPreviewBody');
+        const from = document.getElementById('planningFrom');
+        const to = document.getElementById('planningTo');
+
+        if (!period || !body || !from || !to) {
+            return;
+        }
+
+        body.innerHTML = '';
+
+        if (!from.value || !to.value || from.value > to.value) {
+            period.textContent = 'not selected';
+            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+            return;
+        }
+
+        period.textContent = from.value + ' - ' + to.value;
+
+        const days = [
+            [1, 'monday-start', 'monday-end'],
+            [2, 'tuesday-start', 'tuesday-end'],
+            [3, 'wednesday-start', 'wednesday-end'],
+            [4, 'thursday-start', 'thursday-end'],
+            [5, 'friday-start', 'friday-end']
+        ];
+
+        let hasSlots = false;
+        let current = new Date(from.value + 'T00:00:00Z');
+        const end = new Date(to.value + 'T00:00:00Z');
+
+        while (current <= end) {
+            const day = current.getUTCDay();
+
+            for (const [expectedDay, startId, endId] of days) {
+                const start = document.getElementById(startId);
+                const endTime = document.getElementById(endId);
+
+                if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
+                    body.innerHTML +=
+                        '<tr>' +
+                        '<td>' + current.toISOString().split('T')[0] + '</td>' +
+                        '<td>' + start.value + '</td>' +
+                        '<td>' + endTime.value + '</td>' +
+                        '</tr>';
+
+                    hasSlots = true;
+                }
             }
 
-            fillProviderTimezone();
+            current.setUTCDate(current.getUTCDate() + 1);
+        }
+
+        if (!hasSlots) {
+            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        const section = params.get('section');
+
+        if (document.getElementById('calendar-errors')) {
+            showSection('calendar-section');
+        } else if (section === 'offerings') {
+            showSection('offerings-section');
+        } else if (section === 'provider-calendar') {
+            showSection('provider-calendar-section');
+        } else if (section === 'calendar') {
+            showSection('calendar-section');
+        } else {
+            showSection('clients-section');
+        }
+
+        fillProviderTimezone();
+        configurePlanningDateLimits();
+
+        [
+            'planningFrom',
+            'planningTo',
+            'monday-start',
+            'monday-end',
+            'tuesday-start',
+            'tuesday-end',
+            'wednesday-start',
+            'wednesday-end',
+            'thursday-start',
+            'thursday-end',
+            'friday-start',
+            'friday-end'
+        ].forEach(id => {
+            const input = document.getElementById(id);
+
+            if (input) {
+                input.addEventListener('input', updateAvailabilityPreview);
+                input.addEventListener('change', updateAvailabilityPreview);
+            }
         });
-    </script>
+
+        updateAvailabilityPreview();
+    });
+</script>
 </head>
 
 <body>
@@ -72,6 +181,10 @@
 		<button id="tab-offerings-section" class="tab-button" type="button"
 			onclick="showSection('offerings-section')">Offerings</button>
 
+		<button id="tab-provider-calendar-section" class="tab-button"
+			type="button" onclick="showSection('provider-calendar-section')">My
+			Calendar</button>
+
 		<button id="tab-calendar-section" class="tab-button" type="button"
 			onclick="showSection('calendar-section')">Availability</button>
 	</div>
@@ -79,7 +192,7 @@
 	<div id="clients-section" class="provider-section"
 		style="display: none;">
 
-		<h2>My clients</h2>
+		<h2>Invite New Client</h2>
 
 		<form th:action="@{/provider/invite-client}" method="post">
 			<div class="form-row">
@@ -101,41 +214,56 @@
 			</p>
 		</div>
 
-		<div th:if="${#lists.isEmpty(clients)}">
-			<p>No clients found.</p>
+		<div style="margin-top: 40px;">
+			<h2>My clients</h2>
+
+			<div th:if="${#lists.isEmpty(clients)}">
+				<p>No clients found.</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(clients)}">
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>Username</th>
+						<th>Email</th>
+						<th>Invited at</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="clientLink : ${clients}">
+						<td th:text="${clientLink.client.id}"></td>
+						<td th:text="${clientLink.client.username}"></td>
+						<td th:text="${clientLink.client.email}"></td>
+						<td th:text="${clientLink.invitedAt}"></td>
+						<td>
+							<form
+								th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+								method="post"
+								onsubmit="return confirm('Are you sure you want to delete this client?');">
+								<button type="submit">Delete</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(clients)}">
-			<thead>
-				<tr>
-					<th>ID</th>
-					<th>Username</th>
-					<th>Email</th>
-					<th>Invited at</th>
-					<th>Action</th>
-				</tr>
-			</thead>
+	</div>
 
-			<tbody>
-				<tr th:each="clientLink : ${clients}">
-					<td th:text="${clientLink.client.id}"></td>
-					<td th:text="${clientLink.client.username}"></td>
-					<td th:text="${clientLink.client.email}"></td>
-					<td th:text="${clientLink.invitedAt}"></td>
-					<td>
-						<form
-							th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
-							method="post"
-							onsubmit="return confirm('Are you sure you want to delete this client?');">
-							<button type="submit">Delete</button>
-						</form>
-					</td>
-				</tr>
-			</tbody>
-		</table>
+	<div id="provider-calendar-section" class="provider-section"
+		style="display: none;">
+
+		<h2>My Calendar</h2>
 
 		<div style="margin-top: 30px;">
-			<h2>Appointment requests</h2>
+			<h3>Appointment requests</h3>
+
+			<div th:if="${appointmentActionError}" style="color: red;">
+				<p th:text="${appointmentActionError}"></p>
+			</div>
 
 			<div th:if="${#lists.isEmpty(appointments)}">
 				<p>No appointment requests</p>
@@ -149,6 +277,7 @@
 						<th>Date</th>
 						<th>Time</th>
 						<th>Status</th>
+						<th>Action</th>
 					</tr>
 				</thead>
 
@@ -159,6 +288,76 @@
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
+						<td>
+							<div style="margin-bottom: 8px;">
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
+									style="display: inline;">
+									<button type="submit">Accept &amp; Request Payment</button>
+								</form>
+							</div>
+
+							<div>
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+									<textarea name="rejectionReason" placeholder="Rejection reason"
+										required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">Reject</button>
+								</form>
+							</div>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div style="margin-top: 40px;">
+			<h3>Confirmed appointments</h3>
+
+			<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+				<p>No confirmed appointments</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+				<thead>
+					<tr>
+						<th>Client</th>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="appointment : ${confirmedAppointments}">
+						<td th:text="${appointment.clientName}"></td>
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td>
+							<button type="button">Reschedule</button>
+
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+								<button type="submit">Cancel</button>
+							</form>
+
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Mark this appointment as completed?');">
+								<button type="submit">Completed</button>
+							</form>
+						</td>
 					</tr>
 				</tbody>
 			</table>
@@ -233,17 +432,12 @@
 		</div>
 
 		<p>
-			Period: <span th:if="${planningFrom != null and planningTo != null}"
-				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
-				th:if="${planningFrom == null or planningTo == null}"> not
-				selected </span>
+			Period: <span id="availabilityPreviewPeriod"
+				th:text="${planningFrom != null and planningTo != null} ? ${planningFrom} + ' - ' + ${planningTo} : 'not selected'">
+			</span>
 		</p>
 
-		<div th:if="${#lists.isEmpty(calendarTerms)}">
-			<p>No slots</p>
-		</div>
-
-		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+		<table>
 			<thead>
 				<tr>
 					<th>Date</th>
@@ -252,7 +446,7 @@
 				</tr>
 			</thead>
 
-			<tbody>
+			<tbody id="availabilityPreviewBody">
 				<tr th:each="term : ${calendarTerms}">
 					<td th:text="${term.date}"></td>
 					<td th:text="${term.startTime}"></td>

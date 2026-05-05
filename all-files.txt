@@ -219,6 +219,30 @@ WHERE NOT EXISTS (
 <meta charset="UTF-8">
 <title>Wellnara Client</title>
 <link rel="stylesheet" th:href="@{/css/provider.css}">
+
+<script>
+    function showClientSection(sectionId) {
+        document.querySelectorAll('.client-section')
+            .forEach(section => section.style.display = 'none');
+
+        document.querySelectorAll('.tab-button')
+            .forEach(button => button.disabled = false);
+
+        document.getElementById(sectionId).style.display = 'block';
+        document.getElementById('tab-' + sectionId).disabled = true;
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        const section = params.get('section');
+
+        if (section === 'calendar') {
+            showClientSection('client-calendar-section');
+        } else {
+            showClientSection('client-main-section');
+        }
+    });
+</script>
 </head>
 
 <body>
@@ -230,68 +254,134 @@ WHERE NOT EXISTS (
 
 		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
 	</div>
-	<!-- Имя клиента -->
-	<div>
-		<strong th:text="${clientName}"></strong>
+
+	<div class="tabs">
+		<button id="tab-client-main-section" class="tab-button" type="button"
+			onclick="showClientSection('client-main-section')">Requests</button>
+
+		<button id="tab-client-calendar-section" class="tab-button"
+			type="button" onclick="showClientSection('client-calendar-section')">Calendar</button>
 	</div>
 
-	<!-- Услуги провайдера -->
-	<div style="margin-top: 30px;">
-		<h3>Offerings of my provider</h3>
+	<div id="client-main-section" class="client-section"
+		style="display: none;">
 
-		<div th:if="${#lists.isEmpty(offerings)}">
-			<p>No offerings available</p>
+		<div style="margin-top: 30px;">
+			<h3>Offerings of my provider</h3>
+
+			<div th:if="${#lists.isEmpty(offerings)}">
+				<p>No offerings available</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(offerings)}"
+				class="client-offerings-table">
+				<thead>
+					<tr>
+						<th class="offering-name-column">Name</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="offering : ${offerings}">
+						<td class="offering-name-column"><a
+							th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+							th:text="${offering.name}"> </a></td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(offerings)}"
-			class="client-offerings-table">
-			<thead>
-				<tr>
-					<th class="offering-name-column">Name</th>
-				</tr>
-			</thead>
+		<div style="margin-top: 30px;">
+			<h3>My appointment requests</h3>
 
-			<tbody>
-				<tr th:each="offering : ${offerings}">
-					<td class="offering-name-column"><a
-						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
-						th:text="${offering.name}"> </a></td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
 
-	<div style="margin-top: 30px;">
-		<h3>My appointment requests</h3>
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+						<th>Message</th>
+						<th>Action</th>
+					</tr>
+				</thead>
 
-		<div th:if="${#lists.isEmpty(appointments)}">
-			<p>No appointment requests</p>
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+
+						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
+								Request rejected. Reason: <span
+								th:text="${appointment.rejectionReason}"></span>
+						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment is required to confirm
+								the appointment. </span> <span
+							th:if="${appointment.status.name() == 'CONFIRMED'}">
+								Appointment confirmed and added to Calendar. </span></td>
+
+						<td>
+							<form th:if="${appointment.status.name() == 'REJECTED'}"
+								th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Remove this rejected appointment message?');">
+								<button type="submit">OK</button>
+							</form>
+
+							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Pay for this appointment?');">
+								<button type="submit">Pay</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(appointments)}">
-			<thead>
-				<tr>
-					<th>Offering</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Status</th>
-				</tr>
-			</thead>
-
-			<tbody>
-				<tr th:each="appointment : ${appointments}">
-					<td th:text="${appointment.offeringName}"></td>
-					<td th:text="${appointment.localDate}"></td>
-					<td th:text="${appointment.localTime}"></td>
-					<td th:text="${appointment.status}"></td>
-				</tr>
-			</tbody>
-		</table>
 	</div>
 
-	<!-- Logout -->
-	<div style="margin-top: 30px;">
-		<a href="/auth/logout">Logout</a>
+	<div id="client-calendar-section" class="client-section"
+		style="display: none;">
+
+		<div style="margin-top: 30px;">
+			<h3>Calendar</h3>
+
+			<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+				<p>No confirmed appointments</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="appointment : ${confirmedAppointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td>
+							<button type="button">Reschedule</button>
+							<button type="button">Cancel</button>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
 	</div>
 
 </body>
@@ -399,6 +489,88 @@ WHERE NOT EXISTS (
                 timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
             }
         }
+        
+        function configurePlanningDateLimits() {
+            const planningFrom = document.getElementById('planningFrom');
+            const planningTo = document.getElementById('planningTo');
+
+            if (!planningFrom || !planningTo) {
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            planningFrom.min = today;
+
+            if (planningFrom.value < today) {
+                planningFrom.value = today;
+            }
+
+            planningTo.min = planningFrom.value;
+
+            if (planningTo.value < planningFrom.value) {
+                planningTo.value = planningFrom.value;
+            }
+        }
+        
+        function updateAvailabilityPreview() {
+            const period = document.getElementById('availabilityPreviewPeriod');
+            const body = document.getElementById('availabilityPreviewBody');
+            const from = document.getElementById('planningFrom');
+            const to = document.getElementById('planningTo');
+
+            if (!period || !body || !from || !to) {
+                return;
+            }
+
+            body.innerHTML = '';
+
+            if (!from.value || !to.value || from.value > to.value) {
+                period.textContent = 'not selected';
+                body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+                return;
+            }
+
+            period.textContent = from.value + ' - ' + to.value;
+
+            const days = [
+                [1, 'monday-start', 'monday-end'],
+                [2, 'tuesday-start', 'tuesday-end'],
+                [3, 'wednesday-start', 'wednesday-end'],
+                [4, 'thursday-start', 'thursday-end'],
+                [5, 'friday-start', 'friday-end']
+            ];
+
+            let hasSlots = false;
+            let current = new Date(from.value + 'T00:00:00Z');
+            const end = new Date(to.value + 'T00:00:00Z');
+
+            while (current <= end) {
+                const day = current.getUTCDay();
+
+                for (const [expectedDay, startId, endId] of days) {
+                    const start = document.getElementById(startId);
+                    const endTime = document.getElementById(endId);
+
+                    if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
+                        body.innerHTML +=
+                            '<tr>' +
+                            '<td>' + current.toISOString().split('T')[0] + '</td>' +
+                            '<td>' + start.value + '</td>' +
+                            '<td>' + endTime.value + '</td>' +
+                            '</tr>';
+
+                        hasSlots = true;
+                    }
+                }
+
+                current.setUTCDate(current.getUTCDate() + 1);
+            }
+
+            if (!hasSlots) {
+                body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+            }
+        }
 
         window.addEventListener('DOMContentLoaded', function () {
             const params = new URLSearchParams(window.location.search);
@@ -408,6 +580,8 @@ WHERE NOT EXISTS (
                 showSection('calendar-section');
             } else if (section === 'offerings') {
                 showSection('offerings-section');
+            } else if (section === 'provider-calendar') {
+                showSection('provider-calendar-section');
             } else if (section === 'calendar') {
                 showSection('calendar-section');
             } else {
@@ -415,6 +589,30 @@ WHERE NOT EXISTS (
             }
 
             fillProviderTimezone();
+            configurePlanningDateLimits();
+            [
+                'planningFrom',
+                'planningTo',
+                'monday-start',
+                'monday-end',
+                'tuesday-start',
+                'tuesday-end',
+                'wednesday-start',
+                'wednesday-end',
+                'thursday-start',
+                'thursday-end',
+                'friday-start',
+                'friday-end'
+            ].forEach(id => {
+                const input = document.getElementById(id);
+
+                if (input) {
+                    input.addEventListener('input', updateAvailabilityPreview);
+                    input.addEventListener('change', updateAvailabilityPreview);
+                }
+            });
+
+            updateAvailabilityPreview();
         });
     </script>
 </head>
@@ -445,6 +643,9 @@ WHERE NOT EXISTS (
 
 		<button id="tab-offerings-section" class="tab-button" type="button"
 			onclick="showSection('offerings-section')">Offerings</button>
+
+		<button id="tab-provider-calendar-section" class="tab-button"
+			type="button" onclick="showSection('provider-calendar-section')">Calendar</button>
 
 		<button id="tab-calendar-section" class="tab-button" type="button"
 			onclick="showSection('calendar-section')">Availability</button>
@@ -511,6 +712,10 @@ WHERE NOT EXISTS (
 		<div style="margin-top: 30px;">
 			<h2>Appointment requests</h2>
 
+			<div th:if="${appointmentActionError}" style="color: red;">
+				<p th:text="${appointmentActionError}"></p>
+			</div>
+
 			<div th:if="${#lists.isEmpty(appointments)}">
 				<p>No appointment requests</p>
 			</div>
@@ -523,6 +728,7 @@ WHERE NOT EXISTS (
 						<th>Date</th>
 						<th>Time</th>
 						<th>Status</th>
+						<th>Action</th>
 					</tr>
 				</thead>
 
@@ -533,10 +739,75 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
+						<td>
+							<!-- ROW 1: Accept -->
+							<div style="margin-bottom: 8px;">
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
+									style="display: inline;">
+									<button type="submit">Accept &amp; Request Payment</button>
+								</form>
+							</div> <!-- ROW 2: Reject -->
+							<div>
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+									<textarea name="rejectionReason" placeholder="Rejection reason"
+										required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">Reject</button>
+								</form>
+							</div>
+						</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
+	</div>
+
+	<div id="provider-calendar-section" class="provider-section"
+		style="display: none;">
+
+		<h2>Calendar</h2>
+
+		<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+			<p>No confirmed appointments</p>
+		</div>
+
+		<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+			<thead>
+				<tr>
+					<th>Client</th>
+					<th>Offering</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="appointment : ${confirmedAppointments}">
+					<td th:text="${appointment.clientName}"></td>
+					<td th:text="${appointment.offeringName}"></td>
+					<td th:text="${appointment.localDate}"></td>
+					<td th:text="${appointment.localTime}"></td>
+					<td>
+						<button type="button">Reschedule</button>
+
+						<form
+							th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+							method="post" style="display: inline;"
+							onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+							<button type="submit">Cancel</button>
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 
 	</div>
 
@@ -607,10 +878,9 @@ WHERE NOT EXISTS (
 		</div>
 
 		<p>
-			Period: <span th:if="${planningFrom != null and planningTo != null}"
-				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
-				th:if="${planningFrom == null or planningTo == null}"> not
-				selected </span>
+			Period: <span id="availabilityPreviewPeriod"
+				th:text="${planningFrom != null and planningTo != null} ? ${planningFrom} + ' - ' + ${planningTo} : 'not selected'">
+			</span>
 		</p>
 
 		<div th:if="${#lists.isEmpty(calendarTerms)}">
@@ -626,7 +896,7 @@ WHERE NOT EXISTS (
 				</tr>
 			</thead>
 
-			<tbody>
+			<tbody id="availabilityPreviewBody">
 				<tr th:each="term : ${calendarTerms}">
 					<td th:text="${term.date}"></td>
 					<td th:text="${term.startTime}"></td>
@@ -830,6 +1100,383 @@ WHERE NOT EXISTS (
 
 </body>
 </html>
+===== ./src/test/java/life/wellnara/AppointmentCleanupServiceTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.UserRepository;
+import life.wellnara.service.AppointmentService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Service tests for expired appointment cleanup.
+ */
+@SpringBootTest
+@Transactional
+class AppointmentCleanupServiceTest {
+
+    @Autowired
+    private AppointmentService appointmentService;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Test
+    @DisplayName("Should delete only expired unpaid appointments")
+    void shouldDeleteOnlyExpiredUnpaidAppointments() {
+        User provider = createUser("provider-cleanup", UserRole.PROVIDER);
+        User client = createUser("client-cleanup", UserRole.CLIENT);
+        Offering offering = createOffering(provider);
+
+        Appointment expiredRequested = createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now(ZoneOffset.UTC).minusDays(1)
+        );
+
+        Appointment expiredPaymentRequested = createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now(ZoneOffset.UTC).minusDays(1)
+        );
+        expiredPaymentRequested.requestPayment();
+
+        Appointment expiredConfirmed = createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now(ZoneOffset.UTC).minusDays(1)
+        );
+        expiredConfirmed.confirm();
+
+        Appointment futureRequested = createAppointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now(ZoneOffset.UTC).plusDays(1)
+        );
+
+        appointmentRepository.save(expiredPaymentRequested);
+        appointmentRepository.save(expiredConfirmed);
+
+        appointmentService.deleteExpiredUnpaidAppointments();
+
+        assertThat(appointmentRepository.findById(expiredRequested.getId())).isEmpty();
+        assertThat(appointmentRepository.findById(expiredPaymentRequested.getId())).isEmpty();
+
+        assertThat(appointmentRepository.findById(expiredConfirmed.getId())).isPresent();
+        assertThat(appointmentRepository.findById(futureRequested.getId())).isPresent();
+    }
+
+    private User createUser(String usernamePrefix, UserRole role) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(role);
+
+        return userRepository.save(user);
+    }
+
+    private Offering createOffering(User provider) {
+        Offering offering = new Offering(
+                provider,
+                "Consultation",
+                "Test consultation",
+                new BigDecimal("100.00"),
+                60
+        );
+
+        return offeringRepository.save(offering);
+    }
+
+    private Appointment createAppointment(User provider,
+                                          User client,
+                                          Offering offering,
+                                          LocalDateTime startDateTimeUtc) {
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                startDateTimeUtc
+        );
+
+        return appointmentRepository.save(appointment);
+    }
+}
+===== ./src/test/java/life/wellnara/AppointmentLifecycleMvcTest.java =====
+package life.wellnara;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityPeriod;
+import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.AvailabilityPeriodRepository;
+import life.wellnara.repository.AvailabilityRuleRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * MVC tests for provider appointment actions and client acknowledgement flow.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+class AppointmentLifecycleMvcTest {
+
+    @Autowired
+    private org.springframework.test.web.servlet.MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    @Autowired
+    private AvailabilityPeriodRepository availabilityPeriodRepository;
+
+    @Autowired
+    private AvailabilityRuleRepository availabilityRuleRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Test
+    @DisplayName("Should reject requested appointment with reason")
+    void shouldRejectRequestedAppointmentWithReason() throws Exception {
+        User provider = createUser("provider-reject", UserRole.PROVIDER);
+        User client = createUser("client-reject", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId())
+                        .session(providerSession)
+                        .param("rejectionReason", "Requested time is not suitable"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.REJECTED);
+        assertThat(savedAppointment.getRejectionReason())
+                .isEqualTo("Requested time is not suitable");
+    }
+
+    @Test
+    @DisplayName("Should delete rejected appointment after client acknowledgement")
+    void shouldDeleteRejectedAppointmentAfterClientAcknowledgement() throws Exception {
+        User provider = createUser("provider-ack", UserRole.PROVIDER);
+        User client = createUser("client-ack", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.reject("Not available");
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client"));
+
+        assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should request payment and keep appointment slot blocked")
+    void shouldRequestPaymentAndKeepAppointmentSlotBlocked() throws Exception {
+        User provider = createUser("provider-payment", UserRole.PROVIDER);
+        User firstClient = createUser("client-payment-one", UserRole.CLIENT);
+        User secondClient = createUser("client-payment-two", UserRole.CLIENT);
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+        createAvailability(provider);
+
+        Appointment appointment = createAppointment(provider, firstClient, offering);
+
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.PAYMENT_REQUESTED);
+
+        MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
+
+        mockMvc.perform(post("/client/appointments")
+                        .session(secondClientSession)
+                        .param("providerId", provider.getId().toString())
+                        .param("offeringId", offering.getId().toString())
+                        .param("selectedDate", "2026-05-04")
+                        .param("selectedTime", "10:15"))
+                .andExpect(status().isOk())
+                .andExpect(model().attributeExists("appointmentError"))
+                .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
+    }
+
+    private User createUser(String usernamePrefix, UserRole role) {
+        String username = usernamePrefix + "-" + System.nanoTime();
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(username + "@test.com");
+        user.setPassword("123");
+        user.setRole(role);
+
+        return userRepository.save(user);
+    }
+
+    private Offering createOffering(User provider) {
+        Offering offering = new Offering(
+                provider,
+                "Consultation",
+                "Test consultation",
+                new BigDecimal("100.00"),
+                60
+        );
+
+        return offeringRepository.save(offering);
+    }
+
+    private Appointment createAppointment(User provider, User client, Offering offering) {
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.of(2026, 5, 4, 8, 0)
+        );
+
+        return appointmentRepository.save(appointment);
+    }
+
+    private void createAvailability(User provider) {
+        AvailabilityPeriod period = availabilityPeriodRepository.save(
+                new AvailabilityPeriod(
+                        provider,
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        "Europe/Bratislava"
+                )
+        );
+
+        availabilityRuleRepository.save(
+                new AvailabilityRule(
+                        period,
+                        AvailabilityDay.MONDAY,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(13, 0)
+                )
+        );
+    }
+
+    private void linkClient(User provider, User client) {
+        providerClientLinkRepository.save(
+                new ProviderClientLink(provider, client, LocalDateTime.now())
+        );
+    }
+
+    private MockHttpSession createSessionWithCurrentUser(User user) {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("currentUser", user);
+        return session;
+    }
+    
+    @Test
+    @DisplayName("Should confirm appointment after fake client payment")
+    void shouldConfirmAppointmentAfterFakeClientPayment() throws Exception {
+        User provider = createUser("provider-fake-pay", UserRole.PROVIDER);
+        User client = createUser("client-fake-pay", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.requestPayment();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+}
 ===== ./src/test/java/life/wellnara/ProviderClientFlowMvcTest.java =====
 package life.wellnara;
 
@@ -3630,6 +4277,30 @@ WHERE NOT EXISTS (
 <meta charset="UTF-8">
 <title>Wellnara Client</title>
 <link rel="stylesheet" th:href="@{/css/provider.css}">
+
+<script>
+    function showClientSection(sectionId) {
+        document.querySelectorAll('.client-section')
+            .forEach(section => section.style.display = 'none');
+
+        document.querySelectorAll('.tab-button')
+            .forEach(button => button.disabled = false);
+
+        document.getElementById(sectionId).style.display = 'block';
+        document.getElementById('tab-' + sectionId).disabled = true;
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        const section = params.get('section');
+
+        if (section === 'calendar') {
+            showClientSection('client-calendar-section');
+        } else {
+            showClientSection('client-main-section');
+        }
+    });
+</script>
 </head>
 
 <body>
@@ -3641,68 +4312,134 @@ WHERE NOT EXISTS (
 
 		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
 	</div>
-	<!-- Имя клиента -->
-	<div>
-		<strong th:text="${clientName}"></strong>
+
+	<div class="tabs">
+		<button id="tab-client-main-section" class="tab-button" type="button"
+			onclick="showClientSection('client-main-section')">Requests</button>
+
+		<button id="tab-client-calendar-section" class="tab-button"
+			type="button" onclick="showClientSection('client-calendar-section')">Calendar</button>
 	</div>
 
-	<!-- Услуги провайдера -->
-	<div style="margin-top: 30px;">
-		<h3>Offerings of my provider</h3>
+	<div id="client-main-section" class="client-section"
+		style="display: none;">
 
-		<div th:if="${#lists.isEmpty(offerings)}">
-			<p>No offerings available</p>
+		<div style="margin-top: 30px;">
+			<h3>Offerings of my provider</h3>
+
+			<div th:if="${#lists.isEmpty(offerings)}">
+				<p>No offerings available</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(offerings)}"
+				class="client-offerings-table">
+				<thead>
+					<tr>
+						<th class="offering-name-column">Name</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="offering : ${offerings}">
+						<td class="offering-name-column"><a
+							th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+							th:text="${offering.name}"> </a></td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(offerings)}"
-			class="client-offerings-table">
-			<thead>
-				<tr>
-					<th class="offering-name-column">Name</th>
-				</tr>
-			</thead>
+		<div style="margin-top: 30px;">
+			<h3>My appointment requests</h3>
 
-			<tbody>
-				<tr th:each="offering : ${offerings}">
-					<td class="offering-name-column"><a
-						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
-						th:text="${offering.name}"> </a></td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
 
-	<div style="margin-top: 30px;">
-		<h3>My appointment requests</h3>
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+						<th>Message</th>
+						<th>Action</th>
+					</tr>
+				</thead>
 
-		<div th:if="${#lists.isEmpty(appointments)}">
-			<p>No appointment requests</p>
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+
+						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
+								Request rejected. Reason: <span
+								th:text="${appointment.rejectionReason}"></span>
+						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment is required to confirm
+								the appointment. </span> <span
+							th:if="${appointment.status.name() == 'CONFIRMED'}">
+								Appointment confirmed and added to Calendar. </span></td>
+
+						<td>
+							<form th:if="${appointment.status.name() == 'REJECTED'}"
+								th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Remove this rejected appointment message?');">
+								<button type="submit">OK</button>
+							</form>
+
+							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Pay for this appointment?');">
+								<button type="submit">Pay</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(appointments)}">
-			<thead>
-				<tr>
-					<th>Offering</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Status</th>
-				</tr>
-			</thead>
-
-			<tbody>
-				<tr th:each="appointment : ${appointments}">
-					<td th:text="${appointment.offeringName}"></td>
-					<td th:text="${appointment.localDate}"></td>
-					<td th:text="${appointment.localTime}"></td>
-					<td th:text="${appointment.status}"></td>
-				</tr>
-			</tbody>
-		</table>
 	</div>
 
-	<!-- Logout -->
-	<div style="margin-top: 30px;">
-		<a href="/auth/logout">Logout</a>
+	<div id="client-calendar-section" class="client-section"
+		style="display: none;">
+
+		<div style="margin-top: 30px;">
+			<h3>Calendar</h3>
+
+			<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+				<p>No confirmed appointments</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="appointment : ${confirmedAppointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td>
+							<button type="button">Reschedule</button>
+							<button type="button">Cancel</button>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
 	</div>
 
 </body>
@@ -3810,6 +4547,88 @@ WHERE NOT EXISTS (
                 timezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
             }
         }
+        
+        function configurePlanningDateLimits() {
+            const planningFrom = document.getElementById('planningFrom');
+            const planningTo = document.getElementById('planningTo');
+
+            if (!planningFrom || !planningTo) {
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            planningFrom.min = today;
+
+            if (planningFrom.value < today) {
+                planningFrom.value = today;
+            }
+
+            planningTo.min = planningFrom.value;
+
+            if (planningTo.value < planningFrom.value) {
+                planningTo.value = planningFrom.value;
+            }
+        }
+        
+        function updateAvailabilityPreview() {
+            const period = document.getElementById('availabilityPreviewPeriod');
+            const body = document.getElementById('availabilityPreviewBody');
+            const from = document.getElementById('planningFrom');
+            const to = document.getElementById('planningTo');
+
+            if (!period || !body || !from || !to) {
+                return;
+            }
+
+            body.innerHTML = '';
+
+            if (!from.value || !to.value || from.value > to.value) {
+                period.textContent = 'not selected';
+                body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+                return;
+            }
+
+            period.textContent = from.value + ' - ' + to.value;
+
+            const days = [
+                [1, 'monday-start', 'monday-end'],
+                [2, 'tuesday-start', 'tuesday-end'],
+                [3, 'wednesday-start', 'wednesday-end'],
+                [4, 'thursday-start', 'thursday-end'],
+                [5, 'friday-start', 'friday-end']
+            ];
+
+            let hasSlots = false;
+            let current = new Date(from.value + 'T00:00:00Z');
+            const end = new Date(to.value + 'T00:00:00Z');
+
+            while (current <= end) {
+                const day = current.getUTCDay();
+
+                for (const [expectedDay, startId, endId] of days) {
+                    const start = document.getElementById(startId);
+                    const endTime = document.getElementById(endId);
+
+                    if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
+                        body.innerHTML +=
+                            '<tr>' +
+                            '<td>' + current.toISOString().split('T')[0] + '</td>' +
+                            '<td>' + start.value + '</td>' +
+                            '<td>' + endTime.value + '</td>' +
+                            '</tr>';
+
+                        hasSlots = true;
+                    }
+                }
+
+                current.setUTCDate(current.getUTCDate() + 1);
+            }
+
+            if (!hasSlots) {
+                body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
+            }
+        }
 
         window.addEventListener('DOMContentLoaded', function () {
             const params = new URLSearchParams(window.location.search);
@@ -3819,6 +4638,8 @@ WHERE NOT EXISTS (
                 showSection('calendar-section');
             } else if (section === 'offerings') {
                 showSection('offerings-section');
+            } else if (section === 'provider-calendar') {
+                showSection('provider-calendar-section');
             } else if (section === 'calendar') {
                 showSection('calendar-section');
             } else {
@@ -3826,6 +4647,30 @@ WHERE NOT EXISTS (
             }
 
             fillProviderTimezone();
+            configurePlanningDateLimits();
+            [
+                'planningFrom',
+                'planningTo',
+                'monday-start',
+                'monday-end',
+                'tuesday-start',
+                'tuesday-end',
+                'wednesday-start',
+                'wednesday-end',
+                'thursday-start',
+                'thursday-end',
+                'friday-start',
+                'friday-end'
+            ].forEach(id => {
+                const input = document.getElementById(id);
+
+                if (input) {
+                    input.addEventListener('input', updateAvailabilityPreview);
+                    input.addEventListener('change', updateAvailabilityPreview);
+                }
+            });
+
+            updateAvailabilityPreview();
         });
     </script>
 </head>
@@ -3856,6 +4701,9 @@ WHERE NOT EXISTS (
 
 		<button id="tab-offerings-section" class="tab-button" type="button"
 			onclick="showSection('offerings-section')">Offerings</button>
+
+		<button id="tab-provider-calendar-section" class="tab-button"
+			type="button" onclick="showSection('provider-calendar-section')">Calendar</button>
 
 		<button id="tab-calendar-section" class="tab-button" type="button"
 			onclick="showSection('calendar-section')">Availability</button>
@@ -3922,6 +4770,10 @@ WHERE NOT EXISTS (
 		<div style="margin-top: 30px;">
 			<h2>Appointment requests</h2>
 
+			<div th:if="${appointmentActionError}" style="color: red;">
+				<p th:text="${appointmentActionError}"></p>
+			</div>
+
 			<div th:if="${#lists.isEmpty(appointments)}">
 				<p>No appointment requests</p>
 			</div>
@@ -3934,6 +4786,7 @@ WHERE NOT EXISTS (
 						<th>Date</th>
 						<th>Time</th>
 						<th>Status</th>
+						<th>Action</th>
 					</tr>
 				</thead>
 
@@ -3944,10 +4797,75 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
+						<td>
+							<!-- ROW 1: Accept -->
+							<div style="margin-bottom: 8px;">
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
+									style="display: inline;">
+									<button type="submit">Accept &amp; Request Payment</button>
+								</form>
+							</div> <!-- ROW 2: Reject -->
+							<div>
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+									method="post"
+									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+									<textarea name="rejectionReason" placeholder="Rejection reason"
+										required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">Reject</button>
+								</form>
+							</div>
+						</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
+	</div>
+
+	<div id="provider-calendar-section" class="provider-section"
+		style="display: none;">
+
+		<h2>Calendar</h2>
+
+		<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+			<p>No confirmed appointments</p>
+		</div>
+
+		<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+			<thead>
+				<tr>
+					<th>Client</th>
+					<th>Offering</th>
+					<th>Date</th>
+					<th>Time</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr th:each="appointment : ${confirmedAppointments}">
+					<td th:text="${appointment.clientName}"></td>
+					<td th:text="${appointment.offeringName}"></td>
+					<td th:text="${appointment.localDate}"></td>
+					<td th:text="${appointment.localTime}"></td>
+					<td>
+						<button type="button">Reschedule</button>
+
+						<form
+							th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+							method="post" style="display: inline;"
+							onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+							<button type="submit">Cancel</button>
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
 
 	</div>
 
@@ -4018,10 +4936,9 @@ WHERE NOT EXISTS (
 		</div>
 
 		<p>
-			Period: <span th:if="${planningFrom != null and planningTo != null}"
-				th:text="${planningFrom} + ' - ' + ${planningTo}"></span> <span
-				th:if="${planningFrom == null or planningTo == null}"> not
-				selected </span>
+			Period: <span id="availabilityPreviewPeriod"
+				th:text="${planningFrom != null and planningTo != null} ? ${planningFrom} + ' - ' + ${planningTo} : 'not selected'">
+			</span>
 		</p>
 
 		<div th:if="${#lists.isEmpty(calendarTerms)}">
@@ -4037,7 +4954,7 @@ WHERE NOT EXISTS (
 				</tr>
 			</thead>
 
-			<tbody>
+			<tbody id="availabilityPreviewBody">
 				<tr th:each="term : ${calendarTerms}">
 					<td th:text="${term.date}"></td>
 					<td th:text="${term.startTime}"></td>
@@ -4287,50 +5204,57 @@ import java.time.LocalTime;
  */
 public class AppointmentView {
 
-    private final Long id;
-    private final String clientName;
-    private final String offeringName;
-    private final LocalDate localDate;
-    private final LocalTime localTime;
-    private final AppointmentStatus status;
+	private final Long id;
+	private final String clientName;
+	private final String offeringName;
+	private final LocalDate localDate;
+	private final LocalTime localTime;
+	private final AppointmentStatus status;
+	private final String rejectionReason;
 
-    public AppointmentView(Long id,
-                           String clientName,
-                           String offeringName,
-                           LocalDate localDate,
-                           LocalTime localTime,
-                           AppointmentStatus status) {
-        this.id = id;
-        this.clientName = clientName;
-        this.offeringName = offeringName;
-        this.localDate = localDate;
-        this.localTime = localTime;
-        this.status = status;
-    }
+	public AppointmentView(Long id,
+			String clientName,
+			String offeringName,
+			LocalDate localDate,
+			LocalTime localTime,
+			AppointmentStatus status,
+			String rejectionReason) {
+		this.id = id;
+		this.clientName = clientName;
+		this.offeringName = offeringName;
+		this.localDate = localDate;
+		this.localTime = localTime;
+		this.status = status;
+		this.rejectionReason = rejectionReason;
+	}
 
-    public Long getId() {
-        return id;
-    }
+	public Long getId() {
+		return id;
+	}
 
-    public String getClientName() {
-        return clientName;
-    }
+	public String getClientName() {
+		return clientName;
+	}
+	
+	public String getRejectionReason() {
+	    return rejectionReason;
+	}
 
-    public String getOfferingName() {
-        return offeringName;
-    }
+	public String getOfferingName() {
+		return offeringName;
+	}
 
-    public LocalDate getLocalDate() {
-        return localDate;
-    }
+	public LocalDate getLocalDate() {
+		return localDate;
+	}
 
-    public LocalTime getLocalTime() {
-        return localTime;
-    }
+	public LocalTime getLocalTime() {
+		return localTime;
+	}
 
-    public AppointmentStatus getStatus() {
-        return status;
-    }
+	public AppointmentStatus getStatus() {
+		return status;
+	}
 }
 ===== ./src/main/java/life/wellnara/dto/ProviderCalendarForm.java =====
 package life.wellnara.dto;
@@ -4593,6 +5517,21 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             Long providerId,
             List<AppointmentStatus> statuses
     );
+    
+    List<Appointment> findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+            User provider,
+            AppointmentStatus status
+    );
+    
+    List<Appointment> findAllByStatusInAndStartDateTimeUtcBefore(
+            Collection<AppointmentStatus> statuses,
+            LocalDateTime before
+    );
+    
+    List<Appointment> findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
+            User client,
+            AppointmentStatus status
+    );
 }
 ===== ./src/main/java/life/wellnara/repository/OfferingRepository.java =====
 package life.wellnara.repository;
@@ -4741,6 +5680,8 @@ import java.util.List;
 public interface AvailabilityRuleRepository extends JpaRepository<AvailabilityRule, Long> {
 
     List<AvailabilityRule> findAllByAvailabilityPeriod(AvailabilityPeriod availabilityPeriod);
+    
+    void deleteAllByAvailabilityPeriod(AvailabilityPeriod availabilityPeriod);
 }
 ===== ./src/main/java/life/wellnara/repository/AvailabilityPeriodRepository.java =====
 package life.wellnara.repository;
@@ -4849,7 +5790,6 @@ public class AdminController {
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
-import life.wellnara.dto.BookableDateOption;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
@@ -4870,11 +5810,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
  * Controller for client page access and appointment requests.
@@ -4976,13 +5912,13 @@ public class ClientController {
 	 * @param client authenticated client
 	 */
 	private void populateClientPageModel(Model model, User client) {
-	    User provider = clientOfferingService.getProviderOfClient(client);
 	    model.addAttribute("clientName", client.getUsername());
 	    model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
-	    model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(provider));
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
+	    model.addAttribute("confirmedAppointments",
+	            appointmentService.getConfirmedAppointmentViewsOfClient(client));
 	}
-
+	
 	/**
 	 * Returns authenticated client from session.
 	 *
@@ -5018,44 +5954,55 @@ public class ClientController {
 
 	    List<CalendarTerm> calendarTerms = appointmentService.getFreeCalendarTerms(provider);
 
-	    Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
-
-	    for (CalendarTerm term : calendarTerms) {
-	        List<LocalTime> times = appointmentService.getBookableTimesForTerm(term, offering);
-
-	        if (!times.isEmpty()) {
-	            timesByDate
-	                    .computeIfAbsent(term.getDate(), date -> new ArrayList<>())
-	                    .addAll(times);
-	        }
-	    }
-
-	    List<BookableDateOption> bookableDateOptions = new ArrayList<>();
-
-	    for (Map.Entry<LocalDate, List<LocalTime>> entry : timesByDate.entrySet()) {
-	        List<LocalTime> times = entry.getValue()
-	                .stream()
-	                .distinct()
-	                .sorted()
-	                .collect(Collectors.toList());
-
-	        if (!times.isEmpty()) {
-	            bookableDateOptions.add(new BookableDateOption(entry.getKey(), times));
-	        }
-	    }
-
 	    model.addAttribute("clientName", currentUser.getUsername());
 	    model.addAttribute("offering", offering);
 	    model.addAttribute("calendarTerms", calendarTerms);
 	    model.addAttribute("bookableDateOptions",
 	            appointmentService.getBookableDateOptions(provider, offering));
 
-	    for (BookableDateOption option : bookableDateOptions) {
-	        System.out.println("DATE = " + option.getDate());
-	        System.out.println("TIMES = " + option.getTimes());
-	    }
-	    
 	    return "client-offering";
+	}
+	
+	/**
+	 * Acknowledges rejected appointment and removes it from client's list.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @return redirect to client page
+	 */
+	@PostMapping("/client/appointments/{appointmentId}/acknowledge")
+	public String acknowledgeRejectedAppointment(@PathVariable Long appointmentId,
+	                                             HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
+
+	    return "redirect:/client";
+	}
+	
+	/**
+	 * Performs fake payment for appointment and confirms it.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @return redirect to client page
+	 */
+	@PostMapping("/client/appointments/{appointmentId}/pay")
+	public String payForAppointment(@PathVariable Long appointmentId,
+	                                HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.payForAppointment(currentUser, appointmentId);
+
+	    return "redirect:/client";
 	}
 }
 ===== ./src/main/java/life/wellnara/controller/ProviderClientController.java =====
@@ -5714,7 +6661,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Controller for provider page access and provider calendar form submission.
@@ -5753,28 +6702,32 @@ public class ProviderController {
 	 */
 	@GetMapping("/provider")
 	public String showPage(HttpSession session, Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+		User currentUser = getAuthenticatedProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    Object clientInviteLink = session.getAttribute("clientInviteLink");
-	    if (clientInviteLink != null) {
-	        model.addAttribute("clientInviteLink", clientInviteLink);
-	        session.removeAttribute("clientInviteLink");
-	    }
+		providerCalendarService.deleteExpiredAvailabilityPeriods(currentUser);
+		appointmentService.deleteExpiredUnpaidAppointments();
 
-	    Object clientInviteError = session.getAttribute("clientInviteError");
-	    if (clientInviteError != null) {
-	        model.addAttribute("clientInviteError", clientInviteError);
-	        session.removeAttribute("clientInviteError");
-	    }
+		Object clientInviteLink = session.getAttribute("clientInviteLink");
+		if (clientInviteLink != null) {
+			model.addAttribute("clientInviteLink", clientInviteLink);
+			session.removeAttribute("clientInviteLink");
+		}
 
-	    populateProviderPageModel(model, currentUser);
+		Object clientInviteError = session.getAttribute("clientInviteError");
+		if (clientInviteError != null) {
+			model.addAttribute("clientInviteError", clientInviteError);
+			session.removeAttribute("clientInviteError");
+		}
 
-	    return "provider";
+		populateProviderPageModel(model, currentUser);
+
+		return "provider";
 	}
+
 	/**
 	 * Saves provider calendar availability settings.
 	 *
@@ -5799,10 +6752,10 @@ public class ProviderController {
 			return "redirect:/provider?section=calendar";
 
 		} catch (CalendarValidationException exception) {
-		    populateProviderPageModel(model, currentUser);
-		    model.addAttribute("calendarErrors", exception.getFieldErrors());
+			populateProviderPageModel(model, currentUser);
+			model.addAttribute("calendarErrors", exception.getFieldErrors());
 
-		    return "provider";
+			return "provider";
 		}
 	}
 
@@ -5825,7 +6778,7 @@ public class ProviderController {
 
 		return currentUser;
 	}
-	
+
 	/**
 	 * Adds common provider page data to model.
 	 *
@@ -5837,6 +6790,8 @@ public class ProviderController {
 	    model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
 	    model.addAttribute("providerName", provider.getUsername());
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
+	    model.addAttribute("confirmedAppointments",
+	            appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
 
 	    populateCalendarModel(model, provider);
 	}
@@ -5848,12 +6803,111 @@ public class ProviderController {
 	 * @param provider authenticated provider
 	 */
 	private void populateCalendarModel(Model model, User provider) {
-	    ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
 
-	    model.addAttribute("calendarForm", calendarForm);
-	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
-	    model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+		model.addAttribute("calendarForm", calendarForm);
+		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+		model.addAttribute("planningTo", calendarForm.getPlanningTo());
+		model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+	}
+
+	/**
+	 * Rejects client appointment request.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param rejectionReason reason shown to client
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider page or provider page with validation error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/reject")
+	public String rejectAppointment(@PathVariable Long appointmentId,
+			@RequestParam String rejectionReason,
+			HttpSession session,
+			Model model) {
+		User currentUser = getAuthenticatedProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			appointmentService.rejectAppointment(
+					currentUser,
+					appointmentId,
+					rejectionReason
+					);
+
+			return "redirect:/provider";
+
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+
+			return "provider";
+		}
+	}
+
+	/**
+	 * Accepts appointment request and asks client for payment.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider page or provider page with validation error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/request-payment")
+	public String requestPaymentForAppointment(@PathVariable Long appointmentId,
+			HttpSession session,
+			Model model) {
+		User currentUser = getAuthenticatedProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			appointmentService.requestPaymentForAppointment(currentUser, appointmentId);
+
+			return "redirect:/provider";
+
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+
+			return "provider";
+		}
+	}
+	
+	/**
+	 * Cancels confirmed appointment and removes it from provider calendar.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider calendar section or provider page with error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/cancel")
+	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        appointmentService.cancelConfirmedAppointment(currentUser, appointmentId);
+
+	        return "redirect:/provider?section=provider-calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("appointmentActionError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+
+	        return "provider";
+	    }
 	}
 }
 ===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
@@ -5922,6 +6976,11 @@ public enum AppointmentStatus {
      * Provider confirmed the appointment.
      */
     CONFIRMED,
+    
+    /**
+     * Provider confirmed the termin and requested payment.
+     */
+    PAYMENT_REQUESTED,
 
     /**
      * Provider rejected the appointment request.
@@ -6000,6 +7059,9 @@ public class Appointment {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+    
+    @Column(length = 1000)
+    private String rejectionReason;
 
     protected Appointment() {
     }
@@ -6046,11 +7108,24 @@ public class Appointment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void reject() {
-        this.status = AppointmentStatus.REJECTED;
-        this.updatedAt = LocalDateTime.now();
+    public String getRejectionReason() {
+        return rejectionReason;
     }
 
+    /**
+     * Rejects requested appointment with provider explanation.
+     *
+     * @param rejectionReason reason shown to client
+     */
+    public void reject(String rejectionReason) {
+        if (rejectionReason == null || rejectionReason.isBlank()) {
+            throw new IllegalArgumentException("Rejection reason is required");
+        }
+
+        this.status = AppointmentStatus.REJECTED;
+        this.rejectionReason = rejectionReason.trim();
+        this.updatedAt = LocalDateTime.now();
+    }
     public void cancel() {
         this.status = AppointmentStatus.CANCELLED;
         this.updatedAt = LocalDateTime.now();
@@ -6063,6 +7138,14 @@ public class Appointment {
 
     public void markNoShow() {
         this.status = AppointmentStatus.NO_SHOW;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    /**
+     * Marks requested appointment as accepted by provider and waiting for payment.
+     */
+    public void requestPayment() {
+        this.status = AppointmentStatus.PAYMENT_REQUESTED;
         this.updatedAt = LocalDateTime.now();
     }
 }
@@ -6667,11 +7750,33 @@ public class ProviderCalendarService {
 		if (form.getPlanningFrom() == null) {
 			errors.put("planningFrom", "Start date is required");
 		}
+		
+		if (form.getPlanningFrom() != null
+		        && form.getProviderTimezone() != null
+		        && !form.getProviderTimezone().isBlank()) {
+
+		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+
+		    if (form.getPlanningFrom().isBefore(today)) {
+		        errors.put("planningFrom", "Start date must not be before today");
+		    }
+		}
 
 		if (form.getPlanningTo() == null) {
 			errors.put("planningTo", "End date is required");
 		}
 
+		if (form.getPlanningTo() != null
+		        && form.getProviderTimezone() != null
+		        && !form.getProviderTimezone().isBlank()) {
+
+		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+
+		    if (form.getPlanningTo().isBefore(today)) {
+		        errors.put("planningTo", "End date must not be before today");
+		    }
+		}
+		
 		if (form.getPlanningFrom() != null
 				&& form.getPlanningTo() != null
 				&& form.getPlanningTo().isBefore(form.getPlanningFrom())) {
@@ -6816,44 +7921,51 @@ public class ProviderCalendarService {
 		}
 	}
 
+	/**
+	 * Generates provider availability calendar terms excluding past dates.
+	 *
+	 * @param provider provider who owns availability calendar
+	 * @return future and current availability terms ordered by date and start time
+	 */
 	@Transactional(readOnly = true)
 	public List<CalendarTerm> generateCalendar(User provider) {
+	    Optional<AvailabilityPeriod> periodOpt =
+	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-		Optional<AvailabilityPeriod> periodOpt =
-				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+	    if (periodOpt.isEmpty()) {
+	        return List.of();
+	    }
 
-		if (periodOpt.isEmpty()) {
-			return List.of();
-		}
+	    AvailabilityPeriod period = periodOpt.get();
 
-		AvailabilityPeriod period = periodOpt.get();
+	    List<AvailabilityRule> rules =
+	            availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-		List<AvailabilityRule> rules =
-				availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+	    List<CalendarTerm> result = new ArrayList<>();
 
-		List<CalendarTerm> result = new ArrayList<>();
+	    LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+	    LocalDate current = period.getDateFrom().isBefore(today)
+	            ? today
+	            : period.getDateFrom();
 
-		LocalDate current = period.getDateFrom();
+	    while (!current.isAfter(period.getDateTo())) {
+	        for (AvailabilityRule rule : rules) {
+	            if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
+	                result.add(new CalendarTerm(
+	                        current,
+	                        rule.getStartTime(),
+	                        rule.getEndTime()
+	                ));
+	            }
+	        }
 
-		while (!current.isAfter(period.getDateTo())) {
+	        current = current.plusDays(1);
+	    }
 
-			for (AvailabilityRule rule : rules) {
-				if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
-					result.add(new CalendarTerm(
-							current,
-							rule.getStartTime(),
-							rule.getEndTime()
-							));
-				}
-			}
+	    result.sort(Comparator.comparing(CalendarTerm::getDate)
+	            .thenComparing(CalendarTerm::getStartTime));
 
-			current = current.plusDays(1);
-		}
-
-		result.sort(Comparator.comparing(CalendarTerm::getDate)
-				.thenComparing(CalendarTerm::getStartTime));
-
-		return result;
+	    return result;
 	}
 	
 	/**
@@ -6920,7 +8032,26 @@ public class ProviderCalendarService {
 	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
 
 	    return ZoneId.of(period.getProviderTimezone());
-	}	
+	}
+	
+	/**
+	 * Deletes provider availability periods that ended before today.
+	 *
+	 * @param provider provider who owns availability periods
+	 */
+	@Transactional
+	public void deleteExpiredAvailabilityPeriods(User provider) {
+	    List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+	    for (AvailabilityPeriod period : periods) {
+	        LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+
+	        if (period.getDateTo().isBefore(today)) {
+	            availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
+	            availabilityPeriodRepository.delete(period);
+	        }
+	    }
+	}
 }
 ===== ./src/main/java/life/wellnara/service/ProviderInvitationService.java =====
 package life.wellnara.service;
@@ -7256,19 +8387,20 @@ public class AppointmentService {
 	}
 
 	private AppointmentView toAppointmentView(Appointment appointment, ZoneId providerZone) {
-		var localDateTime = appointment.getStartDateTimeUtc()
-				.atZone(ZoneOffset.UTC)
-				.withZoneSameInstant(providerZone)
-				.toLocalDateTime();
+	    LocalDateTime localDateTime = appointment.getStartDateTimeUtc()
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone)
+	            .toLocalDateTime();
 
-		return new AppointmentView(
-				appointment.getId(),
-				appointment.getClient().getUsername(),
-				appointment.getOffering().getName(),
-				localDateTime.toLocalDate(),
-				localDateTime.toLocalTime(),
-				appointment.getStatus()
-				);
+	    return new AppointmentView(
+	            appointment.getId(),
+	            appointment.getClient().getUsername(),
+	            appointment.getOffering().getName(),
+	            localDateTime.toLocalDate(),
+	            localDateTime.toLocalTime(),
+	            appointment.getStatus(),
+	            appointment.getRejectionReason()
+	    );
 	}
 
 	@Transactional(readOnly = true)
@@ -7284,14 +8416,38 @@ public class AppointmentService {
 
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getAppointmentViewsOfProvider(User provider) {
-		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
-		return appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider)
-				.stream()
-				.map(appointment -> toAppointmentView(appointment, providerZone))
-				.toList();
+	    return appointmentRepository
+	            .findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+	                    provider,
+	                    AppointmentStatus.REQUESTED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, providerZone))
+	            .toList();
 	}
+	
+	/**
+	 * Returns confirmed appointments of provider for calendar section.
+	 *
+	 * @param provider provider whose confirmed appointments are requested
+	 * @return confirmed appointment views ordered by date and time
+	 */
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getConfirmedAppointmentViewsOfProvider(User provider) {
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
+	    return appointmentRepository
+	            .findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+	                    provider,
+	                    AppointmentStatus.CONFIRMED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, providerZone))
+	            .toList();
+	}
+	
 	/**
 	 * Returns possible booking start times for selected offering on selected date.
 	 *
@@ -7344,7 +8500,11 @@ public class AppointmentService {
 	private List<Appointment> getBlockingAppointments(User provider) {
 	    return appointmentRepository.findAllByProviderIdAndStatusIn(
 	            provider.getId(),
-	            List.of(AppointmentStatus.REQUESTED, AppointmentStatus.CONFIRMED)
+	            List.of(
+	                    AppointmentStatus.REQUESTED,
+	                    AppointmentStatus.PAYMENT_REQUESTED,
+	                    AppointmentStatus.CONFIRMED
+	            )
 	    );
 	}
 
@@ -7524,6 +8684,166 @@ public class AppointmentService {
 	    }
 
 	    return result;
+	}
+	
+	@Transactional
+	public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+	        throw new IllegalArgumentException("Only requested appointment can be rejected");
+	    }
+
+	    appointment.reject(rejectionReason);
+	}
+	
+	private void validateProvider(User provider) {
+	    if (provider == null || provider.getRole() != UserRole.PROVIDER) {
+	        throw new IllegalArgumentException("Only provider can manage appointment");
+	    }
+	}
+	
+	/**
+	 * Deletes rejected appointment after client acknowledgement.
+	 *
+	 * @param client client who acknowledges rejection
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
+	    validateClient(client);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getClient().getId().equals(client.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to client");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REJECTED) {
+	        throw new IllegalArgumentException("Only rejected appointment can be acknowledged");
+	    }
+
+	    appointmentRepository.delete(appointment);
+	}
+	
+	/**
+	 * Accepts requested appointment and asks client to complete payment.
+	 *
+	 * @param provider provider who accepts appointment request
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void requestPaymentForAppointment(User provider, Long appointmentId) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+	        throw new IllegalArgumentException("Only requested appointment can be accepted");
+	    }
+
+	    appointment.requestPayment();
+	}
+	
+	/**
+	 * Deletes expired unpaid appointment requests.
+	 *
+	 * <p>Only REQUESTED and PAYMENT_REQUESTED appointments are deleted.
+	 * Confirmed, paid, completed or rejected appointments are not affected.
+	 */
+	@Transactional
+	public void deleteExpiredUnpaidAppointments() {
+	    List<Appointment> expiredAppointments =
+	            appointmentRepository.findAllByStatusInAndStartDateTimeUtcBefore(
+	                    List.of(
+	                            AppointmentStatus.REQUESTED,
+	                            AppointmentStatus.PAYMENT_REQUESTED
+	                    ),
+	                    LocalDateTime.now(ZoneOffset.UTC)
+	            );
+
+	    appointmentRepository.deleteAll(expiredAppointments);
+	}
+	
+	/**
+	 * Confirms appointment after fake client payment.
+	 *
+	 * @param client client who pays for appointment
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void payForAppointment(User client, Long appointmentId) {
+	    validateClient(client);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getClient().getId().equals(client.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to client");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+	        throw new IllegalArgumentException("Only payment requested appointment can be paid");
+	    }
+
+	    appointment.confirm();
+	}
+	
+	/**
+	 * Deletes confirmed appointment from provider calendar.
+	 *
+	 * @param provider provider who owns appointment
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void cancelConfirmedAppointment(User provider, Long appointmentId) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+	        throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
+	    }
+
+	    appointmentRepository.delete(appointment);
+	}
+	
+	/**
+	 * Returns confirmed appointments of client for calendar section.
+	 *
+	 * @param client client whose confirmed appointments are requested
+	 * @return confirmed appointment views ordered by date and time
+	 */
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
+	    ZoneId clientZone = ZoneId.systemDefault();
+
+	    return appointmentRepository
+	            .findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
+	                    client,
+	                    AppointmentStatus.CONFIRMED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, clientZone))
+	            .toList();
 	}
 }
 ===== ./src/main/java/life/wellnara/service/AdminUserService.java =====

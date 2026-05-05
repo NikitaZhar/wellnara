@@ -123,13 +123,13 @@ public class ClientController {
 	 * @param client authenticated client
 	 */
 	private void populateClientPageModel(Model model, User client) {
-	    User provider = clientOfferingService.getProviderOfClient(client);
 	    model.addAttribute("clientName", client.getUsername());
 	    model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
-//	    model.addAttribute("calendarTerms", providerCalendarService.generateCalendar(provider));
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
+	    model.addAttribute("confirmedAppointments",
+	            appointmentService.getConfirmedAppointmentViewsOfClient(client));
 	}
-
+	
 	/**
 	 * Returns authenticated client from session.
 	 *
@@ -172,5 +172,47 @@ public class ClientController {
 	            appointmentService.getBookableDateOptions(provider, offering));
 
 	    return "client-offering";
+	}
+	
+	/**
+	 * Acknowledges rejected appointment and removes it from client's list.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @return redirect to client page
+	 */
+	@PostMapping("/client/appointments/{appointmentId}/acknowledge")
+	public String acknowledgeRejectedAppointment(@PathVariable Long appointmentId,
+	                                             HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
+
+	    return "redirect:/client";
+	}
+	
+	/**
+	 * Performs fake payment for appointment and confirms it.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @return redirect to client page
+	 */
+	@PostMapping("/client/appointments/{appointmentId}/pay")
+	public String payForAppointment(@PathVariable Long appointmentId,
+	                                HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.payForAppointment(currentUser, appointmentId);
+
+	    return "redirect:/client";
 	}
 }

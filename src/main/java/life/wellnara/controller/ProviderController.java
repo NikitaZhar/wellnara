@@ -13,7 +13,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Controller for provider page access and provider calendar form submission.
@@ -52,28 +54,32 @@ public class ProviderController {
 	 */
 	@GetMapping("/provider")
 	public String showPage(HttpSession session, Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+		User currentUser = getAuthenticatedProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    Object clientInviteLink = session.getAttribute("clientInviteLink");
-	    if (clientInviteLink != null) {
-	        model.addAttribute("clientInviteLink", clientInviteLink);
-	        session.removeAttribute("clientInviteLink");
-	    }
+		providerCalendarService.deleteExpiredAvailabilityPeriods(currentUser);
+		appointmentService.deleteExpiredUnpaidAppointments();
 
-	    Object clientInviteError = session.getAttribute("clientInviteError");
-	    if (clientInviteError != null) {
-	        model.addAttribute("clientInviteError", clientInviteError);
-	        session.removeAttribute("clientInviteError");
-	    }
+		Object clientInviteLink = session.getAttribute("clientInviteLink");
+		if (clientInviteLink != null) {
+			model.addAttribute("clientInviteLink", clientInviteLink);
+			session.removeAttribute("clientInviteLink");
+		}
 
-	    populateProviderPageModel(model, currentUser);
+		Object clientInviteError = session.getAttribute("clientInviteError");
+		if (clientInviteError != null) {
+			model.addAttribute("clientInviteError", clientInviteError);
+			session.removeAttribute("clientInviteError");
+		}
 
-	    return "provider";
+		populateProviderPageModel(model, currentUser);
+
+		return "provider";
 	}
+
 	/**
 	 * Saves provider calendar availability settings.
 	 *
@@ -98,10 +104,10 @@ public class ProviderController {
 			return "redirect:/provider?section=calendar";
 
 		} catch (CalendarValidationException exception) {
-		    populateProviderPageModel(model, currentUser);
-		    model.addAttribute("calendarErrors", exception.getFieldErrors());
+			populateProviderPageModel(model, currentUser);
+			model.addAttribute("calendarErrors", exception.getFieldErrors());
 
-		    return "provider";
+			return "provider";
 		}
 	}
 
@@ -124,7 +130,7 @@ public class ProviderController {
 
 		return currentUser;
 	}
-	
+
 	/**
 	 * Adds common provider page data to model.
 	 *
@@ -136,6 +142,8 @@ public class ProviderController {
 	    model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
 	    model.addAttribute("providerName", provider.getUsername());
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
+	    model.addAttribute("confirmedAppointments",
+	            appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
 
 	    populateCalendarModel(model, provider);
 	}
@@ -147,11 +155,141 @@ public class ProviderController {
 	 * @param provider authenticated provider
 	 */
 	private void populateCalendarModel(Model model, User provider) {
-	    ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
 
-	    model.addAttribute("calendarForm", calendarForm);
-	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
-	    model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+		model.addAttribute("calendarForm", calendarForm);
+		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+		model.addAttribute("planningTo", calendarForm.getPlanningTo());
+		model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+	}
+
+	/**
+	 * Rejects client appointment request.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param rejectionReason reason shown to client
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider page or provider page with validation error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/reject")
+	public String rejectAppointment(@PathVariable Long appointmentId,
+			@RequestParam String rejectionReason,
+			HttpSession session,
+			Model model) {
+		User currentUser = getAuthenticatedProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			appointmentService.rejectAppointment(
+					currentUser,
+					appointmentId,
+					rejectionReason
+					);
+
+			return "redirect:/provider";
+
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+
+			return "provider";
+		}
+	}
+
+	/**
+	 * Accepts appointment request and asks client for payment.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider page or provider page with validation error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/request-payment")
+	public String requestPaymentForAppointment(@PathVariable Long appointmentId,
+			HttpSession session,
+			Model model) {
+		User currentUser = getAuthenticatedProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			appointmentService.requestPaymentForAppointment(currentUser, appointmentId);
+
+			return "redirect:/provider";
+
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+
+			return "provider";
+		}
+	}
+	
+	/**
+	 * Cancels confirmed appointment and removes it from provider calendar.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider calendar section or provider page with error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/cancel")
+	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        appointmentService.cancelConfirmedAppointment(currentUser, appointmentId);
+
+	        return "redirect:/provider?section=provider-calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("appointmentActionError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+
+	        return "provider";
+	    }
+	}
+	
+	/**
+	 * Completes confirmed appointment.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider calendar section or provider page with error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/complete")
+	public String completeConfirmedAppointment(@PathVariable Long appointmentId,
+	                                           HttpSession session,
+	                                           Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        appointmentService.completeConfirmedAppointment(currentUser, appointmentId);
+
+	        return "redirect:/provider?section=provider-calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("appointmentActionError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+
+	        return "provider";
+	    }
 	}
 }

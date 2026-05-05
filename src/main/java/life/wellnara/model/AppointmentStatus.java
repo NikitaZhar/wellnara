@@ -14,6 +14,11 @@ public enum AppointmentStatus {
      * Provider confirmed the appointment.
      */
     CONFIRMED,
+    
+    /**
+     * Provider confirmed the termin and requested payment.
+     */
+    PAYMENT_REQUESTED,
 
     /**
      * Provider rejected the appointment request.

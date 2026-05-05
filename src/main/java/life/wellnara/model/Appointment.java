@@ -54,6 +54,9 @@ public class Appointment {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+    
+    @Column(length = 1000)
+    private String rejectionReason;
 
     protected Appointment() {
     }
@@ -100,11 +103,24 @@ public class Appointment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void reject() {
-        this.status = AppointmentStatus.REJECTED;
-        this.updatedAt = LocalDateTime.now();
+    public String getRejectionReason() {
+        return rejectionReason;
     }
 
+    /**
+     * Rejects requested appointment with provider explanation.
+     *
+     * @param rejectionReason reason shown to client
+     */
+    public void reject(String rejectionReason) {
+        if (rejectionReason == null || rejectionReason.isBlank()) {
+            throw new IllegalArgumentException("Rejection reason is required");
+        }
+
+        this.status = AppointmentStatus.REJECTED;
+        this.rejectionReason = rejectionReason.trim();
+        this.updatedAt = LocalDateTime.now();
+    }
     public void cancel() {
         this.status = AppointmentStatus.CANCELLED;
         this.updatedAt = LocalDateTime.now();
@@ -117,6 +133,14 @@ public class Appointment {
 
     public void markNoShow() {
         this.status = AppointmentStatus.NO_SHOW;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    /**
+     * Marks requested appointment as accepted by provider and waiting for payment.
+     */
+    public void requestPayment() {
+        this.status = AppointmentStatus.PAYMENT_REQUESTED;
         this.updatedAt = LocalDateTime.now();
     }
 }

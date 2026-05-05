@@ -238,42 +238,76 @@ public class AppointmentService {
 	}
 
 	private AppointmentView toAppointmentView(Appointment appointment, ZoneId providerZone) {
-		var localDateTime = appointment.getStartDateTimeUtc()
-				.atZone(ZoneOffset.UTC)
-				.withZoneSameInstant(providerZone)
-				.toLocalDateTime();
+	    LocalDateTime localDateTime = appointment.getStartDateTimeUtc()
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone)
+	            .toLocalDateTime();
 
-		return new AppointmentView(
-				appointment.getId(),
-				appointment.getClient().getUsername(),
-				appointment.getOffering().getName(),
-				localDateTime.toLocalDate(),
-				localDateTime.toLocalTime(),
-				appointment.getStatus()
-				);
+	    return new AppointmentView(
+	            appointment.getId(),
+	            appointment.getClient().getUsername(),
+	            appointment.getOffering().getName(),
+	            localDateTime.toLocalDate(),
+	            localDateTime.toLocalTime(),
+	            appointment.getStatus(),
+	            appointment.getRejectionReason()
+	    );
 	}
 
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getAppointmentViewsOfClient(User client) {
-		return appointmentRepository.findAllByClientOrderByStartDateTimeUtcAsc(client)
-				.stream()
-				.map(appointment -> toAppointmentView(
-						appointment,
-						providerCalendarService.getProviderTimezone(appointment.getProvider())
-						))
-				.toList();
+	    ZoneId clientZone = ZoneId.systemDefault();
+
+	    return appointmentRepository
+	            .findAllByClientAndStatusInOrderByStartDateTimeUtcAsc(
+	                    client,
+	                    List.of(
+	                            AppointmentStatus.REQUESTED,
+	                            AppointmentStatus.PAYMENT_REQUESTED,
+	                            AppointmentStatus.REJECTED,
+	                            AppointmentStatus.CANCELLED,
+	                            AppointmentStatus.COMPLETED
+	                    )
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, clientZone))
+	            .toList();
 	}
 
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getAppointmentViewsOfProvider(User provider) {
-		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
-		return appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider)
-				.stream()
-				.map(appointment -> toAppointmentView(appointment, providerZone))
-				.toList();
+	    return appointmentRepository
+	            .findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+	                    provider,
+	                    AppointmentStatus.REQUESTED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, providerZone))
+	            .toList();
 	}
+	
+	/**
+	 * Returns confirmed appointments of provider for calendar section.
+	 *
+	 * @param provider provider whose confirmed appointments are requested
+	 * @return confirmed appointment views ordered by date and time
+	 */
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getConfirmedAppointmentViewsOfProvider(User provider) {
+	    ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
+	    return appointmentRepository
+	            .findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+	                    provider,
+	                    AppointmentStatus.CONFIRMED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, providerZone))
+	            .toList();
+	}
+	
 	/**
 	 * Returns possible booking start times for selected offering on selected date.
 	 *
@@ -326,7 +360,11 @@ public class AppointmentService {
 	private List<Appointment> getBlockingAppointments(User provider) {
 	    return appointmentRepository.findAllByProviderIdAndStatusIn(
 	            provider.getId(),
-	            List.of(AppointmentStatus.REQUESTED, AppointmentStatus.CONFIRMED)
+	            List.of(
+	                    AppointmentStatus.REQUESTED,
+	                    AppointmentStatus.PAYMENT_REQUESTED,
+	                    AppointmentStatus.CONFIRMED
+	            )
 	    );
 	}
 
@@ -506,5 +544,191 @@ public class AppointmentService {
 	    }
 
 	    return result;
+	}
+	
+	@Transactional
+	public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+	        throw new IllegalArgumentException("Only requested appointment can be rejected");
+	    }
+
+	    appointment.reject(rejectionReason);
+	}
+	
+	private void validateProvider(User provider) {
+	    if (provider == null || provider.getRole() != UserRole.PROVIDER) {
+	        throw new IllegalArgumentException("Only provider can manage appointment");
+	    }
+	}
+	
+	/**
+	 * Deletes rejected appointment after client acknowledgement.
+	 *
+	 * @param client client who acknowledges rejection
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
+	    validateClient(client);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getClient().getId().equals(client.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to client");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REJECTED
+	            && appointment.getStatus() != AppointmentStatus.CANCELLED
+	            && appointment.getStatus() != AppointmentStatus.COMPLETED) {
+	        throw new IllegalArgumentException("Only rejected, cancelled or completed appointment can be acknowledged");
+	    }
+
+	    appointmentRepository.delete(appointment);
+	}
+	
+	/**
+	 * Accepts requested appointment and asks client to complete payment.
+	 *
+	 * @param provider provider who accepts appointment request
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void requestPaymentForAppointment(User provider, Long appointmentId) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+	        throw new IllegalArgumentException("Only requested appointment can be accepted");
+	    }
+
+	    appointment.requestPayment();
+	}
+	
+	/**
+	 * Deletes expired unpaid appointment requests.
+	 *
+	 * <p>Only REQUESTED and PAYMENT_REQUESTED appointments are deleted.
+	 * Confirmed, paid, completed or rejected appointments are not affected.
+	 */
+	@Transactional
+	public void deleteExpiredUnpaidAppointments() {
+	    List<Appointment> expiredAppointments =
+	            appointmentRepository.findAllByStatusInAndStartDateTimeUtcBefore(
+	                    List.of(
+	                            AppointmentStatus.REQUESTED,
+	                            AppointmentStatus.PAYMENT_REQUESTED
+	                    ),
+	                    LocalDateTime.now(ZoneOffset.UTC)
+	            );
+
+	    appointmentRepository.deleteAll(expiredAppointments);
+	}
+	
+	/**
+	 * Confirms appointment after fake client payment.
+	 *
+	 * @param client client who pays for appointment
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void payForAppointment(User client, Long appointmentId) {
+	    validateClient(client);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getClient().getId().equals(client.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to client");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+	        throw new IllegalArgumentException("Only payment requested appointment can be paid");
+	    }
+
+	    appointment.confirm();
+	}
+	
+	/**
+	 * Cancels confirmed appointment from provider calendar.
+	 *
+	 * @param provider provider who owns appointment
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void cancelConfirmedAppointment(User provider, Long appointmentId) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+	        throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
+	    }
+
+	    appointment.cancel();
+	}
+	
+	/**
+	 * Marks confirmed appointment as completed by provider.
+	 *
+	 * @param provider provider who owns appointment
+	 * @param appointmentId appointment identifier
+	 */
+	@Transactional
+	public void completeConfirmedAppointment(User provider, Long appointmentId) {
+	    validateProvider(provider);
+
+	    Appointment appointment = appointmentRepository.findById(appointmentId)
+	            .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+	    if (!appointment.getProvider().getId().equals(provider.getId())) {
+	        throw new IllegalArgumentException("Appointment does not belong to provider");
+	    }
+
+	    if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+	        throw new IllegalArgumentException("Only confirmed appointment can be completed");
+	    }
+
+	    appointment.complete();
+	}
+	
+	/**
+	 * Returns confirmed appointments of client for calendar section.
+	 *
+	 * @param client client whose confirmed appointments are requested
+	 * @return confirmed appointment views ordered by date and time
+	 */
+	@Transactional(readOnly = true)
+	public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
+	    ZoneId clientZone = ZoneId.systemDefault();
+
+	    return appointmentRepository
+	            .findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
+	                    client,
+	                    AppointmentStatus.CONFIRMED
+	            )
+	            .stream()
+	            .map(appointment -> toAppointmentView(appointment, clientZone))
+	            .toList();
 	}
 }

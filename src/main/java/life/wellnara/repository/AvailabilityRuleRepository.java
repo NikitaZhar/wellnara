@@ -12,4 +12,6 @@ import java.util.List;
 public interface AvailabilityRuleRepository extends JpaRepository<AvailabilityRule, Long> {
 
     List<AvailabilityRule> findAllByAvailabilityPeriod(AvailabilityPeriod availabilityPeriod);
+    
+    void deleteAllByAvailabilityPeriod(AvailabilityPeriod availabilityPeriod);
 }

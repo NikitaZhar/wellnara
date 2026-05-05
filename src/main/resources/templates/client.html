@@ -4,6 +4,30 @@
 <meta charset="UTF-8">
 <title>Wellnara Client</title>
 <link rel="stylesheet" th:href="@{/css/provider.css}">
+
+<script>
+    function showClientSection(sectionId) {
+        document.querySelectorAll('.client-section')
+            .forEach(section => section.style.display = 'none');
+
+        document.querySelectorAll('.tab-button')
+            .forEach(button => button.disabled = false);
+
+        document.getElementById(sectionId).style.display = 'block';
+        document.getElementById('tab-' + sectionId).disabled = true;
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const params = new URLSearchParams(window.location.search);
+        const section = params.get('section');
+
+        if (section === 'calendar') {
+            showClientSection('client-calendar-section');
+        } else {
+            showClientSection('client-main-section');
+        }
+    });
+</script>
 </head>
 
 <body>
@@ -15,68 +39,142 @@
 
 		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
 	</div>
-	<!-- Имя клиента -->
-	<div>
-		<strong th:text="${clientName}"></strong>
+
+	<div class="tabs">
+		<button id="tab-client-main-section" class="tab-button" type="button"
+			onclick="showClientSection('client-main-section')">Offerings</button>
+
+		<button id="tab-client-calendar-section" class="tab-button"
+			type="button" onclick="showClientSection('client-calendar-section')">My
+			Calendar</button>
 	</div>
 
-	<!-- Услуги провайдера -->
-	<div style="margin-top: 30px;">
-		<h3>Offerings of my provider</h3>
+	<div id="client-main-section" class="client-section"
+		style="display: none;">
 
-		<div th:if="${#lists.isEmpty(offerings)}">
-			<p>No offerings available</p>
+		<div style="margin-top: 30px;">
+			<h3>Offerings of my provider</h3>
+
+			<div th:if="${#lists.isEmpty(offerings)}">
+				<p>No offerings available</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(offerings)}"
+				class="client-offerings-table">
+				<thead>
+					<tr>
+						<th class="offering-name-column">Name</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="offering : ${offerings}">
+						<td class="offering-name-column"><a
+							th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
+							th:text="${offering.name}"> </a></td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(offerings)}"
-			class="client-offerings-table">
-			<thead>
-				<tr>
-					<th class="offering-name-column">Name</th>
-				</tr>
-			</thead>
-
-			<tbody>
-				<tr th:each="offering : ${offerings}">
-					<td class="offering-name-column"><a
-						th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}"
-						th:text="${offering.name}"> </a></td>
-				</tr>
-			</tbody>
-		</table>
 	</div>
 
-	<div style="margin-top: 30px;">
-		<h3>My appointment requests</h3>
+	<div id="client-calendar-section" class="client-section"
+		style="display: none;">
 
-		<div th:if="${#lists.isEmpty(appointments)}">
-			<p>No appointment requests</p>
+		<div style="margin-top: 30px;">
+			<h3>Pending appointments</h3>
+
+			<div th:if="${#lists.isEmpty(appointments)}">
+				<p>No appointment requests</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(appointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Status</th>
+						<th>Message</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="appointment : ${appointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td th:text="${appointment.status}"></td>
+
+						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
+								Request rejected. Reason: <span
+								th:text="${appointment.rejectionReason}"></span>
+						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment is required to confirm
+								the appointment. </span> <span
+							th:if="${appointment.status.name() == 'CANCELLED'}">
+								Appointment cancelled by provider. </span> <span
+							th:if="${appointment.status.name() == 'CONFIRMED'}">
+								Appointment confirmed and added to Calendar. </span> <span
+							th:if="${appointment.status.name() == 'COMPLETED'}">
+								Appointment completed. </span></td>
+
+						<td>
+							<form
+								th:if="${appointment.status.name() == 'REJECTED' 
+        								or appointment.status.name() == 'CANCELLED'
+        								or appointment.status.name() == 'COMPLETED'}"
+								th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Remove this appointment message?');">
+								<button type="submit">OK</button>
+							</form>
+
+							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
+								method="post"
+								onsubmit="return confirm('Pay for this appointment?');">
+								<button type="submit">Pay</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		<table th:if="${not #lists.isEmpty(appointments)}">
-			<thead>
-				<tr>
-					<th>Offering</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Status</th>
-				</tr>
-			</thead>
+		<div style="margin-top: 40px;">
+			<h3>Confirmed appointments</h3>
 
-			<tbody>
-				<tr th:each="appointment : ${appointments}">
-					<td th:text="${appointment.offeringName}"></td>
-					<td th:text="${appointment.localDate}"></td>
-					<td th:text="${appointment.localTime}"></td>
-					<td th:text="${appointment.status}"></td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+			<div th:if="${#lists.isEmpty(confirmedAppointments)}">
+				<p>No confirmed appointments</p>
+			</div>
 
-	<!-- Logout -->
-	<div style="margin-top: 30px;">
-		<a href="/auth/logout">Logout</a>
+			<table th:if="${not #lists.isEmpty(confirmedAppointments)}">
+				<thead>
+					<tr>
+						<th>Offering</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="appointment : ${confirmedAppointments}">
+						<td th:text="${appointment.offeringName}"></td>
+						<td th:text="${appointment.localDate}"></td>
+						<td th:text="${appointment.localTime}"></td>
+						<td>
+							<button type="button">Reschedule</button>
+							<button type="button">Cancel</button>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
 	</div>
 
 </body>

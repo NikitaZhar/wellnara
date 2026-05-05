@@ -83,11 +83,33 @@ public class ProviderCalendarService {
 		if (form.getPlanningFrom() == null) {
 			errors.put("planningFrom", "Start date is required");
 		}
+		
+		if (form.getPlanningFrom() != null
+		        && form.getProviderTimezone() != null
+		        && !form.getProviderTimezone().isBlank()) {
+
+		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+
+		    if (form.getPlanningFrom().isBefore(today)) {
+		        errors.put("planningFrom", "Start date must not be before today");
+		    }
+		}
 
 		if (form.getPlanningTo() == null) {
 			errors.put("planningTo", "End date is required");
 		}
 
+		if (form.getPlanningTo() != null
+		        && form.getProviderTimezone() != null
+		        && !form.getProviderTimezone().isBlank()) {
+
+		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+
+		    if (form.getPlanningTo().isBefore(today)) {
+		        errors.put("planningTo", "End date must not be before today");
+		    }
+		}
+		
 		if (form.getPlanningFrom() != null
 				&& form.getPlanningTo() != null
 				&& form.getPlanningTo().isBefore(form.getPlanningFrom())) {
@@ -232,44 +254,51 @@ public class ProviderCalendarService {
 		}
 	}
 
+	/**
+	 * Generates provider availability calendar terms excluding past dates.
+	 *
+	 * @param provider provider who owns availability calendar
+	 * @return future and current availability terms ordered by date and start time
+	 */
 	@Transactional(readOnly = true)
 	public List<CalendarTerm> generateCalendar(User provider) {
+	    Optional<AvailabilityPeriod> periodOpt =
+	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-		Optional<AvailabilityPeriod> periodOpt =
-				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+	    if (periodOpt.isEmpty()) {
+	        return List.of();
+	    }
 
-		if (periodOpt.isEmpty()) {
-			return List.of();
-		}
+	    AvailabilityPeriod period = periodOpt.get();
 
-		AvailabilityPeriod period = periodOpt.get();
+	    List<AvailabilityRule> rules =
+	            availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-		List<AvailabilityRule> rules =
-				availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+	    List<CalendarTerm> result = new ArrayList<>();
 
-		List<CalendarTerm> result = new ArrayList<>();
+	    LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+	    LocalDate current = period.getDateFrom().isBefore(today)
+	            ? today
+	            : period.getDateFrom();
 
-		LocalDate current = period.getDateFrom();
+	    while (!current.isAfter(period.getDateTo())) {
+	        for (AvailabilityRule rule : rules) {
+	            if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
+	                result.add(new CalendarTerm(
+	                        current,
+	                        rule.getStartTime(),
+	                        rule.getEndTime()
+	                ));
+	            }
+	        }
 
-		while (!current.isAfter(period.getDateTo())) {
+	        current = current.plusDays(1);
+	    }
 
-			for (AvailabilityRule rule : rules) {
-				if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
-					result.add(new CalendarTerm(
-							current,
-							rule.getStartTime(),
-							rule.getEndTime()
-							));
-				}
-			}
+	    result.sort(Comparator.comparing(CalendarTerm::getDate)
+	            .thenComparing(CalendarTerm::getStartTime));
 
-			current = current.plusDays(1);
-		}
-
-		result.sort(Comparator.comparing(CalendarTerm::getDate)
-				.thenComparing(CalendarTerm::getStartTime));
-
-		return result;
+	    return result;
 	}
 	
 	/**
@@ -336,5 +365,24 @@ public class ProviderCalendarService {
 	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
 
 	    return ZoneId.of(period.getProviderTimezone());
-	}	
+	}
+	
+	/**
+	 * Deletes provider availability periods that ended before today.
+	 *
+	 * @param provider provider who owns availability periods
+	 */
+	@Transactional
+	public void deleteExpiredAvailabilityPeriods(User provider) {
+	    List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+	    for (AvailabilityPeriod period : periods) {
+	        LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+
+	        if (period.getDateTo().isBefore(today)) {
+	            availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
+	            availabilityPeriodRepository.delete(period);
+	        }
+	    }
+	}
 }
