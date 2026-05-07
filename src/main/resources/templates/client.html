@@ -108,23 +108,23 @@
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 
-						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
-								Request rejected. Reason: <span
-								th:text="${appointment.rejectionReason}"></span>
-						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
-								Provider accepted your request. Payment is required to confirm
-								the appointment. </span> <span
-							th:if="${appointment.status.name() == 'CANCELLED'}">
+						<td><span th:if="${appointment.status.name() == 'REQUESTED'}">
+								Appointment request sent to provider. </span> <span
+							th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment required. </span> <span
+							th:if="${appointment.status.name() == 'REJECTED'}"
+							th:text="${appointment.rejectionReason}"> </span> <span
+							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
 								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'CONFIRMED'}">
-								Appointment confirmed and added to Calendar. </span> <span
 							th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
+
+
 
 						<td>
 							<form
 								th:if="${appointment.status.name() == 'REJECTED' 
-        								or appointment.status.name() == 'CANCELLED'
+        								or appointment.status.name() == 'CANCELLED_BY_PROVIDER'
         								or appointment.status.name() == 'COMPLETED'}"
 								th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
 								method="post"
@@ -168,7 +168,12 @@
 						<td th:text="${appointment.localTime}"></td>
 						<td>
 							<button type="button">Reschedule</button>
-							<button type="button">Cancel</button>
+							<form
+								th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
+								<button type="submit">Cancel</button>
+							</form>
 						</td>
 					</tr>
 				</tbody>

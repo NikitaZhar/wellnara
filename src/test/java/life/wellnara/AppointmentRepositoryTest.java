@@ -54,7 +54,7 @@ class AppointmentRepositoryTest {
     }
 
     /**
-     * Verifies status transitions.
+     * Verifies appointment status transitions.
      */
     @Test
     @DisplayName("Should change appointment status correctly")
@@ -74,13 +74,34 @@ class AppointmentRepositoryTest {
         appointment.confirm();
         assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
 
-        appointment.cancel();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
-
-        appointment.complete();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+        appointment.cancelByProvider();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
     }
+    
+    /**
+     * Verifies that appointment can be cancelled by client.
+     */
+    @Test
+    @DisplayName("Should cancel appointment by client")
+    void shouldCancelAppointmentByClient() {
+        User provider = createUser("provider-cancel-client", "p-cancel-client@test.com", UserRole.PROVIDER);
+        User client = createUser("client-cancel-client", "c-cancel-client@test.com", UserRole.CLIENT);
 
+        Offering offering = createOffering(provider);
+
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now()
+        );
+
+        appointment.confirm();
+        appointment.cancelByClient();
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_CLIENT);
+    }
+    
     /**
      * Verifies repository query by provider.
      */

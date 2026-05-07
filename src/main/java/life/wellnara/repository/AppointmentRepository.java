@@ -54,4 +54,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             User client,
             Collection<AppointmentStatus> statuses
     );
+    
+    List<Appointment> findAllByProviderAndStatusInOrderByStartDateTimeUtcAsc(
+            User provider,
+            List<AppointmentStatus> statuses
+    );
 }

@@ -192,7 +192,7 @@ public class ClientController {
 
 	    appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
 
-	    return "redirect:/client";
+	    return "redirect:/client?section=calendar";
 	}
 	
 	/**
@@ -213,6 +213,27 @@ public class ClientController {
 
 	    appointmentService.payForAppointment(currentUser, appointmentId);
 
-	    return "redirect:/client";
+	    return "redirect:/client?section=calendar";
+	}
+	
+	/**
+	 * Cancels confirmed appointment by client.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @return redirect to client calendar
+	 */
+	@PostMapping("/client/appointments/{appointmentId}/cancel")
+	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
+	                                         HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.cancelConfirmedAppointmentByClient(currentUser, appointmentId);
+
+	    return "redirect:/client?section=calendar";
 	}
 }

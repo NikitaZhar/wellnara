@@ -144,6 +144,8 @@ public class ProviderController {
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
 	    model.addAttribute("confirmedAppointments",
 	            appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
+	    model.addAttribute("appointmentNotifications",
+	            appointmentService.getAppointmentNotificationViewsOfProvider(provider));
 
 	    populateCalendarModel(model, provider);
 	}
@@ -190,7 +192,7 @@ public class ProviderController {
 					rejectionReason
 					);
 
-			return "redirect:/provider";
+			return "redirect:/provider?section=provider-calendar";
 
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("appointmentActionError", exception.getMessage());
@@ -221,7 +223,7 @@ public class ProviderController {
 		try {
 			appointmentService.requestPaymentForAppointment(currentUser, appointmentId);
 
-			return "redirect:/provider";
+			return "redirect:/provider?section=provider-calendar";
 
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("appointmentActionError", exception.getMessage());
@@ -282,6 +284,37 @@ public class ProviderController {
 
 	    try {
 	        appointmentService.completeConfirmedAppointment(currentUser, appointmentId);
+
+	        return "redirect:/provider?section=provider-calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("appointmentActionError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+
+	        return "provider";
+	    }
+	}
+	
+	/**
+	 * Acknowledges provider appointment notification and removes it.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider calendar section or provider page with error
+	 */
+	@PostMapping("/provider/appointments/{appointmentId}/acknowledge")
+	public String acknowledgeAppointmentNotification(@PathVariable Long appointmentId,
+	                                                 HttpSession session,
+	                                                 Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        appointmentService.acknowledgeProviderAppointmentNotification(currentUser, appointmentId);
 
 	        return "redirect:/provider?section=provider-calendar";
 

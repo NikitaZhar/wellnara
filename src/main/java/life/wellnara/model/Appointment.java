@@ -121,8 +121,20 @@ public class Appointment {
         this.rejectionReason = rejectionReason.trim();
         this.updatedAt = LocalDateTime.now();
     }
-    public void cancel() {
-        this.status = AppointmentStatus.CANCELLED;
+    
+    /**
+     * Cancels confirmed appointment by provider.
+     */
+    public void cancelByProvider() {
+        this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Cancels confirmed appointment by client.
+     */
+    public void cancelByClient() {
+        this.status = AppointmentStatus.CANCELLED_BY_CLIENT;
         this.updatedAt = LocalDateTime.now();
     }
 

@@ -26,9 +26,14 @@ public enum AppointmentStatus {
     REJECTED,
 
     /**
-     * Appointment was cancelled.
+     * Appointment was cancelled by provider.
      */
-    CANCELLED,
+    CANCELLED_BY_PROVIDER,
+
+    /**
+     * Appointment was cancelled by client.
+     */
+    CANCELLED_BY_CLIENT,
 
     /**
      * Appointment was completed.

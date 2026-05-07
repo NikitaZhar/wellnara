@@ -316,7 +316,6 @@
 				</tbody>
 			</table>
 		</div>
-
 		<div style="margin-top: 40px;">
 			<h3>Confirmed appointments</h3>
 
@@ -331,6 +330,7 @@
 						<th>Offering</th>
 						<th>Date</th>
 						<th>Time</th>
+						<th>Message</th>
 						<th>Action</th>
 					</tr>
 				</thead>
@@ -341,22 +341,43 @@
 						<td th:text="${appointment.offeringName}"></td>
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
+						<td><span
+							th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+								Appointment cancelled by client. </span></td>
 						<td>
-							<button type="button">Reschedule</button>
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
-								<button type="submit">Cancel</button>
-							</form>
+							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Mark this appointment as completed?');">
-								<button type="submit">Completed</button>
-							</form>
+								<button type="button">Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+									<button type="submit">Cancel</button>
+								</form>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Mark this appointment as completed?');">
+									<button type="submit">Completed</button>
+								</form>
+
+							</div>
+
+							<div
+								th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Remove this appointment notification?');">
+									<button type="submit">OK</button>
+								</form>
+
+							</div>
+
 						</td>
 					</tr>
 				</tbody>

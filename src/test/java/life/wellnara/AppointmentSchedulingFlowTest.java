@@ -295,7 +295,7 @@ class AppointmentSchedulingFlowTest {
                 LocalTime.of(10, 0)
         );
 
-        appointment.cancel();
+        appointment.cancelByClient();
         appointmentRepository.save(appointment);
 
         List<CalendarTerm> terms = appointmentService.getFreeCalendarTerms(provider);
