@@ -323,18 +323,18 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 
-						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
-								Request rejected. Reason: <span
-								th:text="${appointment.rejectionReason}"></span>
-						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
-								Provider accepted your request. Payment is required to confirm
-								the appointment. </span> <span
+						<td><span th:if="${appointment.status.name() == 'REQUESTED'}">
+								Appointment request sent to provider. </span> <span
+							th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment required. </span> <span
+							th:if="${appointment.status.name() == 'REJECTED'}"
+							th:text="${appointment.rejectionReason}"> </span> <span
 							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
 								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'CONFIRMED'}">
-								Appointment confirmed and added to Calendar. </span> <span
 							th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
+
+
 
 						<td>
 							<form
@@ -793,9 +793,6 @@ WHERE NOT EXISTS (
 				</tbody>
 			</table>
 		</div>
-		
-		
-
 		<div style="margin-top: 40px;">
 			<h3>Confirmed appointments</h3>
 
@@ -810,6 +807,7 @@ WHERE NOT EXISTS (
 						<th>Offering</th>
 						<th>Date</th>
 						<th>Time</th>
+						<th>Message</th>
 						<th>Action</th>
 					</tr>
 				</thead>
@@ -820,22 +818,43 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.offeringName}"></td>
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
+						<td><span
+							th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+								Appointment cancelled by client. </span></td>
 						<td>
-							<button type="button">Reschedule</button>
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
-								<button type="submit">Cancel</button>
-							</form>
+							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Mark this appointment as completed?');">
-								<button type="submit">Completed</button>
-							</form>
+								<button type="button">Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+									<button type="submit">Cancel</button>
+								</form>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Mark this appointment as completed?');">
+									<button type="submit">Completed</button>
+								</form>
+
+							</div>
+
+							<div
+								th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Remove this appointment notification?');">
+									<button type="submit">OK</button>
+								</form>
+
+							</div>
+
 						</td>
 					</tr>
 				</tbody>
@@ -1865,7 +1884,7 @@ class AppointmentRepositoryTest {
     }
 
     /**
-     * Verifies status transitions.
+     * Verifies appointment status transitions.
      */
     @Test
     @DisplayName("Should change appointment status correctly")
@@ -1885,13 +1904,34 @@ class AppointmentRepositoryTest {
         appointment.confirm();
         assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
 
-        appointment.cancel();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
-
-        appointment.complete();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+        appointment.cancelByProvider();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
     }
+    
+    /**
+     * Verifies that appointment can be cancelled by client.
+     */
+    @Test
+    @DisplayName("Should cancel appointment by client")
+    void shouldCancelAppointmentByClient() {
+        User provider = createUser("provider-cancel-client", "p-cancel-client@test.com", UserRole.PROVIDER);
+        User client = createUser("client-cancel-client", "c-cancel-client@test.com", UserRole.CLIENT);
 
+        Offering offering = createOffering(provider);
+
+        Appointment appointment = new Appointment(
+                provider,
+                client,
+                offering,
+                LocalDateTime.now()
+        );
+
+        appointment.confirm();
+        appointment.cancelByClient();
+
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_CLIENT);
+    }
+    
     /**
      * Verifies repository query by provider.
      */
@@ -3963,7 +4003,7 @@ class AppointmentSchedulingFlowTest {
                 LocalTime.of(10, 0)
         );
 
-        appointment.cancel();
+        appointment.cancelByClient();
         appointmentRepository.save(appointment);
 
         List<CalendarTerm> terms = appointmentService.getFreeCalendarTerms(provider);
@@ -4410,18 +4450,18 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 
-						<td><span th:if="${appointment.status.name() == 'REJECTED'}">
-								Request rejected. Reason: <span
-								th:text="${appointment.rejectionReason}"></span>
-						</span> <span th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
-								Provider accepted your request. Payment is required to confirm
-								the appointment. </span> <span
+						<td><span th:if="${appointment.status.name() == 'REQUESTED'}">
+								Appointment request sent to provider. </span> <span
+							th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}">
+								Provider accepted your request. Payment required. </span> <span
+							th:if="${appointment.status.name() == 'REJECTED'}"
+							th:text="${appointment.rejectionReason}"> </span> <span
 							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
 								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'CONFIRMED'}">
-								Appointment confirmed and added to Calendar. </span> <span
 							th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
+
+
 
 						<td>
 							<form
@@ -4880,9 +4920,6 @@ WHERE NOT EXISTS (
 				</tbody>
 			</table>
 		</div>
-		
-		
-
 		<div style="margin-top: 40px;">
 			<h3>Confirmed appointments</h3>
 
@@ -4897,6 +4934,7 @@ WHERE NOT EXISTS (
 						<th>Offering</th>
 						<th>Date</th>
 						<th>Time</th>
+						<th>Message</th>
 						<th>Action</th>
 					</tr>
 				</thead>
@@ -4907,22 +4945,43 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.offeringName}"></td>
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
+						<td><span
+							th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+								Appointment cancelled by client. </span></td>
 						<td>
-							<button type="button">Reschedule</button>
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
-								<button type="submit">Cancel</button>
-							</form>
+							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-							<form
-								th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
-								method="post" style="display: inline;"
-								onsubmit="return confirm('Mark this appointment as completed?');">
-								<button type="submit">Completed</button>
-							</form>
+								<button type="button">Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
+									<button type="submit">Cancel</button>
+								</form>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Mark this appointment as completed?');">
+									<button type="submit">Completed</button>
+								</form>
+
+							</div>
+
+							<div
+								th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Remove this appointment notification?');">
+									<button type="submit">OK</button>
+								</form>
+
+							</div>
+
 						</td>
 					</tr>
 				</tbody>
@@ -5595,6 +5654,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             User client,
             Collection<AppointmentStatus> statuses
     );
+    
+    List<Appointment> findAllByProviderAndStatusInOrderByStartDateTimeUtcAsc(
+            User provider,
+            List<AppointmentStatus> statuses
+    );
 }
 ===== ./src/main/java/life/wellnara/repository/OfferingRepository.java =====
 package life.wellnara.repository;
@@ -6044,7 +6108,7 @@ public class ClientController {
 
 	    appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
 
-	    return "redirect:/client";
+	    return "redirect:/client?section=calendar";
 	}
 	
 	/**
@@ -6065,7 +6129,7 @@ public class ClientController {
 
 	    appointmentService.payForAppointment(currentUser, appointmentId);
 
-	    return "redirect:/client";
+	    return "redirect:/client?section=calendar";
 	}
 	
 	/**
@@ -6924,7 +6988,7 @@ public class ProviderController {
 					rejectionReason
 					);
 
-			return "redirect:/provider";
+			return "redirect:/provider?section=provider-calendar";
 
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("appointmentActionError", exception.getMessage());
@@ -6955,7 +7019,7 @@ public class ProviderController {
 		try {
 			appointmentService.requestPaymentForAppointment(currentUser, appointmentId);
 
-			return "redirect:/provider";
+			return "redirect:/provider?section=provider-calendar";
 
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("appointmentActionError", exception.getMessage());
@@ -8328,7 +8392,6 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -8474,25 +8537,27 @@ public class AppointmentService {
     }
 
     /**
-     * Returns confirmed appointments of provider for calendar section.
+     * Returns provider calendar appointments.
      *
-     * @param provider provider whose confirmed appointments are requested
-     * @return confirmed appointment views ordered by date and time
+     * @param provider provider whose appointments are requested
+     * @return provider calendar appointments ordered by date and time
      */
     @Transactional(readOnly = true)
     public List<AppointmentView> getConfirmedAppointmentViewsOfProvider(User provider) {
         ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
         return appointmentRepository
-                .findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
+                .findAllByProviderAndStatusInOrderByStartDateTimeUtcAsc(
                         provider,
-                        AppointmentStatus.CONFIRMED
+                        List.of(
+                                AppointmentStatus.CONFIRMED,
+                                AppointmentStatus.CANCELLED_BY_CLIENT
+                        )
                 )
                 .stream()
                 .map(appointment -> toAppointmentView(appointment, providerZone))
                 .toList();
     }
-
     /**
      * Returns confirmed appointments of client for calendar section.
      *

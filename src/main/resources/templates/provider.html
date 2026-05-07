@@ -259,7 +259,7 @@
 		<h2>My Calendar</h2>
 
 		<div style="margin-top: 30px;">
-			<h3>Appointment requests</h3>
+			<h3>Pending appointments</h3>
 
 			<div th:if="${appointmentActionError}" style="color: red;">
 				<p th:text="${appointmentActionError}"></p>
@@ -289,28 +289,30 @@
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<div style="margin-bottom: 8px;">
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
-									style="display: inline;">
-									<button type="submit">Accept &amp; Request Payment</button>
-								</form>
-							</div>
+							<button type="button">Reschedule</button>
 
-							<div>
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Accept this appointment request and ask client for payment?');">
+								<button type="submit">Accept &amp; Request Payment</button>
+							</form>
 
-									<textarea name="rejectionReason" placeholder="Rejection reason"
-										required maxlength="1000" style="vertical-align: middle;"></textarea>
+							<button type="button" style="margin-left: 8px;"
+								onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+								Reject</button>
 
-									<button type="submit" style="margin-left: 8px;">Reject</button>
-								</form>
-							</div>
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+								method="post" style="display: none; margin-left: 8px;"
+								onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+								<textarea name="rejectionReason" placeholder="Rejection reason"
+									required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+								<button type="submit" style="margin-left: 8px;">Confirm
+									Reject</button>
+							</form>
 						</td>
 					</tr>
 				</tbody>
