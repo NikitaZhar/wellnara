@@ -180,6 +180,7 @@ public class AppointmentService {
                 .map(appointment -> toAppointmentView(appointment, providerZone))
                 .toList();
     }
+    
     /**
      * Returns confirmed appointments of client for calendar section.
      *
@@ -349,7 +350,25 @@ public class AppointmentService {
             result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
         }
 
-        return result;
+        return removePastCalendarTerms(result, providerZone);
+    }
+    
+    /**
+     * Removes calendar terms that cannot be booked anymore.
+     *
+     * @param terms calendar terms
+     * @param providerZone provider timezone
+     * @return future bookable calendar terms
+     */
+    private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
+                                                       ZoneId providerZone) {
+        LocalDate today = LocalDate.now(providerZone);
+        LocalTime now = LocalTime.now(providerZone);
+
+        return terms.stream()
+                .filter(term -> term.getDate().isAfter(today)
+                        || !term.getStartTime().isBefore(now))
+                .toList();
     }
 
     /**
@@ -495,6 +514,31 @@ public class AppointmentService {
         }
 
         appointment.cancelByProvider();
+    }
+    
+    /**
+     * Deletes pending appointment cancelled by client before confirmation.
+     *
+     * @param client client who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REQUESTED
+                && appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+            throw new IllegalArgumentException("Only pending appointment can be cancelled");
+        }
+
+        appointmentRepository.delete(appointment);
     }
 
     /**

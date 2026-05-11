@@ -347,10 +347,19 @@ WHERE NOT EXISTS (
 								<button type="submit">OK</button>
 							</form>
 
+							<form
+								th:if="${appointment.status.name() == 'REQUESTED'
+                or appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/cancel-request(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Cancel this appointment request?');">
+								<button type="submit">Cancel</button>
+							</form>
+
 							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
 								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
-								method="post"
-								onsubmit="return confirm('Pay for this appointment?');">
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Proceed with payment?');">
 								<button type="submit">Pay</button>
 							</form>
 						</td>
@@ -736,7 +745,7 @@ WHERE NOT EXISTS (
 		<h2>My Calendar</h2>
 
 		<div style="margin-top: 30px;">
-			<h3>Appointment requests</h3>
+			<h3>Pending appointments</h3>
 
 			<div th:if="${appointmentActionError}" style="color: red;">
 				<p th:text="${appointmentActionError}"></p>
@@ -766,28 +775,30 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<div style="margin-bottom: 8px;">
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
-									style="display: inline;">
-									<button type="submit">Accept &amp; Request Payment</button>
-								</form>
-							</div>
+							<button type="button">Reschedule</button>
 
-							<div>
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Accept this appointment request and ask client for payment?');">
+								<button type="submit">Accept &amp; Request Payment</button>
+							</form>
 
-									<textarea name="rejectionReason" placeholder="Rejection reason"
-										required maxlength="1000" style="vertical-align: middle;"></textarea>
+							<button type="button" style="margin-left: 8px;"
+								onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+								Reject</button>
 
-									<button type="submit" style="margin-left: 8px;">Reject</button>
-								</form>
-							</div>
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+								method="post" style="display: none; margin-left: 8px;"
+								onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+								<textarea name="rejectionReason" placeholder="Rejection reason"
+									required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+								<button type="submit" style="margin-left: 8px;">Confirm
+									Reject</button>
+							</form>
 						</td>
 					</tr>
 				</tbody>
@@ -4474,10 +4485,19 @@ WHERE NOT EXISTS (
 								<button type="submit">OK</button>
 							</form>
 
+							<form
+								th:if="${appointment.status.name() == 'REQUESTED'
+                or appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/cancel-request(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Cancel this appointment request?');">
+								<button type="submit">Cancel</button>
+							</form>
+
 							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
 								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
-								method="post"
-								onsubmit="return confirm('Pay for this appointment?');">
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Proceed with payment?');">
 								<button type="submit">Pay</button>
 							</form>
 						</td>
@@ -4863,7 +4883,7 @@ WHERE NOT EXISTS (
 		<h2>My Calendar</h2>
 
 		<div style="margin-top: 30px;">
-			<h3>Appointment requests</h3>
+			<h3>Pending appointments</h3>
 
 			<div th:if="${appointmentActionError}" style="color: red;">
 				<p th:text="${appointmentActionError}"></p>
@@ -4893,28 +4913,30 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<div style="margin-bottom: 8px;">
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Accept this appointment request and ask client for payment?');"
-									style="display: inline;">
-									<button type="submit">Accept &amp; Request Payment</button>
-								</form>
-							</div>
+							<button type="button">Reschedule</button>
 
-							<div>
-								<form
-									th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
-									method="post"
-									onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Accept this appointment request and ask client for payment?');">
+								<button type="submit">Accept &amp; Request Payment</button>
+							</form>
 
-									<textarea name="rejectionReason" placeholder="Rejection reason"
-										required maxlength="1000" style="vertical-align: middle;"></textarea>
+							<button type="button" style="margin-left: 8px;"
+								onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+								Reject</button>
 
-									<button type="submit" style="margin-left: 8px;">Reject</button>
-								</form>
-							</div>
+							<form
+								th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+								method="post" style="display: none; margin-left: 8px;"
+								onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+
+								<textarea name="rejectionReason" placeholder="Rejection reason"
+									required maxlength="1000" style="vertical-align: middle;"></textarea>
+
+								<button type="submit" style="margin-left: 8px;">Confirm
+									Reject</button>
+							</form>
 						</td>
 					</tr>
 				</tbody>
@@ -6132,6 +6154,19 @@ public class ClientController {
 	    return "redirect:/client?section=calendar";
 	}
 	
+	@PostMapping("/client/appointments/{appointmentId}/cancel-request")
+	public String cancelPendingAppointment(@PathVariable Long appointmentId,
+	                                       HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.cancelPendingAppointmentByClient(currentUser, appointmentId);
+
+	    return "redirect:/client?section=calendar";
+	}	
 	/**
 	 * Cancels confirmed appointment by client.
 	 *
@@ -8558,6 +8593,7 @@ public class AppointmentService {
                 .map(appointment -> toAppointmentView(appointment, providerZone))
                 .toList();
     }
+    
     /**
      * Returns confirmed appointments of client for calendar section.
      *
@@ -8873,6 +8909,31 @@ public class AppointmentService {
         }
 
         appointment.cancelByProvider();
+    }
+    
+    /**
+     * Deletes pending appointment cancelled by client before confirmation.
+     *
+     * @param client client who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REQUESTED
+                && appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+            throw new IllegalArgumentException("Only pending appointment can be cancelled");
+        }
+
+        appointmentRepository.delete(appointment);
     }
 
     /**

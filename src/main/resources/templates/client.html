@@ -132,10 +132,19 @@
 								<button type="submit">OK</button>
 							</form>
 
+							<form
+								th:if="${appointment.status.name() == 'REQUESTED'
+                or appointment.status.name() == 'PAYMENT_REQUESTED'}"
+								th:action="@{/client/appointments/{appointmentId}/cancel-request(appointmentId=${appointment.id})}"
+								method="post" style="display: inline;"
+								onsubmit="return confirm('Cancel this appointment request?');">
+								<button type="submit">Cancel</button>
+							</form>
+
 							<form th:if="${appointment.status.name() == 'PAYMENT_REQUESTED'}"
 								th:action="@{/client/appointments/{appointmentId}/pay(appointmentId=${appointment.id})}"
-								method="post"
-								onsubmit="return confirm('Pay for this appointment?');">
+								method="post" style="display: inline; margin-left: 8px;"
+								onsubmit="return confirm('Proceed with payment?');">
 								<button type="submit">Pay</button>
 							</form>
 						</td>

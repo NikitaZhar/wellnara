@@ -49,65 +49,6 @@
         }
     }
 
-    function updateAvailabilityPreview() {
-        const period = document.getElementById('availabilityPreviewPeriod');
-        const body = document.getElementById('availabilityPreviewBody');
-        const from = document.getElementById('planningFrom');
-        const to = document.getElementById('planningTo');
-
-        if (!period || !body || !from || !to) {
-            return;
-        }
-
-        body.innerHTML = '';
-
-        if (!from.value || !to.value || from.value > to.value) {
-            period.textContent = 'not selected';
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-            return;
-        }
-
-        period.textContent = from.value + ' - ' + to.value;
-
-        const days = [
-            [1, 'monday-start', 'monday-end'],
-            [2, 'tuesday-start', 'tuesday-end'],
-            [3, 'wednesday-start', 'wednesday-end'],
-            [4, 'thursday-start', 'thursday-end'],
-            [5, 'friday-start', 'friday-end']
-        ];
-
-        let hasSlots = false;
-        let current = new Date(from.value + 'T00:00:00Z');
-        const end = new Date(to.value + 'T00:00:00Z');
-
-        while (current <= end) {
-            const day = current.getUTCDay();
-
-            for (const [expectedDay, startId, endId] of days) {
-                const start = document.getElementById(startId);
-                const endTime = document.getElementById(endId);
-
-                if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
-                    body.innerHTML +=
-                        '<tr>' +
-                        '<td>' + current.toISOString().split('T')[0] + '</td>' +
-                        '<td>' + start.value + '</td>' +
-                        '<td>' + endTime.value + '</td>' +
-                        '</tr>';
-
-                    hasSlots = true;
-                }
-            }
-
-            current.setUTCDate(current.getUTCDate() + 1);
-        }
-
-        if (!hasSlots) {
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-        }
-    }
-
     window.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams(window.location.search);
         const section = params.get('section');
@@ -126,30 +67,6 @@
 
         fillProviderTimezone();
         configurePlanningDateLimits();
-
-        [
-            'planningFrom',
-            'planningTo',
-            'monday-start',
-            'monday-end',
-            'tuesday-start',
-            'tuesday-end',
-            'wednesday-start',
-            'wednesday-end',
-            'thursday-start',
-            'thursday-end',
-            'friday-start',
-            'friday-end'
-        ].forEach(id => {
-            const input = document.getElementById(id);
-
-            if (input) {
-                input.addEventListener('input', updateAvailabilityPreview);
-                input.addEventListener('change', updateAvailabilityPreview);
-            }
-        });
-
-        updateAvailabilityPreview();
     });
 </script>
 </head>
@@ -289,8 +206,6 @@
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<button type="button">Reschedule</button>
-
 							<form
 								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
 								method="post" style="display: inline; margin-left: 8px;"
@@ -464,19 +379,77 @@
 			<thead>
 				<tr>
 					<th>Date</th>
+					<th>Day</th>
 					<th>Start</th>
 					<th>End</th>
 				</tr>
 			</thead>
 
-			<tbody id="availabilityPreviewBody">
+			<tbody>
 				<tr th:each="term : ${calendarTerms}">
 					<td th:text="${term.date}"></td>
+					<td th:text="${term.date.dayOfWeek}"></td>
 					<td th:text="${term.startTime}"></td>
 					<td th:text="${term.endTime}"></td>
 				</tr>
 			</tbody>
 		</table>
+
+		<div style="margin-top: 30px;">
+			<h3>One-time availability changes</h3>
+
+			<div th:if="${calendarOverrideError}" style="color: red;">
+				<p th:text="${calendarOverrideError}"></p>
+			</div>
+
+			<form th:action="@{/provider/calendar/overrides}" method="post">
+				<div class="form-row">
+					<select name="type" required>
+						<option value="AVAILABLE">Available</option>
+						<option value="UNAVAILABLE">Unavailable</option>
+					</select> <input type="date" name="overrideDate" required> <input
+						type="time" name="startTime" required> <input type="time"
+						name="endTime" required>
+
+					<button type="submit">Add change</button>
+				</div>
+			</form>
+
+			<div th:if="${#lists.isEmpty(availabilityOverrides)}">
+				<p>No one-time changes</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(availabilityOverrides)}">
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Date</th>
+						<th>Day</th>
+						<th>Start</th>
+						<th>End</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="override : ${availabilityOverrides}">
+						<td th:text="${override.type}"></td>
+						<td th:text="${override.overrideDate}"></td>
+						<td th:text="${override.overrideDate.dayOfWeek}"></td>
+						<td th:text="${override.startTime}"></td>
+						<td th:text="${override.endTime}"></td>
+						<td>
+							<form
+								th:action="@{/provider/calendar/overrides/{overrideId}/delete(overrideId=${override.id})}"
+								method="post"
+								onsubmit="return confirm('Delete this one-time availability change?');">
+								<button type="submit">Delete</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
 		<form th:action="@{/provider/calendar}" method="post">
 
@@ -535,6 +508,9 @@
 					</tr>
 				</tbody>
 			</table>
+
+
+
 
 			<button class="primary-button" type="submit">Save</button>
 		</form>

@@ -216,6 +216,19 @@ public class ClientController {
 	    return "redirect:/client?section=calendar";
 	}
 	
+	@PostMapping("/client/appointments/{appointmentId}/cancel-request")
+	public String cancelPendingAppointment(@PathVariable Long appointmentId,
+	                                       HttpSession session) {
+	    User currentUser = getAuthenticatedClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    appointmentService.cancelPendingAppointmentByClient(currentUser, appointmentId);
+
+	    return "redirect:/client?section=calendar";
+	}	
 	/**
 	 * Cancels confirmed appointment by client.
 	 *

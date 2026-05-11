@@ -4,9 +4,12 @@ import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.User;
+import life.wellnara.repository.AvailabilityOverrideRepository;
 import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,8 @@ public class ProviderCalendarService {
 
 	private final AvailabilityPeriodRepository availabilityPeriodRepository;
 	private final AvailabilityRuleRepository availabilityRuleRepository;
+	private final AvailabilityOverrideRepository availabilityOverrideRepository;
+	private final AvailabilityOverrideApplier availabilityOverrideApplier;
 
 	/**
 	 * Creates provider calendar service.
@@ -41,9 +46,13 @@ public class ProviderCalendarService {
 	 * @param availabilityRuleRepository repository for availability rules
 	 */
 	public ProviderCalendarService(AvailabilityPeriodRepository availabilityPeriodRepository,
-			AvailabilityRuleRepository availabilityRuleRepository) {
+			AvailabilityRuleRepository availabilityRuleRepository,
+			AvailabilityOverrideRepository availabilityOverrideRepository,
+			AvailabilityOverrideApplier availabilityOverrideApplier) {
 		this.availabilityPeriodRepository = availabilityPeriodRepository;
 		this.availabilityRuleRepository = availabilityRuleRepository;
+		this.availabilityOverrideRepository = availabilityOverrideRepository;
+		this.availabilityOverrideApplier = availabilityOverrideApplier;
 	}
 
 	/**
@@ -83,16 +92,16 @@ public class ProviderCalendarService {
 		if (form.getPlanningFrom() == null) {
 			errors.put("planningFrom", "Start date is required");
 		}
-		
+
 		if (form.getPlanningFrom() != null
-		        && form.getProviderTimezone() != null
-		        && !form.getProviderTimezone().isBlank()) {
+				&& form.getProviderTimezone() != null
+				&& !form.getProviderTimezone().isBlank()) {
 
-		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+			LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
 
-		    if (form.getPlanningFrom().isBefore(today)) {
-		        errors.put("planningFrom", "Start date must not be before today");
-		    }
+			if (form.getPlanningFrom().isBefore(today)) {
+				errors.put("planningFrom", "Start date must not be before today");
+			}
 		}
 
 		if (form.getPlanningTo() == null) {
@@ -100,16 +109,16 @@ public class ProviderCalendarService {
 		}
 
 		if (form.getPlanningTo() != null
-		        && form.getProviderTimezone() != null
-		        && !form.getProviderTimezone().isBlank()) {
+				&& form.getProviderTimezone() != null
+				&& !form.getProviderTimezone().isBlank()) {
 
-		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+			LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
 
-		    if (form.getPlanningTo().isBefore(today)) {
-		        errors.put("planningTo", "End date must not be before today");
-		    }
+			if (form.getPlanningTo().isBefore(today)) {
+				errors.put("planningTo", "End date must not be before today");
+			}
 		}
-		
+
 		if (form.getPlanningFrom() != null
 				&& form.getPlanningTo() != null
 				&& form.getPlanningTo().isBefore(form.getPlanningFrom())) {
@@ -167,9 +176,9 @@ public class ProviderCalendarService {
 	 * @return true if both values represent empty availability
 	 */
 	private boolean isEmptyDay(LocalTime start, LocalTime end) {
-	    return LocalTime.MIDNIGHT.equals(start) && LocalTime.MIDNIGHT.equals(end);
+		return LocalTime.MIDNIGHT.equals(start) && LocalTime.MIDNIGHT.equals(end);
 	}
-	
+
 	/**
 	 * Saves availability rule only when both start and end time are present.
 	 *
@@ -262,45 +271,48 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public List<CalendarTerm> generateCalendar(User provider) {
-	    Optional<AvailabilityPeriod> periodOpt =
-	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+		Optional<AvailabilityPeriod> periodOpt =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-	    if (periodOpt.isEmpty()) {
-	        return List.of();
-	    }
+		if (periodOpt.isEmpty()) {
+			return List.of();
+		}
 
-	    AvailabilityPeriod period = periodOpt.get();
+		AvailabilityPeriod period = periodOpt.get();
 
-	    List<AvailabilityRule> rules =
-	            availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+		List<AvailabilityRule> rules =
+				availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-	    List<CalendarTerm> result = new ArrayList<>();
+		List<CalendarTerm> result = new ArrayList<>();
 
-	    LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
-	    LocalDate current = period.getDateFrom().isBefore(today)
-	            ? today
-	            : period.getDateFrom();
+		LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+		LocalDate current = period.getDateFrom().isBefore(today)
+				? today
+						: period.getDateFrom();
 
-	    while (!current.isAfter(period.getDateTo())) {
-	        for (AvailabilityRule rule : rules) {
-	            if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
-	                result.add(new CalendarTerm(
-	                        current,
-	                        rule.getStartTime(),
-	                        rule.getEndTime()
-	                ));
-	            }
-	        }
+		while (!current.isAfter(period.getDateTo())) {
+			for (AvailabilityRule rule : rules) {
+				if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
+					result.add(new CalendarTerm(
+							current,
+							rule.getStartTime(),
+							rule.getEndTime()
+							));
+				}
+			}
 
-	        current = current.plusDays(1);
-	    }
+			current = current.plusDays(1);
+		}
 
-	    result.sort(Comparator.comparing(CalendarTerm::getDate)
-	            .thenComparing(CalendarTerm::getStartTime));
+		result.sort(Comparator.comparing(CalendarTerm::getDate)
+				.thenComparing(CalendarTerm::getStartTime));
 
-	    return result;
+		List<AvailabilityOverride> overrides =
+				availabilityOverrideRepository.findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+
+		return availabilityOverrideApplier.apply(result, overrides);
 	}
-	
+
 	/**
 	 * Checks whether requested appointment time is inside provider availability.
 	 *
@@ -311,47 +323,47 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public boolean isAvailable(User provider,
-	                           LocalDateTime startDateTimeUtc,
-	                           Integer durationMinutes) {
-	    if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
-	        return false;
-	    }
+			LocalDateTime startDateTimeUtc,
+			Integer durationMinutes) {
+		if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
+			return false;
+		}
 
-	    Optional<AvailabilityPeriod> periodOptional =
-	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+		Optional<AvailabilityPeriod> periodOptional =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-	    if (periodOptional.isEmpty()) {
-	        return false;
-	    }
+		if (periodOptional.isEmpty()) {
+			return false;
+		}
 
-	    AvailabilityPeriod period = periodOptional.get();
-	    ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
+		AvailabilityPeriod period = periodOptional.get();
+		ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
 
-	    ZonedDateTime startInProviderZone = startDateTimeUtc
-	            .atZone(ZoneOffset.UTC)
-	            .withZoneSameInstant(providerZone);
+		ZonedDateTime startInProviderZone = startDateTimeUtc
+				.atZone(ZoneOffset.UTC)
+				.withZoneSameInstant(providerZone);
 
-	    ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
+		ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
 
-	    LocalDate appointmentDate = startInProviderZone.toLocalDate();
+		LocalDate appointmentDate = startInProviderZone.toLocalDate();
 
-	    if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
-	        return false;
-	    }
+		if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
+			return false;
+		}
 
-	    if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
-	        return false;
-	    }
+		if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
+			return false;
+		}
 
-	    List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+		List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-	    return rules.stream().anyMatch(rule ->
-	            rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
-	                    && !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
-	                    && !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
-	    );
+		return rules.stream().anyMatch(rule ->
+		rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
+		&& !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
+		&& !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
+				);
 	}
-	
+
 	/**
 	 * Returns timezone from latest provider availability period.
 	 *
@@ -360,13 +372,13 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public ZoneId getProviderTimezone(User provider) {
-	    AvailabilityPeriod period = availabilityPeriodRepository
-	            .findTopByProviderOrderByCreatedAtDesc(provider)
-	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
+		AvailabilityPeriod period = availabilityPeriodRepository
+				.findTopByProviderOrderByCreatedAtDesc(provider)
+				.orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
 
-	    return ZoneId.of(period.getProviderTimezone());
+		return ZoneId.of(period.getProviderTimezone());
 	}
-	
+
 	/**
 	 * Deletes provider availability periods that ended before today.
 	 *
@@ -374,15 +386,85 @@ public class ProviderCalendarService {
 	 */
 	@Transactional
 	public void deleteExpiredAvailabilityPeriods(User provider) {
-	    List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+		List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
-	    for (AvailabilityPeriod period : periods) {
-	        LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+		for (AvailabilityPeriod period : periods) {
+			LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
 
-	        if (period.getDateTo().isBefore(today)) {
-	            availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
-	            availabilityPeriodRepository.delete(period);
-	        }
-	    }
+			if (period.getDateTo().isBefore(today)) {
+				availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
+				availabilityPeriodRepository.delete(period);
+			}
+		}
+	}
+
+	@Transactional
+	public void createAvailabilityOverride(User provider,
+			LocalDate date,
+			LocalTime startTime,
+			LocalTime endTime,
+			AvailabilityOverrideType type) {
+		validateAvailabilityOverride(provider, date, startTime, endTime, type);
+
+		availabilityOverrideRepository.save(
+				new AvailabilityOverride(
+						provider,
+						date,
+						startTime,
+						endTime,
+						type
+						)
+				);
+	}
+
+	@Transactional
+	public void deleteAvailabilityOverride(User provider, Long overrideId) {
+		AvailabilityOverride override = availabilityOverrideRepository.findById(overrideId)
+				.orElseThrow(() ->
+				new IllegalArgumentException("Availability override not found"));
+
+		if (!override.getProvider().getId().equals(provider.getId())) {
+			throw new IllegalArgumentException(
+					"Availability override does not belong to provider");
+		}
+
+		availabilityOverrideRepository.delete(override);
+	}
+
+	@Transactional(readOnly = true)
+	public List<AvailabilityOverride> getAvailabilityOverrides(User provider) {
+		return availabilityOverrideRepository
+				.findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+	}
+
+	private void validateAvailabilityOverride(User provider,
+			LocalDate date,
+			LocalTime startTime,
+			LocalTime endTime,
+			AvailabilityOverrideType type) {
+		if (provider == null) {
+			throw new IllegalArgumentException("Provider is required");
+		}
+
+		if (date == null) {
+			throw new IllegalArgumentException("Date is required");
+		}
+
+		if (startTime == null) {
+			throw new IllegalArgumentException("Start time is required");
+		}
+
+		if (endTime == null) {
+			throw new IllegalArgumentException("End time is required");
+		}
+
+		if (!endTime.isAfter(startTime)) {
+			throw new IllegalArgumentException(
+					"End time must be after start time");
+		}
+
+		if (type == null) {
+			throw new IllegalArgumentException("Override type is required");
+		}
 	}
 }

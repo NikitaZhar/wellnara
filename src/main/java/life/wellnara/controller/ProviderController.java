@@ -3,12 +3,17 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -157,14 +162,24 @@ public class ProviderController {
 	 * @param provider authenticated provider
 	 */
 	private void populateCalendarModel(Model model, User provider) {
-		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+	    ProviderCalendarForm calendarForm =
+	            providerCalendarService.getLatestCalendarForm(provider);
 
-		model.addAttribute("calendarForm", calendarForm);
-		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-		model.addAttribute("planningTo", calendarForm.getPlanningTo());
-		model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+	    model.addAttribute("calendarForm", calendarForm);
+	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
+
+	    model.addAttribute(
+	            "calendarTerms",
+	            appointmentService.getFreeCalendarTerms(provider)
+	    );
+
+	    model.addAttribute(
+	            "availabilityOverrides",
+	            providerCalendarService.getAvailabilityOverrides(provider)
+	    );
 	}
-
+	
 	/**
 	 * Rejects client appointment request.
 	 *
@@ -231,6 +246,59 @@ public class ProviderController {
 
 			return "provider";
 		}
+	}
+	
+	@PostMapping("/provider/calendar/overrides")
+	public String createAvailabilityOverride(@RequestParam LocalDate overrideDate,
+	                                         @RequestParam LocalTime startTime,
+	                                         @RequestParam LocalTime endTime,
+	                                         @RequestParam AvailabilityOverrideType type,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        providerCalendarService.createAvailabilityOverride(
+	                currentUser,
+	                overrideDate,
+	                startTime,
+	                endTime,
+	                type
+	        );
+
+	        return "redirect:/provider?section=calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("calendarOverrideError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+	        return "provider";
+	    }
+	}
+	
+	@PostMapping("/provider/calendar/overrides/{overrideId}/delete")
+	public String deleteAvailabilityOverride(@PathVariable Long overrideId,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        providerCalendarService.deleteAvailabilityOverride(currentUser, overrideId);
+
+	        return "redirect:/provider?section=calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("calendarOverrideError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+	        return "provider";
+	    }
 	}
 	
 	/**
