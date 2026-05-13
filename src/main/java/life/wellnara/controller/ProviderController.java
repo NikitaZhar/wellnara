@@ -10,10 +10,8 @@ import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
-
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -168,12 +166,10 @@ public class ProviderController {
 	    model.addAttribute("calendarForm", calendarForm);
 	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
 	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
-
 	    model.addAttribute(
 	            "calendarTerms",
 	            appointmentService.getFreeCalendarTerms(provider)
 	    );
-
 	    model.addAttribute(
 	            "availabilityOverrides",
 	            providerCalendarService.getAvailabilityOverrides(provider)

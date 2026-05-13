@@ -9,117 +9,115 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Offering</title>
+<meta charset="UTF-8">
+<title>Wellnara Offering</title>
 
-    <link rel="stylesheet" th:href="@{/css/provider.css}">
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 </head>
 
 <body>
 
-<div class="page-header">
-    <h1>
-        Wellnara: Client - <span th:text="${clientName}"></span>
-    </h1>
+	<div class="page-header">
+		<h1>
+			Wellnara: Client - <span th:text="${clientName}"></span>
+		</h1>
 
-    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
 
-<h2 th:text="${offering.name}"></h2>
+	<h2 th:text="${offering.name}"></h2>
 
-<p>
-    <strong>Description:</strong>
-    <span th:text="${offering.description}"></span>
-</p>
+	<p>
+		<strong>Description:</strong> <span th:text="${offering.description}"></span>
+	</p>
 
-<p>
-    <strong>Price:</strong>
-    <span th:text="${offering.pricePerSession}"></span>
-</p>
+	<p>
+		<strong>Price:</strong> <span th:text="${offering.pricePerSession}"></span>
+	</p>
 
-<p>
-    <strong>Duration:</strong>
-    <span th:text="${offering.durationMinutes}"></span> minutes
-</p>
+	<p>
+		<strong>Duration:</strong> <span th:text="${offering.durationMinutes}"></span>
+		minutes
+	</p>
 
-<!-- ===== AVAILABLE SLOTS ===== -->
+	<!-- ===== AVAILABLE SLOTS ===== -->
 
-<div style="margin-top: 30px;">
-    <h3>Available slots</h3>
+	<div style="margin-top: 30px;">
+		<h3>Available slots</h3>
 
-    <div th:if="${#lists.isEmpty(calendarTerms)}">
-        <p>No available slots</p>
-    </div>
+		<div th:if="${#lists.isEmpty(calendarTerms)}">
+			<p>No available slots</p>
+		</div>
 
-    <table th:if="${not #lists.isEmpty(calendarTerms)}">
-        <thead>
-        <tr>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-        </tr>
-        </thead>
+		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Day</th>
+					<th>Start</th>
+					<th>End</th>
+				</tr>
+			</thead>
 
-        <tbody>
-        <tr th:each="term : ${calendarTerms}">
-            <td th:text="${term.date}"></td>
-            <td th:text="${term.startTime}"></td>
-            <td th:text="${term.endTime}"></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="term : ${calendarTerms}">
+					<td th:text="${term.date}"></td>
+					<td th:text="${term.date.dayOfWeek}"></td>
+					<td th:text="${term.startTime}"></td>
+					<td th:text="${term.endTime}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-<!-- ===== BOOKING ===== -->
+	<!-- ===== BOOKING ===== -->
 
-<form th:action="@{/client/appointments}" method="post"
-      th:if="${not #lists.isEmpty(bookableDateOptions)}">
+	<form th:action="@{/client/appointments}" method="post"
+		th:if="${not #lists.isEmpty(bookableDateOptions)}">
 
-    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
-    <input type="hidden" name="offeringId" th:value="${offering.id}">
+		<input type="hidden" name="providerId"
+			th:value="${offering.provider.id}"> <input type="hidden"
+			name="offeringId" th:value="${offering.id}">
 
-    <div style="margin-top: 30px;">
-        <h3>Select slot</h3>
+		<div style="margin-top: 30px;">
+			<h3>Select slot</h3>
 
-        <!-- DATE -->
-        <div>
-            <label for="selectedDate">Date:</label>
-            <select id="selectedDate" name="selectedDate" required>
-                <option th:each="option : ${bookableDateOptions}"
-                        th:value="${option.date}"
-                        th:text="${option.date}"
-                        th:data-times="${option.timesValue}">
-                </option>
-            </select>
-        </div>
+			<!-- DATE -->
+			<div>
+				<label for="selectedDate">Date:</label> <select id="selectedDate"
+					name="selectedDate" required>
+					<option th:each="option : ${bookableDateOptions}"
+						th:value="${option.date}" th:text="${option.date}"
+						th:data-times="${option.timesValue}"></option>
+				</select>
+			</div>
 
-        <!-- TIME -->
-        <div style="margin-top: 10px;">
-            <label for="selectedTime">Time:</label>
-            <select id="selectedTime" name="selectedTime" required></select>
-        </div>
-    </div>
+			<!-- TIME -->
+			<div style="margin-top: 10px;">
+				<label for="selectedTime">Time:</label> <select id="selectedTime"
+					name="selectedTime" required></select>
+			</div>
+		</div>
 
-    <div style="margin-top: 30px;">
-        <a th:href="@{/client}">
-            <button type="button">Cancel</button>
-        </a>
+		<div style="margin-top: 30px;">
+			<a th:href="@{/client}">
+				<button type="button">Cancel</button>
+			</a>
 
-        <button type="submit" style="margin-left: 10px;">
-            Send Request
-        </button>
-    </div>
+			<button type="submit" style="margin-left: 10px;">Send
+				Request</button>
+		</div>
 
-</form>
+	</form>
 
-<div th:if="${#lists.isEmpty(bookableDateOptions)}"
-     style="margin-top: 30px;">
-    <p>No bookable times for this offering</p>
-</div>
+	<div th:if="${#lists.isEmpty(bookableDateOptions)}"
+		style="margin-top: 30px;">
+		<p>No bookable times for this offering</p>
+	</div>
 
-<!-- ===== SCRIPT ===== -->
+	<!-- ===== SCRIPT ===== -->
 
-<script>
+	<script>
     function generateTimeOptions() {
         const dateSelect = document.getElementById('selectedDate');
         const timeSelect = document.getElementById('selectedTime');
@@ -137,7 +135,10 @@ WHERE NOT EXISTS (
             return;
         }
 
-        timesValue.split(',').forEach(time => {
+        timesValue.split(',')
+        .map(time => time.trim())
+        .filter(time => time.length > 0)
+        .forEach(time => {
             const option = document.createElement('option');
             option.value = time;
             option.text = time;
@@ -535,65 +536,6 @@ WHERE NOT EXISTS (
         }
     }
 
-    function updateAvailabilityPreview() {
-        const period = document.getElementById('availabilityPreviewPeriod');
-        const body = document.getElementById('availabilityPreviewBody');
-        const from = document.getElementById('planningFrom');
-        const to = document.getElementById('planningTo');
-
-        if (!period || !body || !from || !to) {
-            return;
-        }
-
-        body.innerHTML = '';
-
-        if (!from.value || !to.value || from.value > to.value) {
-            period.textContent = 'not selected';
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-            return;
-        }
-
-        period.textContent = from.value + ' - ' + to.value;
-
-        const days = [
-            [1, 'monday-start', 'monday-end'],
-            [2, 'tuesday-start', 'tuesday-end'],
-            [3, 'wednesday-start', 'wednesday-end'],
-            [4, 'thursday-start', 'thursday-end'],
-            [5, 'friday-start', 'friday-end']
-        ];
-
-        let hasSlots = false;
-        let current = new Date(from.value + 'T00:00:00Z');
-        const end = new Date(to.value + 'T00:00:00Z');
-
-        while (current <= end) {
-            const day = current.getUTCDay();
-
-            for (const [expectedDay, startId, endId] of days) {
-                const start = document.getElementById(startId);
-                const endTime = document.getElementById(endId);
-
-                if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
-                    body.innerHTML +=
-                        '<tr>' +
-                        '<td>' + current.toISOString().split('T')[0] + '</td>' +
-                        '<td>' + start.value + '</td>' +
-                        '<td>' + endTime.value + '</td>' +
-                        '</tr>';
-
-                    hasSlots = true;
-                }
-            }
-
-            current.setUTCDate(current.getUTCDate() + 1);
-        }
-
-        if (!hasSlots) {
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-        }
-    }
-
     window.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams(window.location.search);
         const section = params.get('section');
@@ -612,30 +554,6 @@ WHERE NOT EXISTS (
 
         fillProviderTimezone();
         configurePlanningDateLimits();
-
-        [
-            'planningFrom',
-            'planningTo',
-            'monday-start',
-            'monday-end',
-            'tuesday-start',
-            'tuesday-end',
-            'wednesday-start',
-            'wednesday-end',
-            'thursday-start',
-            'thursday-end',
-            'friday-start',
-            'friday-end'
-        ].forEach(id => {
-            const input = document.getElementById(id);
-
-            if (input) {
-                input.addEventListener('input', updateAvailabilityPreview);
-                input.addEventListener('change', updateAvailabilityPreview);
-            }
-        });
-
-        updateAvailabilityPreview();
     });
 </script>
 </head>
@@ -775,8 +693,6 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<button type="button">Reschedule</button>
-
 							<form
 								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
 								method="post" style="display: inline; margin-left: 8px;"
@@ -950,19 +866,79 @@ WHERE NOT EXISTS (
 			<thead>
 				<tr>
 					<th>Date</th>
+					<th>Day</th>
 					<th>Start</th>
 					<th>End</th>
 				</tr>
 			</thead>
 
-			<tbody id="availabilityPreviewBody">
-				<tr th:each="term : ${calendarTerms}">
+			<tbody>
+				<tr th:each="term : ${calendarTerms}" class="available-slot-row"
+					th:data-date="${term.date}" th:data-start="${term.startTime}"
+					th:data-end="${term.endTime}">
 					<td th:text="${term.date}"></td>
+					<td th:text="${term.date.dayOfWeek}"></td>
 					<td th:text="${term.startTime}"></td>
 					<td th:text="${term.endTime}"></td>
 				</tr>
 			</tbody>
 		</table>
+
+		<div style="margin-top: 30px;">
+			<h3>One-time availability changes</h3>
+
+			<div th:if="${calendarOverrideError}" style="color: red;">
+				<p th:text="${calendarOverrideError}"></p>
+			</div>
+
+			<form th:action="@{/provider/calendar/overrides}" method="post">
+				<div class="form-row">
+					<select name="type" required>
+						<option value="AVAILABLE">Available</option>
+						<option value="UNAVAILABLE">Unavailable</option>
+					</select> <input type="date" name="overrideDate" required> <input
+						type="time" name="startTime" step="900" required> <input
+						type="time" name="endTime" step="900" required>
+
+					<button type="submit">Add change</button>
+				</div>
+			</form>
+
+			<div th:if="${#lists.isEmpty(availabilityOverrides)}">
+				<p>No one-time changes</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(availabilityOverrides)}">
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Date</th>
+						<th>Day</th>
+						<th>Start</th>
+						<th>End</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="override : ${availabilityOverrides}">
+						<td th:text="${override.type}"></td>
+						<td th:text="${override.overrideDate}"></td>
+						<td th:text="${override.overrideDate.dayOfWeek}"></td>
+						<td th:text="${override.startTime}"></td>
+						<td th:text="${override.endTime}"></td>
+						<td>
+							<form
+								th:action="@{/provider/calendar/overrides/{overrideId}/delete(overrideId=${override.id})}"
+								method="post"
+								onsubmit="return confirm('Delete this one-time availability change?');">
+								<button type="submit">Delete</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
 		<form th:action="@{/provider/calendar}" method="post">
 
@@ -3034,6 +3010,100 @@ class ProviderCalendarMvcTest {
         return session;
     }
 }
+===== ./src/test/java/life/wellnara/AvailabilityOverrideApplierTest.java =====
+package life.wellnara;
+
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.AvailabilityOverrideType;
+import life.wellnara.model.User;
+import life.wellnara.service.AvailabilityOverrideApplier;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Unit tests for AvailabilityOverrideApplier.
+ */
+class AvailabilityOverrideApplierTest {
+
+    private final AvailabilityOverrideApplier applier =
+            new AvailabilityOverrideApplier();
+
+    /**
+     * Verifies that unavailable override splits one calendar term
+     * into two remaining free terms.
+     */
+    @Test
+    @DisplayName("Should split calendar term by unavailable override")
+    void shouldSplitCalendarTermByUnavailableOverride() {
+        LocalDate date = LocalDate.of(2026, 5, 11);
+
+        List<CalendarTerm> baseTerms = List.of(
+                new CalendarTerm(
+                        date,
+                        LocalTime.of(9, 0),
+                        LocalTime.of(15, 0)
+                )
+        );
+
+        AvailabilityOverride override = new AvailabilityOverride(
+                new User(),
+                date,
+                LocalTime.of(11, 0),
+                LocalTime.of(12, 0),
+                AvailabilityOverrideType.UNAVAILABLE
+        );
+
+        List<CalendarTerm> result =
+                applier.apply(baseTerms, List.of(override));
+
+        assertThat(result)
+                .extracting(term ->
+                        term.getDate() + " "
+                                + term.getStartTime() + "-"
+                                + term.getEndTime())
+                .containsExactly(
+                        "2026-05-11 09:00-11:00",
+                        "2026-05-11 12:00-15:00"
+                );
+    }
+
+    /**
+     * Verifies that available override adds one-time term
+     * when base calendar is empty.
+     */
+    @Test
+    @DisplayName("Should add available override to empty calendar")
+    void shouldAddAvailableOverrideToEmptyCalendar() {
+        LocalDate date = LocalDate.of(2026, 5, 12);
+
+        AvailabilityOverride override = new AvailabilityOverride(
+                new User(),
+                date,
+                LocalTime.of(10, 0),
+                LocalTime.of(11, 0),
+                AvailabilityOverrideType.AVAILABLE
+        );
+
+        List<CalendarTerm> result =
+                applier.apply(List.of(), List.of(override));
+
+        assertThat(result)
+                .extracting(term ->
+                        term.getDate() + " "
+                                + term.getStartTime() + "-"
+                                + term.getEndTime())
+                .containsExactly(
+                        "2026-05-12 10:00-11:00"
+                );
+    }
+}
 ===== ./src/test/java/life/wellnara/ProviderClientAndOfferingEdgeCasesMvcTest.java =====
 package life.wellnara;
 
@@ -4147,117 +4217,115 @@ WHERE NOT EXISTS (
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <title>Wellnara Offering</title>
+<meta charset="UTF-8">
+<title>Wellnara Offering</title>
 
-    <link rel="stylesheet" th:href="@{/css/provider.css}">
+<link rel="stylesheet" th:href="@{/css/provider.css}">
 </head>
 
 <body>
 
-<div class="page-header">
-    <h1>
-        Wellnara: Client - <span th:text="${clientName}"></span>
-    </h1>
+	<div class="page-header">
+		<h1>
+			Wellnara: Client - <span th:text="${clientName}"></span>
+		</h1>
 
-    <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-</div>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
 
-<h2 th:text="${offering.name}"></h2>
+	<h2 th:text="${offering.name}"></h2>
 
-<p>
-    <strong>Description:</strong>
-    <span th:text="${offering.description}"></span>
-</p>
+	<p>
+		<strong>Description:</strong> <span th:text="${offering.description}"></span>
+	</p>
 
-<p>
-    <strong>Price:</strong>
-    <span th:text="${offering.pricePerSession}"></span>
-</p>
+	<p>
+		<strong>Price:</strong> <span th:text="${offering.pricePerSession}"></span>
+	</p>
 
-<p>
-    <strong>Duration:</strong>
-    <span th:text="${offering.durationMinutes}"></span> minutes
-</p>
+	<p>
+		<strong>Duration:</strong> <span th:text="${offering.durationMinutes}"></span>
+		minutes
+	</p>
 
-<!-- ===== AVAILABLE SLOTS ===== -->
+	<!-- ===== AVAILABLE SLOTS ===== -->
 
-<div style="margin-top: 30px;">
-    <h3>Available slots</h3>
+	<div style="margin-top: 30px;">
+		<h3>Available slots</h3>
 
-    <div th:if="${#lists.isEmpty(calendarTerms)}">
-        <p>No available slots</p>
-    </div>
+		<div th:if="${#lists.isEmpty(calendarTerms)}">
+			<p>No available slots</p>
+		</div>
 
-    <table th:if="${not #lists.isEmpty(calendarTerms)}">
-        <thead>
-        <tr>
-            <th>Date</th>
-            <th>Start</th>
-            <th>End</th>
-        </tr>
-        </thead>
+		<table th:if="${not #lists.isEmpty(calendarTerms)}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Day</th>
+					<th>Start</th>
+					<th>End</th>
+				</tr>
+			</thead>
 
-        <tbody>
-        <tr th:each="term : ${calendarTerms}">
-            <td th:text="${term.date}"></td>
-            <td th:text="${term.startTime}"></td>
-            <td th:text="${term.endTime}"></td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+			<tbody>
+				<tr th:each="term : ${calendarTerms}">
+					<td th:text="${term.date}"></td>
+					<td th:text="${term.date.dayOfWeek}"></td>
+					<td th:text="${term.startTime}"></td>
+					<td th:text="${term.endTime}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 
-<!-- ===== BOOKING ===== -->
+	<!-- ===== BOOKING ===== -->
 
-<form th:action="@{/client/appointments}" method="post"
-      th:if="${not #lists.isEmpty(bookableDateOptions)}">
+	<form th:action="@{/client/appointments}" method="post"
+		th:if="${not #lists.isEmpty(bookableDateOptions)}">
 
-    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
-    <input type="hidden" name="offeringId" th:value="${offering.id}">
+		<input type="hidden" name="providerId"
+			th:value="${offering.provider.id}"> <input type="hidden"
+			name="offeringId" th:value="${offering.id}">
 
-    <div style="margin-top: 30px;">
-        <h3>Select slot</h3>
+		<div style="margin-top: 30px;">
+			<h3>Select slot</h3>
 
-        <!-- DATE -->
-        <div>
-            <label for="selectedDate">Date:</label>
-            <select id="selectedDate" name="selectedDate" required>
-                <option th:each="option : ${bookableDateOptions}"
-                        th:value="${option.date}"
-                        th:text="${option.date}"
-                        th:data-times="${option.timesValue}">
-                </option>
-            </select>
-        </div>
+			<!-- DATE -->
+			<div>
+				<label for="selectedDate">Date:</label> <select id="selectedDate"
+					name="selectedDate" required>
+					<option th:each="option : ${bookableDateOptions}"
+						th:value="${option.date}" th:text="${option.date}"
+						th:data-times="${option.timesValue}"></option>
+				</select>
+			</div>
 
-        <!-- TIME -->
-        <div style="margin-top: 10px;">
-            <label for="selectedTime">Time:</label>
-            <select id="selectedTime" name="selectedTime" required></select>
-        </div>
-    </div>
+			<!-- TIME -->
+			<div style="margin-top: 10px;">
+				<label for="selectedTime">Time:</label> <select id="selectedTime"
+					name="selectedTime" required></select>
+			</div>
+		</div>
 
-    <div style="margin-top: 30px;">
-        <a th:href="@{/client}">
-            <button type="button">Cancel</button>
-        </a>
+		<div style="margin-top: 30px;">
+			<a th:href="@{/client}">
+				<button type="button">Cancel</button>
+			</a>
 
-        <button type="submit" style="margin-left: 10px;">
-            Send Request
-        </button>
-    </div>
+			<button type="submit" style="margin-left: 10px;">Send
+				Request</button>
+		</div>
 
-</form>
+	</form>
 
-<div th:if="${#lists.isEmpty(bookableDateOptions)}"
-     style="margin-top: 30px;">
-    <p>No bookable times for this offering</p>
-</div>
+	<div th:if="${#lists.isEmpty(bookableDateOptions)}"
+		style="margin-top: 30px;">
+		<p>No bookable times for this offering</p>
+	</div>
 
-<!-- ===== SCRIPT ===== -->
+	<!-- ===== SCRIPT ===== -->
 
-<script>
+	<script>
     function generateTimeOptions() {
         const dateSelect = document.getElementById('selectedDate');
         const timeSelect = document.getElementById('selectedTime');
@@ -4275,7 +4343,10 @@ WHERE NOT EXISTS (
             return;
         }
 
-        timesValue.split(',').forEach(time => {
+        timesValue.split(',')
+        .map(time => time.trim())
+        .filter(time => time.length > 0)
+        .forEach(time => {
             const option = document.createElement('option');
             option.value = time;
             option.text = time;
@@ -4673,65 +4744,6 @@ WHERE NOT EXISTS (
         }
     }
 
-    function updateAvailabilityPreview() {
-        const period = document.getElementById('availabilityPreviewPeriod');
-        const body = document.getElementById('availabilityPreviewBody');
-        const from = document.getElementById('planningFrom');
-        const to = document.getElementById('planningTo');
-
-        if (!period || !body || !from || !to) {
-            return;
-        }
-
-        body.innerHTML = '';
-
-        if (!from.value || !to.value || from.value > to.value) {
-            period.textContent = 'not selected';
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-            return;
-        }
-
-        period.textContent = from.value + ' - ' + to.value;
-
-        const days = [
-            [1, 'monday-start', 'monday-end'],
-            [2, 'tuesday-start', 'tuesday-end'],
-            [3, 'wednesday-start', 'wednesday-end'],
-            [4, 'thursday-start', 'thursday-end'],
-            [5, 'friday-start', 'friday-end']
-        ];
-
-        let hasSlots = false;
-        let current = new Date(from.value + 'T00:00:00Z');
-        const end = new Date(to.value + 'T00:00:00Z');
-
-        while (current <= end) {
-            const day = current.getUTCDay();
-
-            for (const [expectedDay, startId, endId] of days) {
-                const start = document.getElementById(startId);
-                const endTime = document.getElementById(endId);
-
-                if (day === expectedDay && start.value && endTime.value && start.value < endTime.value) {
-                    body.innerHTML +=
-                        '<tr>' +
-                        '<td>' + current.toISOString().split('T')[0] + '</td>' +
-                        '<td>' + start.value + '</td>' +
-                        '<td>' + endTime.value + '</td>' +
-                        '</tr>';
-
-                    hasSlots = true;
-                }
-            }
-
-            current.setUTCDate(current.getUTCDate() + 1);
-        }
-
-        if (!hasSlots) {
-            body.innerHTML = '<tr><td colspan="3">No slots</td></tr>';
-        }
-    }
-
     window.addEventListener('DOMContentLoaded', function () {
         const params = new URLSearchParams(window.location.search);
         const section = params.get('section');
@@ -4750,30 +4762,6 @@ WHERE NOT EXISTS (
 
         fillProviderTimezone();
         configurePlanningDateLimits();
-
-        [
-            'planningFrom',
-            'planningTo',
-            'monday-start',
-            'monday-end',
-            'tuesday-start',
-            'tuesday-end',
-            'wednesday-start',
-            'wednesday-end',
-            'thursday-start',
-            'thursday-end',
-            'friday-start',
-            'friday-end'
-        ].forEach(id => {
-            const input = document.getElementById(id);
-
-            if (input) {
-                input.addEventListener('input', updateAvailabilityPreview);
-                input.addEventListener('change', updateAvailabilityPreview);
-            }
-        });
-
-        updateAvailabilityPreview();
     });
 </script>
 </head>
@@ -4913,8 +4901,6 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localTime}"></td>
 						<td th:text="${appointment.status}"></td>
 						<td>
-							<button type="button">Reschedule</button>
-
 							<form
 								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
 								method="post" style="display: inline; margin-left: 8px;"
@@ -5088,19 +5074,79 @@ WHERE NOT EXISTS (
 			<thead>
 				<tr>
 					<th>Date</th>
+					<th>Day</th>
 					<th>Start</th>
 					<th>End</th>
 				</tr>
 			</thead>
 
-			<tbody id="availabilityPreviewBody">
-				<tr th:each="term : ${calendarTerms}">
+			<tbody>
+				<tr th:each="term : ${calendarTerms}" class="available-slot-row"
+					th:data-date="${term.date}" th:data-start="${term.startTime}"
+					th:data-end="${term.endTime}">
 					<td th:text="${term.date}"></td>
+					<td th:text="${term.date.dayOfWeek}"></td>
 					<td th:text="${term.startTime}"></td>
 					<td th:text="${term.endTime}"></td>
 				</tr>
 			</tbody>
 		</table>
+
+		<div style="margin-top: 30px;">
+			<h3>One-time availability changes</h3>
+
+			<div th:if="${calendarOverrideError}" style="color: red;">
+				<p th:text="${calendarOverrideError}"></p>
+			</div>
+
+			<form th:action="@{/provider/calendar/overrides}" method="post">
+				<div class="form-row">
+					<select name="type" required>
+						<option value="AVAILABLE">Available</option>
+						<option value="UNAVAILABLE">Unavailable</option>
+					</select> <input type="date" name="overrideDate" required> <input
+						type="time" name="startTime" step="900" required> <input
+						type="time" name="endTime" step="900" required>
+
+					<button type="submit">Add change</button>
+				</div>
+			</form>
+
+			<div th:if="${#lists.isEmpty(availabilityOverrides)}">
+				<p>No one-time changes</p>
+			</div>
+
+			<table th:if="${not #lists.isEmpty(availabilityOverrides)}">
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Date</th>
+						<th>Day</th>
+						<th>Start</th>
+						<th>End</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<tr th:each="override : ${availabilityOverrides}">
+						<td th:text="${override.type}"></td>
+						<td th:text="${override.overrideDate}"></td>
+						<td th:text="${override.overrideDate.dayOfWeek}"></td>
+						<td th:text="${override.startTime}"></td>
+						<td th:text="${override.endTime}"></td>
+						<td>
+							<form
+								th:action="@{/provider/calendar/overrides/{overrideId}/delete(overrideId=${override.id})}"
+								method="post"
+								onsubmit="return confirm('Delete this one-time availability change?');">
+								<button type="submit">Delete</button>
+							</form>
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 
 		<form th:action="@{/provider/calendar}" method="post">
 
@@ -5571,6 +5617,22 @@ public class BookableDateOption {
                 .map(LocalTime::toString)
                 .collect(Collectors.joining(","));
     }
+}
+===== ./src/main/java/life/wellnara/repository/AvailabilityOverrideRepository.java =====
+package life.wellnara.repository;
+
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+/**
+ * Repository for one-time provider availability overrides.
+ */
+public interface AvailabilityOverrideRepository extends JpaRepository<AvailabilityOverride, Long> {
+
+    List<AvailabilityOverride> findAllByProviderOrderByOverrideDateAscStartTimeAsc(User provider);
 }
 ===== ./src/main/java/life/wellnara/repository/ProviderClientLinkRepository.java =====
 package life.wellnara.repository;
@@ -6834,12 +6896,20 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6988,14 +7058,22 @@ public class ProviderController {
 	 * @param provider authenticated provider
 	 */
 	private void populateCalendarModel(Model model, User provider) {
-		ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+	    ProviderCalendarForm calendarForm =
+	            providerCalendarService.getLatestCalendarForm(provider);
 
-		model.addAttribute("calendarForm", calendarForm);
-		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-		model.addAttribute("planningTo", calendarForm.getPlanningTo());
-		model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+	    model.addAttribute("calendarForm", calendarForm);
+	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
+	    model.addAttribute(
+	            "calendarTerms",
+	            appointmentService.getFreeCalendarTerms(provider)
+	    );
+	    model.addAttribute(
+	            "availabilityOverrides",
+	            providerCalendarService.getAvailabilityOverrides(provider)
+	    );
 	}
-
+	
 	/**
 	 * Rejects client appointment request.
 	 *
@@ -7062,6 +7140,59 @@ public class ProviderController {
 
 			return "provider";
 		}
+	}
+	
+	@PostMapping("/provider/calendar/overrides")
+	public String createAvailabilityOverride(@RequestParam LocalDate overrideDate,
+	                                         @RequestParam LocalTime startTime,
+	                                         @RequestParam LocalTime endTime,
+	                                         @RequestParam AvailabilityOverrideType type,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        providerCalendarService.createAvailabilityOverride(
+	                currentUser,
+	                overrideDate,
+	                startTime,
+	                endTime,
+	                type
+	        );
+
+	        return "redirect:/provider?section=calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("calendarOverrideError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+	        return "provider";
+	    }
+	}
+	
+	@PostMapping("/provider/calendar/overrides/{overrideId}/delete")
+	public String deleteAvailabilityOverride(@PathVariable Long overrideId,
+	                                         HttpSession session,
+	                                         Model model) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        providerCalendarService.deleteAvailabilityOverride(currentUser, overrideId);
+
+	        return "redirect:/provider?section=calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("calendarOverrideError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+	        return "provider";
+	    }
 	}
 	
 	/**
@@ -7892,6 +8023,96 @@ public class ClientInvitation {
         return invitedAt;
     }
 }
+===== ./src/main/java/life/wellnara/model/AvailabilityOverrideType.java =====
+package life.wellnara.model;
+
+/**
+ * Type of one-time provider availability override.
+ */
+public enum AvailabilityOverrideType {
+    AVAILABLE,
+    UNAVAILABLE
+}
+===== ./src/main/java/life/wellnara/model/AvailabilityOverride.java =====
+package life.wellnara.model;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+/**
+ * One-time provider availability change for a specific date and time interval.
+ */
+@Entity
+@Table(name = "availability_overrides")
+public class AvailabilityOverride {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "provider_id", nullable = false)
+    private User provider;
+
+    @Column(nullable = false)
+    private LocalDate overrideDate;
+
+    @Column(nullable = false)
+    private LocalTime startTime;
+
+    @Column(nullable = false)
+    private LocalTime endTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AvailabilityOverrideType type;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    protected AvailabilityOverride() {
+    }
+
+    public AvailabilityOverride(User provider,
+                                LocalDate overrideDate,
+                                LocalTime startTime,
+                                LocalTime endTime,
+                                AvailabilityOverrideType type) {
+        this.provider = provider;
+        this.overrideDate = overrideDate;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.type = type;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public User getProvider() {
+        return provider;
+    }
+
+    public LocalDate getOverrideDate() {
+        return overrideDate;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+
+    public AvailabilityOverrideType getType() {
+        return type;
+    }
+}
 ===== ./src/main/java/life/wellnara/model/AvailabilityDay.java =====
 package life.wellnara.model;
 
@@ -7935,9 +8156,12 @@ import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.User;
+import life.wellnara.repository.AvailabilityOverrideRepository;
 import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import org.springframework.stereotype.Service;
@@ -7964,6 +8188,8 @@ public class ProviderCalendarService {
 
 	private final AvailabilityPeriodRepository availabilityPeriodRepository;
 	private final AvailabilityRuleRepository availabilityRuleRepository;
+	private final AvailabilityOverrideRepository availabilityOverrideRepository;
+	private final AvailabilityOverrideApplier availabilityOverrideApplier;
 
 	/**
 	 * Creates provider calendar service.
@@ -7972,9 +8198,13 @@ public class ProviderCalendarService {
 	 * @param availabilityRuleRepository repository for availability rules
 	 */
 	public ProviderCalendarService(AvailabilityPeriodRepository availabilityPeriodRepository,
-			AvailabilityRuleRepository availabilityRuleRepository) {
+			AvailabilityRuleRepository availabilityRuleRepository,
+			AvailabilityOverrideRepository availabilityOverrideRepository,
+			AvailabilityOverrideApplier availabilityOverrideApplier) {
 		this.availabilityPeriodRepository = availabilityPeriodRepository;
 		this.availabilityRuleRepository = availabilityRuleRepository;
+		this.availabilityOverrideRepository = availabilityOverrideRepository;
+		this.availabilityOverrideApplier = availabilityOverrideApplier;
 	}
 
 	/**
@@ -8014,16 +8244,16 @@ public class ProviderCalendarService {
 		if (form.getPlanningFrom() == null) {
 			errors.put("planningFrom", "Start date is required");
 		}
-		
+
 		if (form.getPlanningFrom() != null
-		        && form.getProviderTimezone() != null
-		        && !form.getProviderTimezone().isBlank()) {
+				&& form.getProviderTimezone() != null
+				&& !form.getProviderTimezone().isBlank()) {
 
-		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+			LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
 
-		    if (form.getPlanningFrom().isBefore(today)) {
-		        errors.put("planningFrom", "Start date must not be before today");
-		    }
+			if (form.getPlanningFrom().isBefore(today)) {
+				errors.put("planningFrom", "Start date must not be before today");
+			}
 		}
 
 		if (form.getPlanningTo() == null) {
@@ -8031,16 +8261,16 @@ public class ProviderCalendarService {
 		}
 
 		if (form.getPlanningTo() != null
-		        && form.getProviderTimezone() != null
-		        && !form.getProviderTimezone().isBlank()) {
+				&& form.getProviderTimezone() != null
+				&& !form.getProviderTimezone().isBlank()) {
 
-		    LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
+			LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
 
-		    if (form.getPlanningTo().isBefore(today)) {
-		        errors.put("planningTo", "End date must not be before today");
-		    }
+			if (form.getPlanningTo().isBefore(today)) {
+				errors.put("planningTo", "End date must not be before today");
+			}
 		}
-		
+
 		if (form.getPlanningFrom() != null
 				&& form.getPlanningTo() != null
 				&& form.getPlanningTo().isBefore(form.getPlanningFrom())) {
@@ -8098,9 +8328,9 @@ public class ProviderCalendarService {
 	 * @return true if both values represent empty availability
 	 */
 	private boolean isEmptyDay(LocalTime start, LocalTime end) {
-	    return LocalTime.MIDNIGHT.equals(start) && LocalTime.MIDNIGHT.equals(end);
+		return LocalTime.MIDNIGHT.equals(start) && LocalTime.MIDNIGHT.equals(end);
 	}
-	
+
 	/**
 	 * Saves availability rule only when both start and end time are present.
 	 *
@@ -8193,45 +8423,48 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public List<CalendarTerm> generateCalendar(User provider) {
-	    Optional<AvailabilityPeriod> periodOpt =
-	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+		Optional<AvailabilityPeriod> periodOpt =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-	    if (periodOpt.isEmpty()) {
-	        return List.of();
-	    }
+		if (periodOpt.isEmpty()) {
+			return List.of();
+		}
 
-	    AvailabilityPeriod period = periodOpt.get();
+		AvailabilityPeriod period = periodOpt.get();
 
-	    List<AvailabilityRule> rules =
-	            availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+		List<AvailabilityRule> rules =
+				availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-	    List<CalendarTerm> result = new ArrayList<>();
+		List<CalendarTerm> result = new ArrayList<>();
 
-	    LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
-	    LocalDate current = period.getDateFrom().isBefore(today)
-	            ? today
-	            : period.getDateFrom();
+		LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+		LocalDate current = period.getDateFrom().isBefore(today)
+				? today
+						: period.getDateFrom();
 
-	    while (!current.isAfter(period.getDateTo())) {
-	        for (AvailabilityRule rule : rules) {
-	            if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
-	                result.add(new CalendarTerm(
-	                        current,
-	                        rule.getStartTime(),
-	                        rule.getEndTime()
-	                ));
-	            }
-	        }
+		while (!current.isAfter(period.getDateTo())) {
+			for (AvailabilityRule rule : rules) {
+				if (current.getDayOfWeek().name().equals(rule.getDayOfWeek().name())) {
+					result.add(new CalendarTerm(
+							current,
+							rule.getStartTime(),
+							rule.getEndTime()
+							));
+				}
+			}
 
-	        current = current.plusDays(1);
-	    }
+			current = current.plusDays(1);
+		}
 
-	    result.sort(Comparator.comparing(CalendarTerm::getDate)
-	            .thenComparing(CalendarTerm::getStartTime));
+		result.sort(Comparator.comparing(CalendarTerm::getDate)
+				.thenComparing(CalendarTerm::getStartTime));
 
-	    return result;
+		List<AvailabilityOverride> overrides =
+				availabilityOverrideRepository.findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+
+		return availabilityOverrideApplier.apply(result, overrides);
 	}
-	
+
 	/**
 	 * Checks whether requested appointment time is inside provider availability.
 	 *
@@ -8242,47 +8475,47 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public boolean isAvailable(User provider,
-	                           LocalDateTime startDateTimeUtc,
-	                           Integer durationMinutes) {
-	    if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
-	        return false;
-	    }
+			LocalDateTime startDateTimeUtc,
+			Integer durationMinutes) {
+		if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
+			return false;
+		}
 
-	    Optional<AvailabilityPeriod> periodOptional =
-	            availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+		Optional<AvailabilityPeriod> periodOptional =
+				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
 
-	    if (periodOptional.isEmpty()) {
-	        return false;
-	    }
+		if (periodOptional.isEmpty()) {
+			return false;
+		}
 
-	    AvailabilityPeriod period = periodOptional.get();
-	    ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
+		AvailabilityPeriod period = periodOptional.get();
+		ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
 
-	    ZonedDateTime startInProviderZone = startDateTimeUtc
-	            .atZone(ZoneOffset.UTC)
-	            .withZoneSameInstant(providerZone);
+		ZonedDateTime startInProviderZone = startDateTimeUtc
+				.atZone(ZoneOffset.UTC)
+				.withZoneSameInstant(providerZone);
 
-	    ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
+		ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
 
-	    LocalDate appointmentDate = startInProviderZone.toLocalDate();
+		LocalDate appointmentDate = startInProviderZone.toLocalDate();
 
-	    if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
-	        return false;
-	    }
+		if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
+			return false;
+		}
 
-	    if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
-	        return false;
-	    }
+		if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
+			return false;
+		}
 
-	    List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
+		List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
 
-	    return rules.stream().anyMatch(rule ->
-	            rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
-	                    && !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
-	                    && !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
-	    );
+		return rules.stream().anyMatch(rule ->
+		rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
+		&& !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
+		&& !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
+				);
 	}
-	
+
 	/**
 	 * Returns timezone from latest provider availability period.
 	 *
@@ -8291,13 +8524,13 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public ZoneId getProviderTimezone(User provider) {
-	    AvailabilityPeriod period = availabilityPeriodRepository
-	            .findTopByProviderOrderByCreatedAtDesc(provider)
-	            .orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
+		AvailabilityPeriod period = availabilityPeriodRepository
+				.findTopByProviderOrderByCreatedAtDesc(provider)
+				.orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
 
-	    return ZoneId.of(period.getProviderTimezone());
+		return ZoneId.of(period.getProviderTimezone());
 	}
-	
+
 	/**
 	 * Deletes provider availability periods that ended before today.
 	 *
@@ -8305,15 +8538,92 @@ public class ProviderCalendarService {
 	 */
 	@Transactional
 	public void deleteExpiredAvailabilityPeriods(User provider) {
-	    List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+		List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
-	    for (AvailabilityPeriod period : periods) {
-	        LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
+		for (AvailabilityPeriod period : periods) {
+			LocalDate today = LocalDate.now(ZoneId.of(period.getProviderTimezone()));
 
-	        if (period.getDateTo().isBefore(today)) {
-	            availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
-	            availabilityPeriodRepository.delete(period);
-	        }
+			if (period.getDateTo().isBefore(today)) {
+				availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
+				availabilityPeriodRepository.delete(period);
+			}
+		}
+	}
+
+	@Transactional
+	public void createAvailabilityOverride(User provider,
+			LocalDate date,
+			LocalTime startTime,
+			LocalTime endTime,
+			AvailabilityOverrideType type) {
+		validateAvailabilityOverride(provider, date, startTime, endTime, type);
+
+		availabilityOverrideRepository.save(
+				new AvailabilityOverride(
+						provider,
+						date,
+						startTime,
+						endTime,
+						type
+						)
+				);
+	}
+
+	@Transactional
+	public void deleteAvailabilityOverride(User provider, Long overrideId) {
+		AvailabilityOverride override = availabilityOverrideRepository.findById(overrideId)
+				.orElseThrow(() ->
+				new IllegalArgumentException("Availability override not found"));
+
+		if (!override.getProvider().getId().equals(provider.getId())) {
+			throw new IllegalArgumentException(
+					"Availability override does not belong to provider");
+		}
+
+		availabilityOverrideRepository.delete(override);
+	}
+
+	@Transactional(readOnly = true)
+	public List<AvailabilityOverride> getAvailabilityOverrides(User provider) {
+		return availabilityOverrideRepository
+				.findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+	}
+
+	private void validateAvailabilityOverride(User provider,
+	        LocalDate date,
+	        LocalTime startTime,
+	        LocalTime endTime,
+	        AvailabilityOverrideType type) {
+
+	    if (provider == null) {
+	        throw new IllegalArgumentException("Provider is required");
+	    }
+
+	    if (date == null) {
+	        throw new IllegalArgumentException("Date is required");
+	    }
+
+	    if (startTime == null) {
+	        throw new IllegalArgumentException("Start time is required");
+	    }
+
+	    if (endTime == null) {
+	        throw new IllegalArgumentException("End time is required");
+	    }
+
+	    if (!endTime.isAfter(startTime)) {
+	        throw new IllegalArgumentException(
+	                "End time must be after start time");
+	    }
+
+	    if (startTime.getMinute() % 15 != 0
+	            || endTime.getMinute() % 15 != 0) {
+	        throw new IllegalArgumentException(
+	                "Time must use 15-minute intervals");
+	    }
+
+	    if (type == null) {
+	        throw new IllegalArgumentException("Override type is required");
 	    }
 	}
 }
@@ -8408,6 +8718,136 @@ public class ProviderInvitationService {
         invitationRepository.delete(invitation);
 
         return savedUser;
+    }
+}
+===== ./src/main/java/life/wellnara/service/AvailabilityOverrideApplier.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.AvailabilityOverrideType;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * Applies one-time availability overrides to generated provider calendar terms.
+ */
+@Component
+public class AvailabilityOverrideApplier {
+
+    /**
+     * Applies unavailable and available overrides to base calendar terms.
+     *
+     * @param baseTerms base provider calendar terms
+     * @param overrides one-time availability overrides
+     * @return calendar terms after applying overrides
+     */
+    public List<CalendarTerm> apply(List<CalendarTerm> baseTerms,
+                                    List<AvailabilityOverride> overrides) {
+        List<CalendarTerm> result = new ArrayList<>(baseTerms);
+
+        for (AvailabilityOverride override : overrides) {
+            if (override.getType() == AvailabilityOverrideType.UNAVAILABLE) {
+                result = applyUnavailableOverride(result, override);
+            }
+        }
+
+        for (AvailabilityOverride override : overrides) {
+            if (override.getType() == AvailabilityOverrideType.AVAILABLE) {
+                result.add(new CalendarTerm(
+                        override.getOverrideDate(),
+                        override.getStartTime(),
+                        override.getEndTime()
+                ));
+            }
+        }
+
+        return mergeTerms(result);
+    }
+
+    private List<CalendarTerm> applyUnavailableOverride(List<CalendarTerm> terms,
+                                                        AvailabilityOverride override) {
+        List<CalendarTerm> result = new ArrayList<>();
+
+        for (CalendarTerm term : terms) {
+            if (!term.getDate().equals(override.getOverrideDate())
+                    || !overlaps(
+                            term.getStartTime(),
+                            term.getEndTime(),
+                            override.getStartTime(),
+                            override.getEndTime()
+                    )) {
+                result.add(term);
+                continue;
+            }
+
+            if (term.getStartTime().isBefore(override.getStartTime())) {
+                result.add(new CalendarTerm(
+                        term.getDate(),
+                        term.getStartTime(),
+                        override.getStartTime()
+                ));
+            }
+
+            if (override.getEndTime().isBefore(term.getEndTime())) {
+                result.add(new CalendarTerm(
+                        term.getDate(),
+                        override.getEndTime(),
+                        term.getEndTime()
+                ));
+            }
+        }
+
+        return result;
+    }
+
+    private List<CalendarTerm> mergeTerms(List<CalendarTerm> terms) {
+        List<CalendarTerm> sortedTerms = terms.stream()
+                .sorted(Comparator.comparing(CalendarTerm::getDate)
+                        .thenComparing(CalendarTerm::getStartTime))
+                .toList();
+
+        List<CalendarTerm> result = new ArrayList<>();
+
+        for (CalendarTerm term : sortedTerms) {
+            if (result.isEmpty()) {
+                result.add(term);
+                continue;
+            }
+
+            CalendarTerm last = result.get(result.size() - 1);
+
+            if (last.getDate().equals(term.getDate())
+                    && !term.getStartTime().isAfter(last.getEndTime())) {
+                result.set(
+                        result.size() - 1,
+                        new CalendarTerm(
+                                last.getDate(),
+                                last.getStartTime(),
+                                max(last.getEndTime(), term.getEndTime())
+                        )
+                );
+            } else {
+                result.add(term);
+            }
+        }
+
+        return result;
+    }
+
+    private boolean overlaps(LocalTime firstStart,
+                             LocalTime firstEnd,
+                             LocalTime secondStart,
+                             LocalTime secondEnd) {
+        return firstStart.isBefore(secondEnd) && firstEnd.isAfter(secondStart);
+    }
+
+    private LocalTime max(LocalTime first, LocalTime second) {
+        return first.isAfter(second) ? first : second;
     }
 }
 ===== ./src/main/java/life/wellnara/service/AppointmentService.java =====
@@ -8763,7 +9203,25 @@ public class AppointmentService {
             result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
         }
 
-        return result;
+        return removePastCalendarTerms(result, providerZone);
+    }
+    
+    /**
+     * Removes calendar terms that cannot be booked anymore.
+     *
+     * @param terms calendar terms
+     * @param providerZone provider timezone
+     * @return future bookable calendar terms
+     */
+    private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
+                                                       ZoneId providerZone) {
+        LocalDate today = LocalDate.now(providerZone);
+        LocalTime now = LocalTime.now(providerZone);
+
+        return terms.stream()
+                .filter(term -> term.getDate().isAfter(today)
+                        || !term.getStartTime().isBefore(now))
+                .toList();
     }
 
     /**

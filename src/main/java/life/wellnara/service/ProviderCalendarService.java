@@ -438,33 +438,40 @@ public class ProviderCalendarService {
 	}
 
 	private void validateAvailabilityOverride(User provider,
-			LocalDate date,
-			LocalTime startTime,
-			LocalTime endTime,
-			AvailabilityOverrideType type) {
-		if (provider == null) {
-			throw new IllegalArgumentException("Provider is required");
-		}
+	        LocalDate date,
+	        LocalTime startTime,
+	        LocalTime endTime,
+	        AvailabilityOverrideType type) {
 
-		if (date == null) {
-			throw new IllegalArgumentException("Date is required");
-		}
+	    if (provider == null) {
+	        throw new IllegalArgumentException("Provider is required");
+	    }
 
-		if (startTime == null) {
-			throw new IllegalArgumentException("Start time is required");
-		}
+	    if (date == null) {
+	        throw new IllegalArgumentException("Date is required");
+	    }
 
-		if (endTime == null) {
-			throw new IllegalArgumentException("End time is required");
-		}
+	    if (startTime == null) {
+	        throw new IllegalArgumentException("Start time is required");
+	    }
 
-		if (!endTime.isAfter(startTime)) {
-			throw new IllegalArgumentException(
-					"End time must be after start time");
-		}
+	    if (endTime == null) {
+	        throw new IllegalArgumentException("End time is required");
+	    }
 
-		if (type == null) {
-			throw new IllegalArgumentException("Override type is required");
-		}
+	    if (!endTime.isAfter(startTime)) {
+	        throw new IllegalArgumentException(
+	                "End time must be after start time");
+	    }
+
+	    if (startTime.getMinute() % 15 != 0
+	            || endTime.getMinute() % 15 != 0) {
+	        throw new IllegalArgumentException(
+	                "Time must use 15-minute intervals");
+	    }
+
+	    if (type == null) {
+	        throw new IllegalArgumentException("Override type is required");
+	    }
 	}
 }

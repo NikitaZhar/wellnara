@@ -67,7 +67,52 @@
 
         fillProviderTimezone();
         configurePlanningDateLimits();
+        fillOverrideTimeOptions();
+        
+        document.getElementById('overrideStartTime')
+        ?.addEventListener('change', fixOverrideEndTime);
     });
+    
+    function fixOverrideEndTime() {
+        const start = document.getElementById('overrideStartTime');
+        const end = document.getElementById('overrideEndTime');
+
+        if (end.value <= start.value) {
+            end.value = '';
+        }
+
+        Array.from(end.options).forEach(option => {
+            option.hidden = option.value && option.value <= start.value;
+        });
+    }
+    
+    function fillOverrideTimeOptions() {
+        const startSelect = document.getElementById('overrideStartTime');
+        const endSelect = document.getElementById('overrideEndTime');
+
+        if (!startSelect || !endSelect) {
+            return;
+        }
+
+        startSelect.innerHTML = '<option value="">Start</option>';
+        endSelect.innerHTML = '<option value="">End</option>';
+
+        for (let hour = 9; hour <= 18; hour++) {
+            for (let minute = 0; minute < 60; minute += 15) {
+                if (hour === 18 && minute > 0) {
+                    break;
+                }
+
+                const time =
+                    String(hour).padStart(2, '0') + ':' +
+                    String(minute).padStart(2, '0');
+
+                startSelect.add(new Option(time, time));
+                endSelect.add(new Option(time, time));
+            }
+        }
+    }
+    
 </script>
 </head>
 
@@ -386,7 +431,9 @@
 			</thead>
 
 			<tbody>
-				<tr th:each="term : ${calendarTerms}">
+				<tr th:each="term : ${calendarTerms}" class="available-slot-row"
+					th:data-date="${term.date}" th:data-start="${term.startTime}"
+					th:data-end="${term.endTime}">
 					<td th:text="${term.date}"></td>
 					<td th:text="${term.date.dayOfWeek}"></td>
 					<td th:text="${term.startTime}"></td>
@@ -407,9 +454,13 @@
 					<select name="type" required>
 						<option value="AVAILABLE">Available</option>
 						<option value="UNAVAILABLE">Unavailable</option>
-					</select> <input type="date" name="overrideDate" required> <input
-						type="time" name="startTime" required> <input type="time"
-						name="endTime" required>
+					</select> <input id="overrideDate" type="date" name="overrideDate" required>
+
+					<select id="overrideStartTime" name="startTime" required>
+						<option value="">Start</option>
+					</select> <select id="overrideEndTime" name="endTime" required>
+						<option value="">End</option>
+					</select>
 
 					<button type="submit">Add change</button>
 				</div>
@@ -508,9 +559,6 @@
 					</tr>
 				</tbody>
 			</table>
-
-
-
 
 			<button class="primary-button" type="submit">Save</button>
 		</form>
