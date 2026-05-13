@@ -212,6 +212,36 @@ public class ProviderController {
 			return "provider";
 		}
 	}
+	
+	@PostMapping("/provider/appointments/{appointmentId}/reschedule")
+	public String rescheduleConfirmedAppointment(
+	        @PathVariable Long appointmentId,
+	        @RequestParam String providerMessage,
+	        HttpSession session,
+	        Model model
+	) {
+	    User currentUser = getAuthenticatedProvider(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        appointmentService.rescheduleConfirmedAppointment(
+	                currentUser,
+	                appointmentId,
+	                providerMessage
+	        );
+
+	        return "redirect:/provider?section=provider-calendar";
+
+	    } catch (IllegalArgumentException exception) {
+	        model.addAttribute("appointmentActionError", exception.getMessage());
+	        populateProviderPageModel(model, currentUser);
+
+	        return "provider";
+	    }
+	}
 
 	/**
 	 * Accepts appointment request and asks client for payment.

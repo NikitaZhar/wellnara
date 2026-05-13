@@ -310,7 +310,22 @@
 
 							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-								<button type="button">Reschedule</button>
+								<button type="button" style="margin-left: 8px;"
+									onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+									Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
+									method="post" style="display: none; margin-left: 8px;"
+									onsubmit="return confirm('Cancel this appointment and ask the client to choose a new time?');">
+
+									<textarea name="providerMessage"
+										placeholder="Reason for rescheduling" required
+										maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">
+										Confirm Reschedule</button>
+								</form>
 
 								<form
 									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"

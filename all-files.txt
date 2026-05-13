@@ -554,7 +554,52 @@ WHERE NOT EXISTS (
 
         fillProviderTimezone();
         configurePlanningDateLimits();
+        fillOverrideTimeOptions();
+        
+        document.getElementById('overrideStartTime')
+        ?.addEventListener('change', fixOverrideEndTime);
     });
+    
+    function fixOverrideEndTime() {
+        const start = document.getElementById('overrideStartTime');
+        const end = document.getElementById('overrideEndTime');
+
+        if (end.value <= start.value) {
+            end.value = '';
+        }
+
+        Array.from(end.options).forEach(option => {
+            option.hidden = option.value && option.value <= start.value;
+        });
+    }
+    
+    function fillOverrideTimeOptions() {
+        const startSelect = document.getElementById('overrideStartTime');
+        const endSelect = document.getElementById('overrideEndTime');
+
+        if (!startSelect || !endSelect) {
+            return;
+        }
+
+        startSelect.innerHTML = '<option value="">Start</option>';
+        endSelect.innerHTML = '<option value="">End</option>';
+
+        for (let hour = 9; hour <= 18; hour++) {
+            for (let minute = 0; minute < 60; minute += 15) {
+                if (hour === 18 && minute > 0) {
+                    break;
+                }
+
+                const time =
+                    String(hour).padStart(2, '0') + ':' +
+                    String(minute).padStart(2, '0');
+
+                startSelect.add(new Option(time, time));
+                endSelect.add(new Option(time, time));
+            }
+        }
+    }
+    
 </script>
 </head>
 
@@ -896,9 +941,13 @@ WHERE NOT EXISTS (
 					<select name="type" required>
 						<option value="AVAILABLE">Available</option>
 						<option value="UNAVAILABLE">Unavailable</option>
-					</select> <input type="date" name="overrideDate" required> <input
-						type="time" name="startTime" step="900" required> <input
-						type="time" name="endTime" step="900" required>
+					</select> <input id="overrideDate" type="date" name="overrideDate" required>
+
+					<select id="overrideStartTime" name="startTime" required>
+						<option value="">Start</option>
+					</select> <select id="overrideEndTime" name="endTime" required>
+						<option value="">End</option>
+					</select>
 
 					<button type="submit">Add change</button>
 				</div>
@@ -4762,7 +4811,52 @@ WHERE NOT EXISTS (
 
         fillProviderTimezone();
         configurePlanningDateLimits();
+        fillOverrideTimeOptions();
+        
+        document.getElementById('overrideStartTime')
+        ?.addEventListener('change', fixOverrideEndTime);
     });
+    
+    function fixOverrideEndTime() {
+        const start = document.getElementById('overrideStartTime');
+        const end = document.getElementById('overrideEndTime');
+
+        if (end.value <= start.value) {
+            end.value = '';
+        }
+
+        Array.from(end.options).forEach(option => {
+            option.hidden = option.value && option.value <= start.value;
+        });
+    }
+    
+    function fillOverrideTimeOptions() {
+        const startSelect = document.getElementById('overrideStartTime');
+        const endSelect = document.getElementById('overrideEndTime');
+
+        if (!startSelect || !endSelect) {
+            return;
+        }
+
+        startSelect.innerHTML = '<option value="">Start</option>';
+        endSelect.innerHTML = '<option value="">End</option>';
+
+        for (let hour = 9; hour <= 18; hour++) {
+            for (let minute = 0; minute < 60; minute += 15) {
+                if (hour === 18 && minute > 0) {
+                    break;
+                }
+
+                const time =
+                    String(hour).padStart(2, '0') + ':' +
+                    String(minute).padStart(2, '0');
+
+                startSelect.add(new Option(time, time));
+                endSelect.add(new Option(time, time));
+            }
+        }
+    }
+    
 </script>
 </head>
 
@@ -5104,9 +5198,13 @@ WHERE NOT EXISTS (
 					<select name="type" required>
 						<option value="AVAILABLE">Available</option>
 						<option value="UNAVAILABLE">Unavailable</option>
-					</select> <input type="date" name="overrideDate" required> <input
-						type="time" name="startTime" step="900" required> <input
-						type="time" name="endTime" step="900" required>
+					</select> <input id="overrideDate" type="date" name="overrideDate" required>
+
+					<select id="overrideStartTime" name="startTime" required>
+						<option value="">Start</option>
+					</select> <select id="overrideEndTime" name="endTime" required>
+						<option value="">End</option>
+					</select>
 
 					<button type="submit">Add change</button>
 				</div>
@@ -6504,7 +6602,6 @@ import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.ClientInvitationService;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -6903,13 +7000,8 @@ import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.IntStream;
-
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;

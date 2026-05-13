@@ -129,6 +129,21 @@ public class Appointment {
         this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
         this.updatedAt = LocalDateTime.now();
     }
+    
+    /**
+     * Cancels confirmed appointment by provider with explanation.
+     *
+     * @param providerMessage message shown to client
+     */
+    public void cancelByProvider(String providerMessage) {
+        if (providerMessage == null || providerMessage.isBlank()) {
+            throw new IllegalArgumentException("Provider message is required");
+        }
+
+        this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
+        this.rejectionReason = providerMessage.trim();
+        this.updatedAt = LocalDateTime.now();
+    }
 
     /**
      * Cancels confirmed appointment by client.

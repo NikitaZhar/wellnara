@@ -5,6 +5,7 @@ import life.wellnara.dto.BookableDateOption;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
@@ -517,6 +518,52 @@ public class AppointmentService {
     }
     
     /**
+     * Reschedules confirmed appointment by provider.
+     *
+     * <p>The original appointment time is marked as unavailable, and the client
+     * receives a provider message asking to choose a new available time.</p>
+     *
+     * @param provider provider who owns appointment
+     * @param appointmentId appointment identifier
+     * @param providerMessage message shown to client
+     */
+    @Transactional
+    public void rescheduleConfirmedAppointment(
+            User provider,
+            Long appointmentId,
+            String providerMessage
+    ) {
+        validateProvider(provider);
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be rescheduled");
+        }
+
+        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+        LocalDateTime localStartDateTime =
+                toProviderLocalDateTime(appointment, providerZone);
+
+        providerCalendarService.createAvailabilityOverride(
+                provider,
+                localStartDateTime.toLocalDate(),
+                localStartDateTime.toLocalTime(),
+                localStartDateTime.toLocalTime()
+                        .plusMinutes(appointment.getOffering().getDurationMinutes()),
+                AvailabilityOverrideType.UNAVAILABLE
+        );
+
+        appointment.cancelByProvider(providerMessage);
+    }
+    
+    /**
      * Deletes pending appointment cancelled by client before confirmation.
      *
      * @param client client who owns appointment
@@ -903,4 +950,6 @@ public class AppointmentService {
             throw new IllegalArgumentException("Offering is not active");
         }
     }
+    
+    
 }

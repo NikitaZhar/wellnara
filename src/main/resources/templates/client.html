@@ -115,8 +115,12 @@
 							th:if="${appointment.status.name() == 'REJECTED'}"
 							th:text="${appointment.rejectionReason}"> </span> <span
 							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
-								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'COMPLETED'}">
+								<span th:if="${appointment.rejectionReason != null}"
+								th:text="${appointment.rejectionReason}"></span> <span
+								th:if="${appointment.rejectionReason == null}">
+									Appointment cancelled by provider. </span> Please choose a new
+								available time.
+						</span> <span th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
 
 
