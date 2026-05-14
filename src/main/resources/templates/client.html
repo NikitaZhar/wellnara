@@ -180,7 +180,6 @@
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td>
-							<button type="button">Reschedule</button>
 							<form
 								th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
 								method="post" style="display: inline;"
