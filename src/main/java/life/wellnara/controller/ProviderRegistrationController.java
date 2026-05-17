@@ -3,6 +3,8 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.ProviderInvitationService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,14 +18,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class ProviderRegistrationController {
 
     private final ProviderInvitationService service;
+    private final SessionUserService sessionUserService;
 
     /**
      * Creates provider registration controller.
      *
      * @param service provider invitation service
+     * @param sessionUserService service for authenticated session user access
      */
-    public ProviderRegistrationController(ProviderInvitationService service) {
+    public ProviderRegistrationController(ProviderInvitationService service,
+    		SessionUserService sessionUserService) {
         this.service = service;
+        this.sessionUserService = sessionUserService;
     }
 
     /**
@@ -82,10 +88,7 @@ public class ProviderRegistrationController {
 
         try {
             User registeredUser = service.register(token, name, password);
-            session.setAttribute("currentUser", registeredUser);
-//            model.addAttribute("successMessage", "Registration completed successfully");
-//            model.addAttribute("providerEmail", registeredUser.getEmail());
-//            return "provider";
+            sessionUserService.login(session, registeredUser);
             return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("token", token);

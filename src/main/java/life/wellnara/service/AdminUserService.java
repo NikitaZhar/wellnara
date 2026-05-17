@@ -50,7 +50,11 @@ public class AdminUserService {
         User user = userRepository.findByIdAndRoleNot(userId, UserRole.ADMIN)
                 .orElseThrow(() -> new IllegalArgumentException("User not found or cannot be deleted"));
 
+        providerClientLinkRepository.deleteAllByProvider(user);
         providerClientLinkRepository.deleteAllByClient(user);
+        
+        userRepository.delete(user);
+        
         userRepository.delete(user);
     }
 }

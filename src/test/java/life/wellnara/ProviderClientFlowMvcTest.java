@@ -16,8 +16,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,18 +34,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Integration MVC tests for complete provider-client flow.
- *
- * <p>These tests verify the interaction between controllers, session state,
- * redirects, template rendering and database state for the following chain:
- *
- * <ul>
- *     <li>provider logs in,</li>
- *     <li>provider invites client,</li>
- *     <li>client registers by invitation token,</li>
- *     <li>provider sees registered client,</li>
- *     <li>provider can delete client,</li>
- *     <li>client can log out and log in again after successful registration.</li>
- * </ul>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -62,12 +52,6 @@ class ProviderClientFlowMvcTest {
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
 
-    /**
-     * Verifies that provider can create client invitation successfully and
-     * the registration link is shown only once on provider page.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should invite client successfully and show invite link only once")
     void shouldInviteClientSuccessfullyAndShowInviteLinkOnlyOnce() throws Exception {
@@ -92,12 +76,6 @@ class ProviderClientFlowMvcTest {
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }
 
-    /**
-     * Verifies that client registration with mismatched passwords
-     * returns user back to registration page and does not create client.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return client registration page with error when passwords do not match")
     void shouldReturnClientRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
@@ -120,13 +98,6 @@ class ProviderClientFlowMvcTest {
         assertThat(providerClientLinkRepository.findAllByProvider(provider)).isEmpty();
     }
 
-    /**
-     * Verifies complete successful flow:
-     * provider invites client, client registers, provider sees the client,
-     * client logs out, client logs in again, provider deletes the client.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should complete full provider-client flow successfully")
     @DirtiesContext
@@ -144,14 +115,13 @@ class ProviderClientFlowMvcTest {
                         extractTokenFromInvitationEmail("client-three@example.com"))
                 .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
 
-        var registrationResult = mockMvc.perform(post("/client/register")
+        MvcResult registrationResult = mockMvc.perform(post("/client/register")
                         .param("token", invitation.getToken())
                         .param("name", "client-three")
                         .param("password", "pass123")
                         .param("confirmPassword", "pass123"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Registration completed successfully")))
-                .andExpect(content().string(containsString("client-three@example.com")))
+                .andExpect(content().string(containsString("Wellnara Client")))
                 .andReturn();
 
         HttpSession clientSession = registrationResult.getRequest().getSession(false);
@@ -181,7 +151,7 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/auth/login"));
 
-        var loginResult = mockMvc.perform(post("/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/auth/login")
                         .param("username", "client-three")
                         .param("password", "pass123"))
                 .andExpect(status().is3xxRedirection())
@@ -193,8 +163,7 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/client").session((MockHttpSession) loggedClientSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Registration completed successfully"))))
-                .andExpect(content().string(not(containsString("client-three@example.com"))));
+                .andExpect(content().string(containsString("Wellnara Client")));
 
         mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId())
                         .session(providerSession))
@@ -209,23 +178,15 @@ class ProviderClientFlowMvcTest {
                 .andExpect(content().string(not(containsString("client-three@example.com"))));
     }
 
-    /**
-     * Verifies that provider cannot invite client with email that already exists in the system.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return provider page with error when client email already exists")
     void shouldReturnProviderPageWithErrorWhenClientEmailAlreadyExists() throws Exception {
         User provider = createProvider("provider-four", "provider-four@example.com", "123");
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        User existingClient = new User();
-        existingClient.setUsername("existing-client");
-        existingClient.setPassword("123");
-        existingClient.setEmail("existing-client@example.com");
-        existingClient.setRole(UserRole.CLIENT);
-        userRepository.save(existingClient);
+        User existingClient = createClient("existing-client", "existing-client@example.com", "123");
+
+        assertThat(existingClient.getRole()).isEqualTo(UserRole.CLIENT);
 
         var result = mockMvc.perform(post("/provider/invite-client")
                         .session(providerSession)
@@ -243,15 +204,65 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Email already used")));
     }
-    
-    /**
-     * Creates provider user for test scenario.
-     *
-     * @param username provider username
-     * @param email provider email
-     * @param password provider password
-     * @return saved provider user
-     */
+
+    @Test
+    @DisplayName("Should delete linked client through admin page")
+    void shouldDeleteLinkedClientThroughAdminPage() throws Exception {
+        User provider = createProvider(
+                "provider-admin-delete-client",
+                "provider-admin-delete-client@example.com",
+                "123"
+        );
+        User client = createClient(
+                "client-admin-delete",
+                "client-admin-delete@example.com",
+                "123"
+        );
+
+        linkClient(provider, client);
+
+        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+
+        mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
+                        .session(adminSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin"));
+
+        assertThat(userRepository.findById(client.getId())).isEmpty();
+        assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())).isEmpty();
+        assertThat(userRepository.findById(provider.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("Should delete linked provider through admin page")
+    void shouldDeleteLinkedProviderThroughAdminPage() throws Exception {
+        User provider = createProvider(
+                "provider-admin-delete-provider",
+                "provider-admin-delete-provider@example.com",
+                "123"
+        );
+        User client = createClient(
+                "client-of-deleted-provider",
+                "client-of-deleted-provider@example.com",
+                "123"
+        );
+
+        linkClient(provider, client);
+
+        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+
+        mockMvc.perform(post("/admin/users/{id}/delete", provider.getId())
+                        .session(adminSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin"));
+
+        assertThat(userRepository.findById(provider.getId())).isEmpty();
+        assertThat(userRepository.findById(client.getId())).isPresent();
+
+        assertThat(providerClientLinkRepository.findAll())
+                .noneMatch(link -> link.getProvider().getId().equals(provider.getId()));
+    }
+
     private User createProvider(String username, String email, String password) {
         User provider = new User();
         provider.setUsername(username);
@@ -261,41 +272,49 @@ class ProviderClientFlowMvcTest {
         return userRepository.save(provider);
     }
 
-    /**
-     * Creates client invitation for test scenario.
-     *
-     * @param provider provider user
-     * @param email invited client email
-     * @return saved client invitation
-     */
+    private User createClient(String username, String email, String password) {
+        User client = new User();
+        client.setUsername(username);
+        client.setPassword(password);
+        client.setEmail(email);
+        client.setRole(UserRole.CLIENT);
+        return userRepository.save(client);
+    }
+
     private ClientInvitation createClientInvitation(User provider, String email) {
         ClientInvitation invitation = new ClientInvitation(provider, email);
         return clientInvitationRepository.save(invitation);
     }
 
-    /**
-     * Creates session containing authenticated current user.
-     *
-     * @param user authenticated user
-     * @return mock HTTP session with currentUser attribute
-     */
+    private ProviderClientLink linkClient(User provider, User client) {
+        ProviderClientLink link = new ProviderClientLink(provider, client, LocalDateTime.now());
+        return providerClientLinkRepository.save(link);
+    }
+
     private MockHttpSession createSessionWithCurrentUser(User user) {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("currentUser", user);
         return session;
     }
 
-    /**
-     * Returns invitation token for email from repository.
-     *
-     * @param email invited client email
-     * @return invitation token
-     */
     private String extractTokenFromInvitationEmail(String email) {
         return clientInvitationRepository.findAll().stream()
                 .filter(invitation -> invitation.getEmail().equals(email))
                 .findFirst()
                 .map(ClientInvitation::getToken)
                 .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
+    }
+
+    private MockHttpSession loginAs(String username,
+                                    String password,
+                                    String expectedRedirectUrl) throws Exception {
+        MvcResult result = mockMvc.perform(post("/auth/login")
+                        .param("username", username)
+                        .param("password", password))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(expectedRedirectUrl))
+                .andReturn();
+
+        return (MockHttpSession) result.getRequest().getSession(false);
     }
 }

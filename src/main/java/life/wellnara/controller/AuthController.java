@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.AuthService;
+import life.wellnara.service.SessionUserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,14 +20,18 @@ import java.util.Optional;
 public class AuthController {
 
     private final AuthService authService;
+    private final SessionUserService sessionUserService;
 
     /**
      * Creates auth controller.
      *
      * @param authService authentication service
+     * @param sessionUserService service for session user access
      */
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+                          SessionUserService sessionUserService) {
         this.authService = authService;
+        this.sessionUserService = sessionUserService;
     }
 
     /**
@@ -61,7 +66,7 @@ public class AuthController {
         }
 
         User user = authenticatedUser.get();
-        session.setAttribute("currentUser", user);
+        sessionUserService.login(session, user);
 
         if (user.getRole() == UserRole.ADMIN) {
             return "redirect:/admin";
@@ -75,7 +80,7 @@ public class AuthController {
             return "redirect:/client";
         }
 
-        session.invalidate();
+        sessionUserService.logout(session);
         model.addAttribute("error", "Неизвестная роль пользователя");
         return "login";
     }
@@ -88,7 +93,7 @@ public class AuthController {
      */
     @GetMapping("/auth/logout")
     public String logout(HttpSession session) {
-        session.invalidate();
+        sessionUserService.logout(session);
         return "redirect:/auth/login";
     }
 }

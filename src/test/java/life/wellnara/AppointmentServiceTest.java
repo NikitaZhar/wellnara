@@ -78,7 +78,7 @@ class AppointmentServiceTest {
                 client,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         assertThat(appointment).isNotNull();
@@ -101,7 +101,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Client is not linked to provider");
     }
@@ -122,7 +122,7 @@ class AppointmentServiceTest {
                         client,
                         providerOne.getId(),
                         foreignOffering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Offering not found for provider");
     }
@@ -137,7 +137,7 @@ class AppointmentServiceTest {
                         provider,
                         provider.getId(),
                         1L,
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Only client can request appointment");
     }
@@ -184,7 +184,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 12, 30)
+                        LocalDateTime.of(2026, 6, 1, 12, 30)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -211,7 +211,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 5, 8, 0)
+                        LocalDateTime.of(2026, 6, 2, 8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -231,7 +231,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -259,7 +259,7 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         assertThatThrownBy(() ->
@@ -267,7 +267,7 @@ class AppointmentServiceTest {
                         secondClient,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 30)
+                        LocalDateTime.of(2026, 6, 1, 8, 30)
                 )
         ).hasMessageContaining("Time slot is already booked");
     }
@@ -295,14 +295,14 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         Appointment secondAppointment = appointmentService.requestAppointment(
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 9, 0)
+                LocalDateTime.of(2026, 6, 1, 9, 0)
         );
 
         assertThat(secondAppointment).isNotNull();
@@ -358,8 +358,8 @@ class AppointmentServiceTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         PROVIDER_TIMEZONE
                 )
         );
@@ -397,13 +397,13 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 30)
+                LocalDateTime.of(2026, 6, 1, 8, 30)
         );
 
         List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
                 provider,
                 offering,
-                LocalDate.of(2026, 5, 4)
+                LocalDate.of(2026, 6, 1)
         );
 
         assertThat(bookableTimes)

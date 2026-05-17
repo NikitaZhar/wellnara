@@ -43,4 +43,11 @@ public interface ProviderClientLinkRepository extends JpaRepository<ProviderClie
      * @param client client user
      */
     void deleteAllByClient(User client);
+    
+    /**
+     * Deletes all provider-client links for the specified provider.
+     *
+     * @param provider provider whose client links must be deleted
+     */
+    void deleteAllByProvider(User provider);
 }

@@ -63,8 +63,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00")
@@ -76,8 +76,8 @@ class ProviderCalendarMvcTest {
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
         assertThat(periods).hasSize(1);
-        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
-        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 6, 30));
         assertThat(periods.get(0).getProviderTimezone()).isEqualTo("Europe/Bratislava");
 
         List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
@@ -102,8 +102,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("tuesdayStart", "00:00")
                         .param("tuesdayEnd", "00:00"))
@@ -130,8 +130,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "12:00")
                         .param("mondayEnd", "12:00"))
@@ -155,8 +155,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("tuesdayStart", "15:00")
                         .param("tuesdayEnd", "11:00"))
@@ -180,8 +180,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("wednesdayStart", "09:00"))
                 .andExpect(status().isOk())
@@ -204,8 +204,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("thursdayEnd", "13:00"))
                 .andExpect(status().isOk())
@@ -227,7 +227,7 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningTo", "2026-05-31")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -250,7 +250,7 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
+                        .param("planningFrom", "2026-06-01")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -273,8 +273,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-31")
-                        .param("planningTo", "2026-05-01")
+                        .param("planningFrom", "2026-06-30")
+                        .param("planningTo", "2026-06-01")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -297,8 +297,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
@@ -320,8 +320,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -340,8 +340,8 @@ class ProviderCalendarMvcTest {
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
         assertThat(periods).hasSize(1);
-        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
-        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 6, 30));
 
         List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
 
@@ -359,8 +359,8 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should redirect unauthenticated user to login when saving calendar")
     void shouldRedirectUnauthenticatedUserToLoginWhenSavingCalendar() throws Exception {
         mockMvc.perform(post("/provider/calendar")
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))

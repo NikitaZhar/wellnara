@@ -21,6 +21,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -760,8 +761,10 @@ public class AppointmentService {
 
         List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
                 .filter(appointment -> isAppointmentOnDate(appointment, term.getDate(), providerZone))
+                .sorted(Comparator.comparing(appointment ->
+                        toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
                 .toList();
-
+        
         for (Appointment appointment : appointmentsOnTermDate) {
             LocalDateTime appointmentStartLocal = toProviderLocalDateTime(appointment, providerZone);
             LocalTime appointmentStart = appointmentStartLocal.toLocalTime();

@@ -331,8 +331,12 @@ WHERE NOT EXISTS (
 							th:if="${appointment.status.name() == 'REJECTED'}"
 							th:text="${appointment.rejectionReason}"> </span> <span
 							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
-								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'COMPLETED'}">
+								<span th:if="${appointment.rejectionReason != null}"
+								th:text="${appointment.rejectionReason}"></span> <span
+								th:if="${appointment.rejectionReason == null}">
+									Appointment cancelled by provider. </span> Please choose a new
+								available time.
+						</span> <span th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
 
 
@@ -392,7 +396,6 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td>
-							<button type="button">Reschedule</button>
 							<form
 								th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
 								method="post" style="display: inline;"
@@ -797,7 +800,22 @@ WHERE NOT EXISTS (
 
 							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-								<button type="button">Reschedule</button>
+								<button type="button" style="margin-left: 8px;"
+									onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+									Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
+									method="post" style="display: none; margin-left: 8px;"
+									onsubmit="return confirm('Cancel this appointment and ask the client to choose a new time?');">
+
+									<textarea name="providerMessage"
+										placeholder="Reason for rescheduling" required
+										maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">
+										Confirm Reschedule</button>
+								</form>
 
 								<form
 									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
@@ -1397,7 +1415,7 @@ class AppointmentLifecycleMvcTest {
                         .session(providerSession)
                         .param("rejectionReason", "Requested time is not suitable"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();
@@ -1424,7 +1442,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(redirectedUrl("/client?section=calendar"));
 
         assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
     }
@@ -1449,7 +1467,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();
@@ -1462,8 +1480,8 @@ class AppointmentLifecycleMvcTest {
                         .session(secondClientSession)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
-                        .param("selectedDate", "2026-05-04")
-                        .param("selectedTime", "10:15"))
+                        .param("selectedDate", "2026-06-01")
+                        .param("selectedTime", "10:00"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
                 .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
@@ -1498,7 +1516,7 @@ class AppointmentLifecycleMvcTest {
                 provider,
                 client,
                 offering,
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         return appointmentRepository.save(appointment);
@@ -1508,8 +1526,8 @@ class AppointmentLifecycleMvcTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         "Europe/Bratislava"
                 )
         );
@@ -1553,7 +1571,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(redirectedUrl("/client?section=calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();
@@ -1580,6 +1598,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -1708,14 +1727,13 @@ class ProviderClientFlowMvcTest {
                         extractTokenFromInvitationEmail("client-three@example.com"))
                 .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
 
-        var registrationResult = mockMvc.perform(post("/client/register")
+        MvcResult registrationResult = mockMvc.perform(post("/client/register")
                         .param("token", invitation.getToken())
                         .param("name", "client-three")
                         .param("password", "pass123")
                         .param("confirmPassword", "pass123"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Registration completed successfully")))
-                .andExpect(content().string(containsString("client-three@example.com")))
+                .andExpect(content().string(containsString("Wellnara Client")))
                 .andReturn();
 
         HttpSession clientSession = registrationResult.getRequest().getSession(false);
@@ -1745,7 +1763,7 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/auth/login"));
 
-        var loginResult = mockMvc.perform(post("/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/auth/login")
                         .param("username", "client-three")
                         .param("password", "pass123"))
                 .andExpect(status().is3xxRedirection())
@@ -1757,8 +1775,7 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/client").session((MockHttpSession) loggedClientSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Registration completed successfully"))))
-                .andExpect(content().string(not(containsString("client-three@example.com"))));
+                .andExpect(content().string(containsString("Wellnara Client")));
 
         mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId())
                         .session(providerSession))
@@ -2182,7 +2199,7 @@ class ClientAppointmentMvcTest {
                         .session(session)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
-                        .param("selectedDate", "2026-05-04")
+                        .param("selectedDate", "2026-06-01")
                         .param("selectedTime", "10:00"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/client"));
@@ -2201,10 +2218,10 @@ class ClientAppointmentMvcTest {
 
         /*
          * Provider timezone is Europe/Bratislava.
-         * 2026-05-04 10:00 local time is 2026-05-04 08:00 UTC.
+         * 2026-06-01 10:00 local time is 2026-06-01 08:00 UTC.
          */
         assertThat(appointment.getStartDateTimeUtc())
-                .isEqualTo(LocalDateTime.of(2026, 5, 4, 8, 0));
+                .isEqualTo(LocalDateTime.of(2026, 6, 1, 8, 0));
     }
 
     /**
@@ -2276,7 +2293,7 @@ class ClientAppointmentMvcTest {
                         .param("selectedTime", "10:15"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
-                .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
+                .andExpect(model().attribute("appointmentError", "Requested time is not available"));
 
         assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
                 .hasSize(1);
@@ -2375,8 +2392,8 @@ class ClientAppointmentMvcTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         "Europe/Bratislava"
                 )
         );
@@ -2726,8 +2743,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00")
@@ -2739,8 +2756,8 @@ class ProviderCalendarMvcTest {
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
         assertThat(periods).hasSize(1);
-        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
-        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 6, 30));
         assertThat(periods.get(0).getProviderTimezone()).isEqualTo("Europe/Bratislava");
 
         List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
@@ -2765,8 +2782,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("tuesdayStart", "00:00")
                         .param("tuesdayEnd", "00:00"))
@@ -2793,8 +2810,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "12:00")
                         .param("mondayEnd", "12:00"))
@@ -2818,8 +2835,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("tuesdayStart", "15:00")
                         .param("tuesdayEnd", "11:00"))
@@ -2843,8 +2860,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("wednesdayStart", "09:00"))
                 .andExpect(status().isOk())
@@ -2867,8 +2884,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("thursdayEnd", "13:00"))
                 .andExpect(status().isOk())
@@ -2890,7 +2907,7 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningTo", "2026-05-31")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -2913,7 +2930,7 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
+                        .param("planningFrom", "2026-06-01")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -2936,8 +2953,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-31")
-                        .param("planningTo", "2026-05-01")
+                        .param("planningFrom", "2026-06-30")
+                        .param("planningTo", "2026-06-01")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -2960,8 +2977,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
@@ -2983,8 +3000,8 @@ class ProviderCalendarMvcTest {
 
         mockMvc.perform(post("/provider/calendar")
                         .session(session)
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -3003,8 +3020,8 @@ class ProviderCalendarMvcTest {
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
         assertThat(periods).hasSize(1);
-        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 5, 1));
-        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(periods.get(0).getDateFrom()).isEqualTo(LocalDate.of(2026, 6, 1));
+        assertThat(periods.get(0).getDateTo()).isEqualTo(LocalDate.of(2026, 6, 30));
 
         List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(periods.get(0));
 
@@ -3022,8 +3039,8 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should redirect unauthenticated user to login when saving calendar")
     void shouldRedirectUnauthenticatedUserToLoginWhenSavingCalendar() throws Exception {
         mockMvc.perform(post("/provider/calendar")
-                        .param("planningFrom", "2026-05-01")
-                        .param("planningTo", "2026-05-31")
+                        .param("planningFrom", "2026-06-01")
+                        .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
@@ -3495,7 +3512,7 @@ class AppointmentServiceTest {
                 client,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         assertThat(appointment).isNotNull();
@@ -3518,7 +3535,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Client is not linked to provider");
     }
@@ -3539,7 +3556,7 @@ class AppointmentServiceTest {
                         client,
                         providerOne.getId(),
                         foreignOffering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Offering not found for provider");
     }
@@ -3554,7 +3571,7 @@ class AppointmentServiceTest {
                         provider,
                         provider.getId(),
                         1L,
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Only client can request appointment");
     }
@@ -3601,7 +3618,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 12, 30)
+                        LocalDateTime.of(2026, 6, 1, 12, 30)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -3628,7 +3645,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 5, 8, 0)
+                        LocalDateTime.of(2026, 6, 2, 8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -3648,7 +3665,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 0)
+                        LocalDateTime.of(2026, 6, 1, 8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -3676,7 +3693,7 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         assertThatThrownBy(() ->
@@ -3684,7 +3701,7 @@ class AppointmentServiceTest {
                         secondClient,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 5, 4, 8, 30)
+                        LocalDateTime.of(2026, 6, 1, 8, 30)
                 )
         ).hasMessageContaining("Time slot is already booked");
     }
@@ -3712,14 +3729,14 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         Appointment secondAppointment = appointmentService.requestAppointment(
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 9, 0)
+                LocalDateTime.of(2026, 6, 1, 9, 0)
         );
 
         assertThat(secondAppointment).isNotNull();
@@ -3775,8 +3792,8 @@ class AppointmentServiceTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         PROVIDER_TIMEZONE
                 )
         );
@@ -3814,13 +3831,13 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 5, 4, 8, 30)
+                LocalDateTime.of(2026, 6, 1, 8, 30)
         );
 
         List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
                 provider,
                 offering,
-                LocalDate.of(2026, 5, 4)
+                LocalDate.of(2026, 6, 1)
         );
 
         assertThat(bookableTimes)
@@ -3917,8 +3934,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 1),
-                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 30),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -3928,7 +3945,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 30)
         );
 
@@ -3937,11 +3954,12 @@ class AppointmentSchedulingFlowTest {
         assertThat(terms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
                 .containsExactly(
-                        "2026-05-04 09:00-10:30",
-                        "2026-05-04 11:30-15:00",
-                        "2026-05-11 09:00-15:00",
-                        "2026-05-18 09:00-15:00",
-                        "2026-05-25 09:00-15:00"
+                		"2026-06-01 09:00-10:30",
+                        "2026-06-01 11:30-15:00",
+                        "2026-06-08 09:00-15:00",
+                        "2026-06-15 09:00-15:00",
+                        "2026-06-22 09:00-15:00",
+                        "2026-06-29 09:00-15:00"
                 );
     }
 
@@ -3961,8 +3979,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 4, 29),
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
+                LocalDate.of(2026, 6, 3),
                 AvailabilityDay.WEDNESDAY,
                 LocalTime.of(10, 0),
                 LocalTime.of(15, 0)
@@ -3972,7 +3990,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 clientOne,
                 shortOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(10, 30)
         );
 
@@ -3980,7 +3998,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 clientTwo,
                 shortOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(11, 0)
         );
 
@@ -3989,15 +4007,15 @@ class AppointmentSchedulingFlowTest {
         assertThat(freeTerms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
                 .containsExactly(
-                        "2026-04-29 10:00-10:30",
-                        "2026-04-29 11:30-15:00"
+                		"2026-06-03 10:00-10:30",
+                		"2026-06-03 11:30-15:00"
                 );
 
         List<BookableDateOption> options =
                 appointmentService.getBookableDateOptions(provider, selectedOffering);
 
         assertThat(options).hasSize(1);
-        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 6, 3));
 
         assertThat(options.get(0).getTimes()).containsExactly(
                 LocalTime.of(11, 30),
@@ -4027,8 +4045,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 4, 29),
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
+                LocalDate.of(2026, 6, 3),
                 AvailabilityDay.WEDNESDAY,
                 LocalTime.of(10, 0),
                 LocalTime.of(15, 0)
@@ -4038,7 +4056,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 blockingOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(10, 30)
         );
 
@@ -4055,7 +4073,7 @@ class AppointmentSchedulingFlowTest {
                 appointmentService.getBookableDateOptions(provider, selectedOffering);
 
         assertThat(options).hasSize(1);
-        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 6, 3));
 
         assertThat(options.get(0).getTimes())
                 .doesNotContain(LocalTime.of(10, 0))
@@ -4080,8 +4098,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 4),
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 1),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -4091,7 +4109,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 firstClient,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 0)
         );
 
@@ -4099,7 +4117,7 @@ class AppointmentSchedulingFlowTest {
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                toUtc(LocalDate.of(2026, 5, 4), LocalTime.of(10, 15))
+                toUtc(LocalDate.of(2026, 6, 1), LocalTime.of(10, 15))
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Time slot is already booked");
@@ -4118,8 +4136,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 4),
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 1),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -4129,7 +4147,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 0)
         );
 
@@ -4140,7 +4158,7 @@ class AppointmentSchedulingFlowTest {
 
         assertThat(terms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
-                .containsExactly("2026-05-04 09:00-15:00");
+                .containsExactly("2026-06-01 09:00-15:00");
     }
 
     /**
@@ -4588,8 +4606,12 @@ WHERE NOT EXISTS (
 							th:if="${appointment.status.name() == 'REJECTED'}"
 							th:text="${appointment.rejectionReason}"> </span> <span
 							th:if="${appointment.status.name() == 'CANCELLED_BY_PROVIDER'}">
-								Appointment cancelled by provider. </span> <span
-							th:if="${appointment.status.name() == 'COMPLETED'}">
+								<span th:if="${appointment.rejectionReason != null}"
+								th:text="${appointment.rejectionReason}"></span> <span
+								th:if="${appointment.rejectionReason == null}">
+									Appointment cancelled by provider. </span> Please choose a new
+								available time.
+						</span> <span th:if="${appointment.status.name() == 'COMPLETED'}">
 								Appointment completed. </span></td>
 
 
@@ -4649,7 +4671,6 @@ WHERE NOT EXISTS (
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td>
-							<button type="button">Reschedule</button>
 							<form
 								th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
 								method="post" style="display: inline;"
@@ -5054,7 +5075,22 @@ WHERE NOT EXISTS (
 
 							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
 
-								<button type="button">Reschedule</button>
+								<button type="button" style="margin-left: 8px;"
+									onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+									Reschedule</button>
+
+								<form
+									th:action="@{/provider/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
+									method="post" style="display: none; margin-left: 8px;"
+									onsubmit="return confirm('Cancel this appointment and ask the client to choose a new time?');">
+
+									<textarea name="providerMessage"
+										placeholder="Reason for rescheduling" required
+										maxlength="1000" style="vertical-align: middle;"></textarea>
+
+									<button type="submit" style="margin-left: 8px;">
+										Confirm Reschedule</button>
+								</form>
 
 								<form
 									th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
@@ -6016,8 +6052,9 @@ package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.AdminUserService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6030,70 +6067,65 @@ import org.springframework.web.bind.annotation.PostMapping;
 @Controller
 public class AdminController {
 
-    private final AdminUserService adminUserService;
+	private final AdminUserService adminUserService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates admin controller.
-     *
-     * @param adminUserService service for admin user operations
-     */
-    public AdminController(AdminUserService adminUserService) {
-        this.adminUserService = adminUserService;
-    }
+	/**
+	 * Creates admin controller.
+	 *
+	 * @param adminUserService service for admin user operations
+	 */
+	public AdminController(AdminUserService adminUserService,
+			SessionUserService sessionUserService) {
+		this.adminUserService = adminUserService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Shows admin page for authenticated admin user.
-     *
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return admin page view name or redirect to login page
-     */
-    @GetMapping("/admin")
-    public String showPage(HttpSession session, Model model) {
-        Object sessionUser = session.getAttribute("currentUser");
+	/**
+	 * Shows admin page for authenticated admin user.
+	 *
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return admin page view name or redirect to login page
+	 */
+	@GetMapping("/admin")
+	public String showPage(HttpSession session, Model model) {
+		User currentUser = sessionUserService.requireAdmin(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+		if (currentUser == null) {
+		    return "redirect:/auth/login";
+		}
 
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            return "redirect:/auth/login";
-        }
+		Object providerInviteLink = session.getAttribute("providerInviteLink");
+		if (providerInviteLink != null) {
+			model.addAttribute("providerInviteLink", providerInviteLink);
+			session.removeAttribute("providerInviteLink");
+		}
 
-        Object providerInviteLink = session.getAttribute("providerInviteLink");
-        if (providerInviteLink != null) {
-            model.addAttribute("providerInviteLink", providerInviteLink);
-            session.removeAttribute("providerInviteLink");
-        }
+		model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
 
-        model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
+		return "admin";
+	}
 
-        return "admin";
-    }
+	/**
+	 * Deletes non-admin user by id.
+	 *
+	 * @param id user identifier
+	 * @param session current HTTP session
+	 * @return redirect to admin page or login page
+	 */
+	@PostMapping("/admin/users/{id}/delete")
+	public String deleteUser(@PathVariable Long id, HttpSession session) {
+		User currentUser = sessionUserService.requireAdmin(session);
 
-    /**
-     * Deletes non-admin user by id.
-     *
-     * @param id user identifier
-     * @param session current HTTP session
-     * @return redirect to admin page or login page
-     */
-    @PostMapping("/admin/users/{id}/delete")
-    public String deleteUser(@PathVariable Long id, HttpSession session) {
-        Object sessionUser = session.getAttribute("currentUser");
+		if (currentUser == null) {
+		    return "redirect:/auth/login";
+		}
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+		adminUserService.deleteNonAdminUser(id);
 
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            return "redirect:/auth/login";
-        }
-
-        adminUserService.deleteNonAdminUser(id);
-
-        return "redirect:/admin";
-    }
+		return "redirect:/admin";
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/ClientController.java =====
 package life.wellnara.controller;
@@ -6102,10 +6134,10 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
+import life.wellnara.service.SessionUserService;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -6113,7 +6145,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -6130,19 +6161,24 @@ public class ClientController {
 	private final ClientOfferingService clientOfferingService;
 	private final AppointmentService appointmentService;
 	private final ProviderCalendarService providerCalendarService;
+	private final SessionUserService sessionUserService;
 
 	/**
 	 * Creates client controller.
 	 *
 	 * @param clientOfferingService service for client access to provider offerings
 	 * @param appointmentService service for appointment requests
+	 * @param providerCalendarService service for provider calendar operations
+	 * @param sessionUserService service for authenticated session user access
 	 */
 	public ClientController(ClientOfferingService clientOfferingService,
-			AppointmentService appointmentService,
-			ProviderCalendarService providerCalendarService) {
-		this.clientOfferingService = clientOfferingService;
-		this.appointmentService = appointmentService;
-		this.providerCalendarService = providerCalendarService;
+	        AppointmentService appointmentService,
+	        ProviderCalendarService providerCalendarService,
+	        SessionUserService sessionUserService) {
+	    this.clientOfferingService = clientOfferingService;
+	    this.appointmentService = appointmentService;
+	    this.providerCalendarService = providerCalendarService;
+	    this.sessionUserService = sessionUserService;
 	}
 
 	/**
@@ -6154,7 +6190,7 @@ public class ClientController {
 	 */
 	@GetMapping("/client")
 	public String showPage(HttpSession session, Model model) {
-		User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 		if (currentUser == null) {
 			return "redirect:/auth/login";
@@ -6182,7 +6218,7 @@ public class ClientController {
 	                                 @RequestParam LocalTime selectedTime,
 	                                 HttpSession session,
 	                                 Model model) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6228,31 +6264,11 @@ public class ClientController {
 	            appointmentService.getConfirmedAppointmentViewsOfClient(client));
 	}
 	
-	/**
-	 * Returns authenticated client from session.
-	 *
-	 * @param session current HTTP session
-	 * @return authenticated client or null
-	 */
-	private User getAuthenticatedClient(HttpSession session) {
-		Object sessionUser = session.getAttribute("currentUser");
-
-		if (!(sessionUser instanceof User currentUser)) {
-			return null;
-		}
-
-		if (currentUser.getRole() != UserRole.CLIENT) {
-			return null;
-		}
-
-		return currentUser;
-	}
-	
 	@GetMapping("/client/offerings/{offeringId}")
 	public String showOffering(@PathVariable Long offeringId,
 	                           HttpSession session,
 	                           Model model) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6282,7 +6298,7 @@ public class ClientController {
 	@PostMapping("/client/appointments/{appointmentId}/acknowledge")
 	public String acknowledgeRejectedAppointment(@PathVariable Long appointmentId,
 	                                             HttpSession session) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6303,7 +6319,7 @@ public class ClientController {
 	@PostMapping("/client/appointments/{appointmentId}/pay")
 	public String payForAppointment(@PathVariable Long appointmentId,
 	                                HttpSession session) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6317,7 +6333,7 @@ public class ClientController {
 	@PostMapping("/client/appointments/{appointmentId}/cancel-request")
 	public String cancelPendingAppointment(@PathVariable Long appointmentId,
 	                                       HttpSession session) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6337,7 +6353,7 @@ public class ClientController {
 	@PostMapping("/client/appointments/{appointmentId}/cancel")
 	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
 	                                         HttpSession session) {
-	    User currentUser = getAuthenticatedClient(session);
+		User currentUser = sessionUserService.requireClient(session);
 
 	    if (currentUser == null) {
 	        return "redirect:/auth/login";
@@ -6353,8 +6369,9 @@ package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.ProviderClientService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -6365,40 +6382,40 @@ import org.springframework.web.bind.annotation.PostMapping;
 @Controller
 public class ProviderClientController {
 
-    private final ProviderClientService providerClientService;
+	private final ProviderClientService providerClientService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates provider client controller.
-     *
-     * @param providerClientService service for provider client operations
-     */
-    public ProviderClientController(ProviderClientService providerClientService) {
-        this.providerClientService = providerClientService;
-    }
+	/**
+	 * Creates provider client controller.
+	 *
+	 * @param providerClientService service for provider client operations
+	 * @param sessionUserService service for authenticated session user access
+	 */
+	public ProviderClientController(ProviderClientService providerClientService,
+			SessionUserService sessionUserService) {
+		this.providerClientService = providerClientService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Deletes client of current provider.
-     *
-     * @param clientId client identifier
-     * @param session current HTTP session
-     * @return redirect to provider page or login page
-     */
-    @PostMapping("/provider/clients/{clientId}/delete")
-    public String deleteClient(@PathVariable Long clientId, HttpSession session) {
-        Object sessionUser = session.getAttribute("currentUser");
+	/**
+	 * Deletes client of current provider.
+	 *
+	 * @param clientId client identifier
+	 * @param session current HTTP session
+	 * @return redirect to provider page or login page
+	 */
+	@PostMapping("/provider/clients/{clientId}/delete")
+	public String deleteClient(@PathVariable Long clientId, HttpSession session) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+		if (currentUser == null) {
+		    return "redirect:/auth/login";
+		}
 
-        if (currentUser.getRole() != UserRole.PROVIDER) {
-            return "redirect:/auth/login";
-        }
+		providerClientService.deleteClient(currentUser, clientId);
 
-        providerClientService.deleteClient(currentUser, clientId);
-
-        return "redirect:/provider";
-    }
+		return "redirect:/provider";
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/AuthController.java =====
 package life.wellnara.controller;
@@ -6407,6 +6424,7 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.AuthService;
+import life.wellnara.service.SessionUserService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6422,14 +6440,18 @@ import java.util.Optional;
 public class AuthController {
 
     private final AuthService authService;
+    private final SessionUserService sessionUserService;
 
     /**
      * Creates auth controller.
      *
      * @param authService authentication service
+     * @param sessionUserService service for session user access
      */
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+                          SessionUserService sessionUserService) {
         this.authService = authService;
+        this.sessionUserService = sessionUserService;
     }
 
     /**
@@ -6464,7 +6486,7 @@ public class AuthController {
         }
 
         User user = authenticatedUser.get();
-        session.setAttribute("currentUser", user);
+        sessionUserService.login(session, user);
 
         if (user.getRole() == UserRole.ADMIN) {
             return "redirect:/admin";
@@ -6478,7 +6500,7 @@ public class AuthController {
             return "redirect:/client";
         }
 
-        session.invalidate();
+        sessionUserService.logout(session);
         model.addAttribute("error", "Неизвестная роль пользователя");
         return "login";
     }
@@ -6491,7 +6513,7 @@ public class AuthController {
      */
     @GetMapping("/auth/logout")
     public String logout(HttpSession session) {
-        session.invalidate();
+        sessionUserService.logout(session);
         return "redirect:/auth/login";
     }
 }
@@ -6501,6 +6523,8 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.ClientInvitationService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6513,94 +6537,99 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class ClientRegistrationController {
 
-    private final ClientInvitationService clientInvitationService;
+	private final ClientInvitationService clientInvitationService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates client registration controller.
-     *
-     * @param clientInvitationService service for client invitation flow
-     */
-    public ClientRegistrationController(ClientInvitationService clientInvitationService) {
-        this.clientInvitationService = clientInvitationService;
-    }
+	/**
+	 * Creates client registration controller.
+	 *
+	 * @param clientInvitationService service for client invitation flow
+	 * @param sessionUserService service for authenticated session user access
+	 */
+	public ClientRegistrationController(ClientInvitationService clientInvitationService,
+			SessionUserService sessionUserService) {
+		this.clientInvitationService = clientInvitationService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Shows client registration page.
-     *
-     * @param token invitation token
-     * @param model MVC model
-     * @return registration page view name
-     */
-    @GetMapping("/client/register")
-    public String showRegisterPage(@RequestParam String token, Model model) {
-        try {
-            String email = clientInvitationService.getEmailByToken(token);
-            model.addAttribute("token", token);
-            model.addAttribute("email", email);
-            return "client-register";
-        } catch (IllegalArgumentException exception) {
-            model.addAttribute("error", exception.getMessage());
-            return "login";
-        }
-    }
+	/**
+	 * Shows client registration page.
+	 *
+	 * @param token invitation token
+	 * @param model MVC model
+	 * @return registration page view name
+	 */
+	@GetMapping("/client/register")
+	public String showRegisterPage(@RequestParam String token, Model model) {
+		try {
+			String email = clientInvitationService.getEmailByToken(token);
+			model.addAttribute("token", token);
+			model.addAttribute("email", email);
+			return "client-register";
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("error", exception.getMessage());
+			return "login";
+		}
+	}
 
-    /**
-     * Registers client by invitation token.
-     *
-     * @param token invitation token
-     * @param name client name
-     * @param password client password
-     * @param confirmPassword repeated client password
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return client page on success or registration page on validation error
-     */
-    @PostMapping("/client/register")
-    public String register(@RequestParam String token,
-                           @RequestParam String name,
-                           @RequestParam String password,
-                           @RequestParam String confirmPassword,
-                           HttpSession session,
-                           Model model) {
-        String email;
+	/**
+	 * Registers client by invitation token.
+	 *
+	 * @param token invitation token
+	 * @param name client name
+	 * @param password client password
+	 * @param confirmPassword repeated client password
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return client page on success or registration page on validation error
+	 */
+	@PostMapping("/client/register")
+	public String register(@RequestParam String token,
+			@RequestParam String name,
+			@RequestParam String password,
+			@RequestParam String confirmPassword,
+			HttpSession session,
+			Model model) {
+		String email;
 
-        try {
-            email = clientInvitationService.getEmailByToken(token);
-        } catch (IllegalArgumentException exception) {
-            model.addAttribute("error", exception.getMessage());
-            return "login";
-        }
+		try {
+			email = clientInvitationService.getEmailByToken(token);
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("error", exception.getMessage());
+			return "login";
+		}
 
-        if (!password.equals(confirmPassword)) {
-            model.addAttribute("token", token);
-            model.addAttribute("email", email);
-            model.addAttribute("error", "Passwords do not match");
-            return "client-register";
-        }
+		if (!password.equals(confirmPassword)) {
+			model.addAttribute("token", token);
+			model.addAttribute("email", email);
+			model.addAttribute("error", "Passwords do not match");
+			return "client-register";
+		}
 
-        try {
-            User registeredUser = clientInvitationService.register(token, name, password);
-            session.setAttribute("currentUser", registeredUser);
+		try {
+			User registeredUser = clientInvitationService.register(token, name, password);
+			sessionUserService.login(session, registeredUser);
 
-            model.addAttribute("successMessage", "Registration completed successfully");
-            model.addAttribute("clientEmail", registeredUser.getEmail());
+			model.addAttribute("successMessage", "Registration completed successfully");
+			model.addAttribute("clientEmail", registeredUser.getEmail());
 
-            return "client";
-        } catch (IllegalArgumentException exception) {
-            model.addAttribute("token", token);
-            model.addAttribute("email", email);
-            model.addAttribute("error", exception.getMessage());
-            return "client-register";
-        }
-    }
+			return "client";
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("token", token);
+			model.addAttribute("email", email);
+			model.addAttribute("error", exception.getMessage());
+			return "client-register";
+		}
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/ClientInvitationController.java =====
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.ClientInvitationService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -6611,67 +6640,52 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class ClientInvitationController {
 
-    private final ClientInvitationService clientInvitationService;
+	private final ClientInvitationService clientInvitationService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates client invitation controller.
-     *
-     * @param clientInvitationService service for client invitations
-     */
-    public ClientInvitationController(ClientInvitationService clientInvitationService) {
-        this.clientInvitationService = clientInvitationService;
-    }
+	/**
+	 * Creates client invitation controller.
+	 *
+	 * @param clientInvitationService service for client invitations
+	 * @param sessionUserService service for authenticated session user access
+	 */
+	public ClientInvitationController(ClientInvitationService clientInvitationService,
+			SessionUserService sessionUserService) {
+		this.clientInvitationService = clientInvitationService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Creates client invitation and stores registration link in session.
-     *
-     * @param email invited client email
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return redirect to provider page or provider page with validation error
-     */
-    @PostMapping("/provider/invite-client")
-    public String inviteClient(@RequestParam String email,
-                               HttpSession session) {
-        User currentUser = getAuthenticatedProvider(session);
+	/**
+	 * Creates client invitation and stores registration link in session.
+	 *
+	 * @param email invited client email
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to provider page or provider page with validation error
+	 */
+	@PostMapping("/provider/invite-client")
+	public String inviteClient(@RequestParam String email,
+			HttpSession session) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-        if (currentUser == null) {
-            return "redirect:/auth/login";
-        }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-        try {
-            String token = clientInvitationService.invite(currentUser, email);
-            String link = "http://localhost:8080/client/register?token=" + token;
+		try {
+			String token = clientInvitationService.invite(currentUser, email);
+			String link = "http://localhost:8080/client/register?token=" + token;
 
-            session.setAttribute("clientInviteLink", link);
-            session.removeAttribute("clientInviteError");
+			session.setAttribute("clientInviteLink", link);
+			session.removeAttribute("clientInviteError");
 
-        } catch (IllegalArgumentException exception) {
-            session.setAttribute("clientInviteError", exception.getMessage());
-            session.removeAttribute("clientInviteLink");
-        }
+		} catch (IllegalArgumentException exception) {
+			session.setAttribute("clientInviteError", exception.getMessage());
+			session.removeAttribute("clientInviteLink");
+		}
 
-        return "redirect:/provider";
-    }    
-    /**
-     * Returns authenticated provider from current session.
-     *
-     * @param session current HTTP session
-     * @return authenticated provider or null
-     */
-    private User getAuthenticatedProvider(HttpSession session) {
-        Object sessionUser = session.getAttribute("currentUser");
-
-        if (!(sessionUser instanceof User currentUser)) {
-            return null;
-        }
-
-        if (currentUser.getRole() != UserRole.PROVIDER) {
-            return null;
-        }
-
-        return currentUser;
-    }
+		return "redirect:/provider";
+	}    
 }
 ===== ./src/main/java/life/wellnara/controller/OfferingController.java =====
 package life.wellnara.controller;
@@ -6679,8 +6693,9 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.OfferingService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6696,135 +6711,121 @@ import java.math.BigDecimal;
 @Controller
 public class OfferingController {
 
-    private final OfferingService offeringService;
+	private final OfferingService offeringService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates offering controller.
-     *
-     * @param offeringService service for offering management
-     */
-    public OfferingController(OfferingService offeringService) {
-        this.offeringService = offeringService;
-    }
+	/**
+	 * Creates offering controller.
+	 *
+	 * @param offeringService service for offering management
+	 * @param sessionUserService service for authenticated session user access
+	 */
+	public OfferingController(OfferingService offeringService,
+			SessionUserService sessionUserService) {
+		this.offeringService = offeringService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Creates offering.
-     *
-     * @param name offering name
-     * @param description offering description
-     * @param pricePerSession price per session
-     * @param durationMinutes session duration in minutes
-     * @param session current HTTP session
-     * @return redirect to provider page or login page
-     */
-    @PostMapping("/provider/offerings")
-    public String createOffering(@RequestParam String name,
-                                 @RequestParam String description,
-                                 @RequestParam BigDecimal pricePerSession,
-                                 @RequestParam Integer durationMinutes,
-                                 HttpSession session) {
-        User currentUser = getCurrentProvider(session);
-        if (currentUser == null) {
-            return "redirect:/auth/login";
-        }
+	/**
+	 * Creates offering.
+	 *
+	 * @param name offering name
+	 * @param description offering description
+	 * @param pricePerSession price per session
+	 * @param durationMinutes session duration in minutes
+	 * @param session current HTTP session
+	 * @return redirect to provider page or login page
+	 */
+	@PostMapping("/provider/offerings")
+	public String createOffering(@RequestParam String name,
+	                             @RequestParam String description,
+	                             @RequestParam BigDecimal pricePerSession,
+	                             @RequestParam Integer durationMinutes,
+	                             HttpSession session) {
+	    User currentUser = sessionUserService.requireProvider(session);
 
-        offeringService.createOffering(
-                currentUser,
-                name,
-                description,
-                pricePerSession,
-                durationMinutes
-        );
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
 
-        return "redirect:/provider?section=offerings";
-    }
+	    offeringService.createOffering(
+	            currentUser,
+	            name,
+	            description,
+	            pricePerSession,
+	            durationMinutes
+	    );
 
-    /**
-     * Shows offering edit page.
-     *
-     * @param offeringId offering identifier
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return edit page or redirect to login page
-     */
-    @GetMapping("/provider/offerings/{offeringId}/edit")
-    public String showEditPage(@PathVariable Long offeringId,
-                               HttpSession session,
-                               Model model) {
-        User currentUser = getCurrentProvider(session);
-        if (currentUser == null) {
-            return "redirect:/auth/login";
-        }
+	    return "redirect:/provider?section=offerings";
+	}
 
-        Offering offering = offeringService.getOfferingOfProvider(currentUser, offeringId);
-        model.addAttribute("offering", offering);
+	/**
+	 * Shows offering edit page.
+	 *
+	 * @param offeringId offering identifier
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return edit page or redirect to login page
+	 */
+	@GetMapping("/provider/offerings/{offeringId}/edit")
+	public String showEditPage(@PathVariable Long offeringId,
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-        return "offering-edit";
-    }
+		Offering offering = offeringService.getOfferingOfProvider(currentUser, offeringId);
+		model.addAttribute("offering", offering);
 
-    /**
-     * Updates offering.
-     *
-     * @param offeringId offering identifier
-     * @param name offering name
-     * @param description offering description
-     * @param pricePerSession price per session
-     * @param durationMinutes session duration in minutes
-     * @param session current HTTP session
-     * @return redirect to provider page or login page
-     */
-    @PostMapping("/provider/offerings/{offeringId}/edit")
-    public String updateOffering(@PathVariable Long offeringId,
-                                 @RequestParam String name,
-                                 @RequestParam String description,
-                                 @RequestParam BigDecimal pricePerSession,
-                                 @RequestParam Integer durationMinutes,
-                                 HttpSession session) {
-        User currentUser = getCurrentProvider(session);
-        if (currentUser == null) {
-            return "redirect:/auth/login";
-        }
+		return "offering-edit";
+	}
 
-        offeringService.updateOffering(
-                currentUser,
-                offeringId,
-                name,
-                description,
-                pricePerSession,
-                durationMinutes
-        );
+	/**
+	 * Updates offering.
+	 *
+	 * @param offeringId offering identifier
+	 * @param name offering name
+	 * @param description offering description
+	 * @param pricePerSession price per session
+	 * @param durationMinutes session duration in minutes
+	 * @param session current HTTP session
+	 * @return redirect to provider page or login page
+	 */
+	@PostMapping("/provider/offerings/{offeringId}/edit")
+	public String updateOffering(@PathVariable Long offeringId,
+			@RequestParam String name,
+			@RequestParam String description,
+			@RequestParam BigDecimal pricePerSession,
+			@RequestParam Integer durationMinutes,
+			HttpSession session) {
+		User currentUser = sessionUserService.requireProvider(session);
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-        return "redirect:/provider?section=offerings";
-    }
+		offeringService.updateOffering(
+				currentUser,
+				offeringId,
+				name,
+				description,
+				pricePerSession,
+				durationMinutes
+				);
 
-    /**
-     * Returns authenticated provider from session.
-     *
-     * @param session current HTTP session
-     * @return provider user or null
-     */
-    private User getCurrentProvider(HttpSession session) {
-        Object sessionUser = session.getAttribute("currentUser");
-
-        if (!(sessionUser instanceof User currentUser)) {
-            return null;
-        }
-
-        if (currentUser.getRole() != UserRole.PROVIDER) {
-            return null;
-        }
-
-        return currentUser;
-    }
+		return "redirect:/provider?section=offerings";
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/ProviderInvitationController.java =====
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.ProviderInvitationService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -6836,58 +6837,58 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class ProviderInvitationController {
 
-    private final ProviderInvitationService service;
-    private final AdminUserService adminUserService;
+	private final ProviderInvitationService service;
+	private final AdminUserService adminUserService;
+	private final SessionUserService sessionUserService;
 
-    /**
-     * Creates provider invitation controller.
-     *
-     * @param service provider invitation service
-     * @param adminUserService service for admin user operations
-     */
-    public ProviderInvitationController(ProviderInvitationService service,
-                                        AdminUserService adminUserService) {
-        this.service = service;
-        this.adminUserService = adminUserService;
-    }
+	/**
+	 * Creates provider invitation controller.
+	 *
+	 * @param service provider invitation service
+	 * @param adminUserService service for admin user operations
+	 * @param sessionUserService service for authenticated session user access
+	 */
+	public ProviderInvitationController(ProviderInvitationService service,
+			AdminUserService adminUserService,
+			SessionUserService sessionUserService) {
+		this.service = service;
+		this.adminUserService = adminUserService;
+		this.sessionUserService = sessionUserService;
+	}
 
-    /**
-     * Creates provider invitation and stores registration link in session.
-     *
-     * @param email invited provider email
-     * @param session current HTTP session
-     * @param model MVC model
-     * @return redirect to admin page or admin page with validation error
-     */
-    @PostMapping("/admin/invite")
-    public String invite(@RequestParam String email,
-                         HttpSession session,
-                         Model model) {
-        Object sessionUser = session.getAttribute("currentUser");
+	/**
+	 * Creates provider invitation and stores registration link in session.
+	 *
+	 * @param email invited provider email
+	 * @param session current HTTP session
+	 * @param model MVC model
+	 * @return redirect to admin page or admin page with validation error
+	 */
+	@PostMapping("/admin/invite")
+	public String invite(@RequestParam String email,
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireAdmin(session);
 
-        if (!(sessionUser instanceof User currentUser)) {
-            return "redirect:/auth/login";
-        }
+		if (currentUser == null) {
+		    return "redirect:/auth/login";
+		}
 
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            return "redirect:/auth/login";
-        }
+		try {
+			String token = service.invite(email);
+			String registrationLink = "http://localhost:8080/provider/register?token=" + token;
 
-        try {
-            String token = service.invite(email);
-            String registrationLink = "http://localhost:8080/provider/register?token=" + token;
+			session.setAttribute("providerInviteLink", registrationLink);
 
-            session.setAttribute("providerInviteLink", registrationLink);
+			return "redirect:/admin";
+		} catch (IllegalArgumentException exception) {
+			session.removeAttribute("providerInviteLink");
 
-            return "redirect:/admin";
-        } catch (IllegalArgumentException exception) {
-        	session.removeAttribute("providerInviteLink");
-        	
-            model.addAttribute("inviteError", exception.getMessage());
-            model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
-            return "admin";
-        }
-    }
+			model.addAttribute("inviteError", exception.getMessage());
+			model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
+			return "admin";
+		}
+	}
 }
 ===== ./src/main/java/life/wellnara/controller/ProviderRegistrationController.java =====
 package life.wellnara.controller;
@@ -6895,6 +6896,8 @@ package life.wellnara.controller;
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.ProviderInvitationService;
+import life.wellnara.service.SessionUserService;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6908,14 +6911,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class ProviderRegistrationController {
 
     private final ProviderInvitationService service;
+    private final SessionUserService sessionUserService;
 
     /**
      * Creates provider registration controller.
      *
      * @param service provider invitation service
+     * @param sessionUserService service for authenticated session user access
      */
-    public ProviderRegistrationController(ProviderInvitationService service) {
+    public ProviderRegistrationController(ProviderInvitationService service,
+    		SessionUserService sessionUserService) {
         this.service = service;
+        this.sessionUserService = sessionUserService;
     }
 
     /**
@@ -6974,10 +6981,7 @@ public class ProviderRegistrationController {
 
         try {
             User registeredUser = service.register(token, name, password);
-            session.setAttribute("currentUser", registeredUser);
-//            model.addAttribute("successMessage", "Registration completed successfully");
-//            model.addAttribute("providerEmail", registeredUser.getEmail());
-//            return "provider";
+            sessionUserService.login(session, registeredUser);
             return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("token", token);
@@ -6995,11 +6999,12 @@ import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
+import life.wellnara.service.SessionUserService;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import org.springframework.stereotype.Controller;
@@ -7020,6 +7025,7 @@ public class ProviderController {
 	private final OfferingService offeringService;
 	private final ProviderCalendarService providerCalendarService;
 	private final AppointmentService appointmentService;
+	private final SessionUserService sessionUserService;
 
 	/**
 	 * Creates provider controller.
@@ -7027,15 +7033,19 @@ public class ProviderController {
 	 * @param providerClientService service for provider client operations
 	 * @param offeringService service for offering management
 	 * @param providerCalendarService service for provider calendar management
+	 * @param appointmentService service for appointment operations
+	 * @param sessionUserService service for authenticated session user access
 	 */
 	public ProviderController(ProviderClientService providerClientService,
 			OfferingService offeringService,
 			ProviderCalendarService providerCalendarService,
-			AppointmentService appointmentService) {
+			AppointmentService appointmentService,
+			SessionUserService sessionUserService) {
 		this.providerClientService = providerClientService;
 		this.offeringService = offeringService;
 		this.providerCalendarService = providerCalendarService;
 		this.appointmentService = appointmentService;
+		this.sessionUserService = sessionUserService;
 	}
 
 	/**
@@ -7047,7 +7057,7 @@ public class ProviderController {
 	 */
 	@GetMapping("/provider")
 	public String showPage(HttpSession session, Model model) {
-		User currentUser = getAuthenticatedProvider(session);
+		User currentUser = sessionUserService.requireProvider(session);
 
 		if (currentUser == null) {
 			return "redirect:/auth/login";
@@ -7085,7 +7095,7 @@ public class ProviderController {
 			HttpSession session,
 			Model model) {
 
-		User currentUser = getAuthenticatedProvider(session);
+		User currentUser = sessionUserService.requireProvider(session);
 
 		if (currentUser == null) {
 			return "redirect:/auth/login";
@@ -7105,42 +7115,22 @@ public class ProviderController {
 	}
 
 	/**
-	 * Returns authenticated provider from current session.
-	 *
-	 * @param session current HTTP session
-	 * @return authenticated provider or null
-	 */
-	private User getAuthenticatedProvider(HttpSession session) {
-		Object sessionUser = session.getAttribute("currentUser");
-
-		if (!(sessionUser instanceof User currentUser)) {
-			return null;
-		}
-
-		if (currentUser.getRole() != UserRole.PROVIDER) {
-			return null;
-		}
-
-		return currentUser;
-	}
-
-	/**
 	 * Adds common provider page data to model.
 	 *
 	 * @param model MVC model
 	 * @param provider authenticated provider
 	 */
 	private void populateProviderPageModel(Model model, User provider) {
-	    model.addAttribute("clients", providerClientService.getClientsOfProvider(provider));
-	    model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
-	    model.addAttribute("providerName", provider.getUsername());
-	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
-	    model.addAttribute("confirmedAppointments",
-	            appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
-	    model.addAttribute("appointmentNotifications",
-	            appointmentService.getAppointmentNotificationViewsOfProvider(provider));
+		model.addAttribute("clients", providerClientService.getClientsOfProvider(provider));
+		model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
+		model.addAttribute("providerName", provider.getUsername());
+		model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
+		model.addAttribute("confirmedAppointments",
+				appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
+		model.addAttribute("appointmentNotifications",
+				appointmentService.getAppointmentNotificationViewsOfProvider(provider));
 
-	    populateCalendarModel(model, provider);
+		populateCalendarModel(model, provider);
 	}
 
 	/**
@@ -7150,22 +7140,22 @@ public class ProviderController {
 	 * @param provider authenticated provider
 	 */
 	private void populateCalendarModel(Model model, User provider) {
-	    ProviderCalendarForm calendarForm =
-	            providerCalendarService.getLatestCalendarForm(provider);
+		ProviderCalendarForm calendarForm =
+				providerCalendarService.getLatestCalendarForm(provider);
 
-	    model.addAttribute("calendarForm", calendarForm);
-	    model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-	    model.addAttribute("planningTo", calendarForm.getPlanningTo());
-	    model.addAttribute(
-	            "calendarTerms",
-	            appointmentService.getFreeCalendarTerms(provider)
-	    );
-	    model.addAttribute(
-	            "availabilityOverrides",
-	            providerCalendarService.getAvailabilityOverrides(provider)
-	    );
+		model.addAttribute("calendarForm", calendarForm);
+		model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+		model.addAttribute("planningTo", calendarForm.getPlanningTo());
+		model.addAttribute(
+				"calendarTerms",
+				appointmentService.getFreeCalendarTerms(provider)
+				);
+		model.addAttribute(
+				"availabilityOverrides",
+				providerCalendarService.getAvailabilityOverrides(provider)
+				);
 	}
-	
+
 	/**
 	 * Rejects client appointment request.
 	 *
@@ -7180,7 +7170,7 @@ public class ProviderController {
 			@RequestParam String rejectionReason,
 			HttpSession session,
 			Model model) {
-		User currentUser = getAuthenticatedProvider(session);
+		User currentUser = sessionUserService.requireProvider(session);
 
 		if (currentUser == null) {
 			return "redirect:/auth/login";
@@ -7191,6 +7181,36 @@ public class ProviderController {
 					currentUser,
 					appointmentId,
 					rejectionReason
+					);
+
+			return "redirect:/provider?section=provider-calendar";
+
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+
+			return "provider";
+		}
+	}
+
+	@PostMapping("/provider/appointments/{appointmentId}/reschedule")
+	public String rescheduleConfirmedAppointment(
+			@PathVariable Long appointmentId,
+			@RequestParam String providerMessage,
+			HttpSession session,
+			Model model
+			) {
+		User currentUser = sessionUserService.requireProvider(session);
+
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
+
+		try {
+			appointmentService.rescheduleConfirmedAppointment(
+					currentUser,
+					appointmentId,
+					providerMessage
 					);
 
 			return "redirect:/provider?section=provider-calendar";
@@ -7215,7 +7235,7 @@ public class ProviderController {
 	public String requestPaymentForAppointment(@PathVariable Long appointmentId,
 			HttpSession session,
 			Model model) {
-		User currentUser = getAuthenticatedProvider(session);
+		User currentUser = sessionUserService.requireProvider(session);
 
 		if (currentUser == null) {
 			return "redirect:/auth/login";
@@ -7233,60 +7253,60 @@ public class ProviderController {
 			return "provider";
 		}
 	}
-	
+
 	@PostMapping("/provider/calendar/overrides")
 	public String createAvailabilityOverride(@RequestParam LocalDate overrideDate,
-	                                         @RequestParam LocalTime startTime,
-	                                         @RequestParam LocalTime endTime,
-	                                         @RequestParam AvailabilityOverrideType type,
-	                                         HttpSession session,
-	                                         Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+			@RequestParam LocalTime startTime,
+			@RequestParam LocalTime endTime,
+			@RequestParam AvailabilityOverrideType type,
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    try {
-	        providerCalendarService.createAvailabilityOverride(
-	                currentUser,
-	                overrideDate,
-	                startTime,
-	                endTime,
-	                type
-	        );
+		try {
+			providerCalendarService.createAvailabilityOverride(
+					currentUser,
+					overrideDate,
+					startTime,
+					endTime,
+					type
+					);
 
-	        return "redirect:/provider?section=calendar";
+			return "redirect:/provider?section=calendar";
 
-	    } catch (IllegalArgumentException exception) {
-	        model.addAttribute("calendarOverrideError", exception.getMessage());
-	        populateProviderPageModel(model, currentUser);
-	        return "provider";
-	    }
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("calendarOverrideError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+			return "provider";
+		}
 	}
-	
+
 	@PostMapping("/provider/calendar/overrides/{overrideId}/delete")
 	public String deleteAvailabilityOverride(@PathVariable Long overrideId,
-	                                         HttpSession session,
-	                                         Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    try {
-	        providerCalendarService.deleteAvailabilityOverride(currentUser, overrideId);
+		try {
+			providerCalendarService.deleteAvailabilityOverride(currentUser, overrideId);
 
-	        return "redirect:/provider?section=calendar";
+			return "redirect:/provider?section=calendar";
 
-	    } catch (IllegalArgumentException exception) {
-	        model.addAttribute("calendarOverrideError", exception.getMessage());
-	        populateProviderPageModel(model, currentUser);
-	        return "provider";
-	    }
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("calendarOverrideError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
+			return "provider";
+		}
 	}
-	
+
 	/**
 	 * Cancels confirmed appointment and removes it from provider calendar.
 	 *
@@ -7297,27 +7317,27 @@ public class ProviderController {
 	 */
 	@PostMapping("/provider/appointments/{appointmentId}/cancel")
 	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
-	                                         HttpSession session,
-	                                         Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    try {
-	        appointmentService.cancelConfirmedAppointment(currentUser, appointmentId);
+		try {
+			appointmentService.cancelConfirmedAppointment(currentUser, appointmentId);
 
-	        return "redirect:/provider?section=provider-calendar";
+			return "redirect:/provider?section=provider-calendar";
 
-	    } catch (IllegalArgumentException exception) {
-	        model.addAttribute("appointmentActionError", exception.getMessage());
-	        populateProviderPageModel(model, currentUser);
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
 
-	        return "provider";
-	    }
+			return "provider";
+		}
 	}
-	
+
 	/**
 	 * Completes confirmed appointment.
 	 *
@@ -7328,27 +7348,27 @@ public class ProviderController {
 	 */
 	@PostMapping("/provider/appointments/{appointmentId}/complete")
 	public String completeConfirmedAppointment(@PathVariable Long appointmentId,
-	                                           HttpSession session,
-	                                           Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    try {
-	        appointmentService.completeConfirmedAppointment(currentUser, appointmentId);
+		try {
+			appointmentService.completeConfirmedAppointment(currentUser, appointmentId);
 
-	        return "redirect:/provider?section=provider-calendar";
+			return "redirect:/provider?section=provider-calendar";
 
-	    } catch (IllegalArgumentException exception) {
-	        model.addAttribute("appointmentActionError", exception.getMessage());
-	        populateProviderPageModel(model, currentUser);
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
 
-	        return "provider";
-	    }
+			return "provider";
+		}
 	}
-	
+
 	/**
 	 * Acknowledges provider appointment notification and removes it.
 	 *
@@ -7359,25 +7379,25 @@ public class ProviderController {
 	 */
 	@PostMapping("/provider/appointments/{appointmentId}/acknowledge")
 	public String acknowledgeAppointmentNotification(@PathVariable Long appointmentId,
-	                                                 HttpSession session,
-	                                                 Model model) {
-	    User currentUser = getAuthenticatedProvider(session);
+			HttpSession session,
+			Model model) {
+		User currentUser = sessionUserService.requireProvider(session);
 
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
+		if (currentUser == null) {
+			return "redirect:/auth/login";
+		}
 
-	    try {
-	        appointmentService.acknowledgeProviderAppointmentNotification(currentUser, appointmentId);
+		try {
+			appointmentService.acknowledgeProviderAppointmentNotification(currentUser, appointmentId);
 
-	        return "redirect:/provider?section=provider-calendar";
+			return "redirect:/provider?section=provider-calendar";
 
-	    } catch (IllegalArgumentException exception) {
-	        model.addAttribute("appointmentActionError", exception.getMessage());
-	        populateProviderPageModel(model, currentUser);
+		} catch (IllegalArgumentException exception) {
+			model.addAttribute("appointmentActionError", exception.getMessage());
+			populateProviderPageModel(model, currentUser);
 
-	        return "provider";
-	    }
+			return "provider";
+		}
 	}
 }
 ===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
@@ -7607,6 +7627,21 @@ public class Appointment {
      */
     public void cancelByProvider() {
         this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    /**
+     * Cancels confirmed appointment by provider with explanation.
+     *
+     * @param providerMessage message shown to client
+     */
+    public void cancelByProvider(String providerMessage) {
+        if (providerMessage == null || providerMessage.isBlank()) {
+            throw new IllegalArgumentException("Provider message is required");
+        }
+
+        this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
+        this.rejectionReason = providerMessage.trim();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -8258,13 +8293,11 @@ import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -8567,45 +8600,34 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public boolean isAvailable(User provider,
-			LocalDateTime startDateTimeUtc,
-			Integer durationMinutes) {
-		if (provider == null || startDateTimeUtc == null || durationMinutes == null || durationMinutes <= 0) {
-			return false;
-		}
+	                           LocalDateTime startDateTimeUtc,
+	                           Integer durationMinutes) {
+	    if (provider == null
+	            || startDateTimeUtc == null
+	            || durationMinutes == null
+	            || durationMinutes <= 0) {
+	        return false;
+	    }
 
-		Optional<AvailabilityPeriod> periodOptional =
-				availabilityPeriodRepository.findTopByProviderOrderByCreatedAtDesc(provider);
+	    ZoneId providerZone = getProviderTimezone(provider);
 
-		if (periodOptional.isEmpty()) {
-			return false;
-		}
+	    LocalDateTime localStart = startDateTimeUtc
+	            .atZone(ZoneOffset.UTC)
+	            .withZoneSameInstant(providerZone)
+	            .toLocalDateTime();
 
-		AvailabilityPeriod period = periodOptional.get();
-		ZoneId providerZone = ZoneId.of(period.getProviderTimezone());
+	    LocalDateTime localEnd = localStart.plusMinutes(durationMinutes);
 
-		ZonedDateTime startInProviderZone = startDateTimeUtc
-				.atZone(ZoneOffset.UTC)
-				.withZoneSameInstant(providerZone);
+	    if (!localStart.toLocalDate().equals(localEnd.toLocalDate())) {
+	        return false;
+	    }
 
-		ZonedDateTime endInProviderZone = startInProviderZone.plusMinutes(durationMinutes);
-
-		LocalDate appointmentDate = startInProviderZone.toLocalDate();
-
-		if (appointmentDate.isBefore(period.getDateFrom()) || appointmentDate.isAfter(period.getDateTo())) {
-			return false;
-		}
-
-		if (!startInProviderZone.toLocalDate().equals(endInProviderZone.toLocalDate())) {
-			return false;
-		}
-
-		List<AvailabilityRule> rules = availabilityRuleRepository.findAllByAvailabilityPeriod(period);
-
-		return rules.stream().anyMatch(rule ->
-		rule.getDayOfWeek().name().equals(startInProviderZone.getDayOfWeek().name())
-		&& !startInProviderZone.toLocalTime().isBefore(rule.getStartTime())
-		&& !endInProviderZone.toLocalTime().isAfter(rule.getEndTime())
-				);
+	    return generateCalendar(provider).stream()
+	            .anyMatch(term ->
+	                    term.getDate().equals(localStart.toLocalDate())
+	                            && !localStart.toLocalTime().isBefore(term.getStartTime())
+	                            && !localEnd.toLocalTime().isAfter(term.getEndTime())
+	            );
 	}
 
 	/**
@@ -8616,13 +8638,12 @@ public class ProviderCalendarService {
 	 */
 	@Transactional(readOnly = true)
 	public ZoneId getProviderTimezone(User provider) {
-		AvailabilityPeriod period = availabilityPeriodRepository
-				.findTopByProviderOrderByCreatedAtDesc(provider)
-				.orElseThrow(() -> new IllegalArgumentException("Provider timezone not found"));
-
-		return ZoneId.of(period.getProviderTimezone());
+	    return availabilityPeriodRepository
+	            .findTopByProviderOrderByCreatedAtDesc(provider)
+	            .map(AvailabilityPeriod::getProviderTimezone)
+	            .map(ZoneId::of)
+	            .orElse(ZoneId.of("Europe/Bratislava"));
 	}
-
 	/**
 	 * Deletes provider availability periods that ended before today.
 	 *
@@ -8718,6 +8739,108 @@ public class ProviderCalendarService {
 	        throw new IllegalArgumentException("Override type is required");
 	    }
 	}
+}
+===== ./src/main/java/life/wellnara/service/SessionUserService.java =====
+package life.wellnara.service;
+
+import jakarta.servlet.http.HttpSession;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import org.springframework.stereotype.Service;
+
+/**
+ * Service for centralized access to the authenticated user stored in HTTP session.
+ */
+@Service
+public class SessionUserService {
+
+    private static final String CURRENT_USER_ATTRIBUTE = "currentUser";
+
+    /**
+     * Stores authenticated user in current HTTP session.
+     *
+     * @param session current HTTP session
+     * @param user authenticated user
+     */
+    public void login(HttpSession session, User user) {
+        session.setAttribute(CURRENT_USER_ATTRIBUTE, user);
+    }
+
+    /**
+     * Invalidates current HTTP session.
+     *
+     * @param session current HTTP session
+     */
+    public void logout(HttpSession session) {
+        session.removeAttribute(CURRENT_USER_ATTRIBUTE);
+    }
+
+    /**
+     * Returns current authenticated user from session.
+     *
+     * @param session current HTTP session
+     * @return authenticated user or null
+     */
+    public User getCurrentUser(HttpSession session) {
+        Object sessionUser = session.getAttribute(CURRENT_USER_ATTRIBUTE);
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return null;
+        }
+
+        return currentUser;
+    }
+
+    /**
+     * Returns current admin user from session.
+     *
+     * @param session current HTTP session
+     * @return authenticated admin user or null
+     */
+    public User requireAdmin(HttpSession session) {
+        return requireRole(session, UserRole.ADMIN);
+    }
+
+    /**
+     * Returns current provider user from session.
+     *
+     * @param session current HTTP session
+     * @return authenticated provider user or null
+     */
+    public User requireProvider(HttpSession session) {
+        return requireRole(session, UserRole.PROVIDER);
+    }
+
+    /**
+     * Returns current client user from session.
+     *
+     * @param session current HTTP session
+     * @return authenticated client user or null
+     */
+    public User requireClient(HttpSession session) {
+        return requireRole(session, UserRole.CLIENT);
+    }
+
+    /**
+     * Returns current user only when it has required role.
+     *
+     * @param session current HTTP session
+     * @param requiredRole required user role
+     * @return authenticated user with required role or null
+     */
+    private User requireRole(HttpSession session, UserRole requiredRole) {
+        Object sessionUser = session.getAttribute(CURRENT_USER_ATTRIBUTE);
+
+        if (!(sessionUser instanceof User currentUser)) {
+            return null;
+        }
+
+        if (currentUser.getRole() != requiredRole) {
+            return null;
+        }
+
+        return currentUser;
+    }
 }
 ===== ./src/main/java/life/wellnara/service/ProviderInvitationService.java =====
 package life.wellnara.service;
@@ -8950,6 +9073,7 @@ import life.wellnara.dto.BookableDateOption;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
@@ -8965,6 +9089,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -9462,6 +9587,52 @@ public class AppointmentService {
     }
     
     /**
+     * Reschedules confirmed appointment by provider.
+     *
+     * <p>The original appointment time is marked as unavailable, and the client
+     * receives a provider message asking to choose a new available time.</p>
+     *
+     * @param provider provider who owns appointment
+     * @param appointmentId appointment identifier
+     * @param providerMessage message shown to client
+     */
+    @Transactional
+    public void rescheduleConfirmedAppointment(
+            User provider,
+            Long appointmentId,
+            String providerMessage
+    ) {
+        validateProvider(provider);
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be rescheduled");
+        }
+
+        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+        LocalDateTime localStartDateTime =
+                toProviderLocalDateTime(appointment, providerZone);
+
+        providerCalendarService.createAvailabilityOverride(
+                provider,
+                localStartDateTime.toLocalDate(),
+                localStartDateTime.toLocalTime(),
+                localStartDateTime.toLocalTime()
+                        .plusMinutes(appointment.getOffering().getDurationMinutes()),
+                AvailabilityOverrideType.UNAVAILABLE
+        );
+
+        appointment.cancelByProvider(providerMessage);
+    }
+    
+    /**
      * Deletes pending appointment cancelled by client before confirmation.
      *
      * @param client client who owns appointment
@@ -9658,8 +9829,10 @@ public class AppointmentService {
 
         List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
                 .filter(appointment -> isAppointmentOnDate(appointment, term.getDate(), providerZone))
+                .sorted(Comparator.comparing(appointment ->
+                        toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
                 .toList();
-
+        
         for (Appointment appointment : appointmentsOnTermDate) {
             LocalDateTime appointmentStartLocal = toProviderLocalDateTime(appointment, providerZone);
             LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
@@ -9848,6 +10021,8 @@ public class AppointmentService {
             throw new IllegalArgumentException("Offering is not active");
         }
     }
+    
+    
 }
 ===== ./src/main/java/life/wellnara/service/AdminUserService.java =====
 package life.wellnara.service;

@@ -80,7 +80,7 @@ class AppointmentLifecycleMvcTest {
                         .session(providerSession)
                         .param("rejectionReason", "Requested time is not suitable"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();
@@ -107,7 +107,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(redirectedUrl("/client?section=calendar"));
 
         assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
     }
@@ -132,7 +132,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();
@@ -145,8 +145,8 @@ class AppointmentLifecycleMvcTest {
                         .session(secondClientSession)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
-                        .param("selectedDate", "2026-05-04")
-                        .param("selectedTime", "10:15"))
+                        .param("selectedDate", "2026-06-01")
+                        .param("selectedTime", "10:00"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
                 .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
@@ -181,7 +181,7 @@ class AppointmentLifecycleMvcTest {
                 provider,
                 client,
                 offering,
-                LocalDateTime.of(2026, 5, 4, 8, 0)
+                LocalDateTime.of(2026, 6, 1, 8, 0)
         );
 
         return appointmentRepository.save(appointment);
@@ -191,8 +191,8 @@ class AppointmentLifecycleMvcTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         "Europe/Bratislava"
                 )
         );
@@ -236,7 +236,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(redirectedUrl("/client?section=calendar"));
 
         Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
                 .orElseThrow();

@@ -79,8 +79,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 1),
-                LocalDate.of(2026, 5, 31),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 30),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -90,7 +90,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 30)
         );
 
@@ -99,11 +99,12 @@ class AppointmentSchedulingFlowTest {
         assertThat(terms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
                 .containsExactly(
-                        "2026-05-04 09:00-10:30",
-                        "2026-05-04 11:30-15:00",
-                        "2026-05-11 09:00-15:00",
-                        "2026-05-18 09:00-15:00",
-                        "2026-05-25 09:00-15:00"
+                		"2026-06-01 09:00-10:30",
+                        "2026-06-01 11:30-15:00",
+                        "2026-06-08 09:00-15:00",
+                        "2026-06-15 09:00-15:00",
+                        "2026-06-22 09:00-15:00",
+                        "2026-06-29 09:00-15:00"
                 );
     }
 
@@ -123,8 +124,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 4, 29),
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
+                LocalDate.of(2026, 6, 3),
                 AvailabilityDay.WEDNESDAY,
                 LocalTime.of(10, 0),
                 LocalTime.of(15, 0)
@@ -134,7 +135,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 clientOne,
                 shortOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(10, 30)
         );
 
@@ -142,7 +143,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 clientTwo,
                 shortOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(11, 0)
         );
 
@@ -151,15 +152,15 @@ class AppointmentSchedulingFlowTest {
         assertThat(freeTerms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
                 .containsExactly(
-                        "2026-04-29 10:00-10:30",
-                        "2026-04-29 11:30-15:00"
+                		"2026-06-03 10:00-10:30",
+                		"2026-06-03 11:30-15:00"
                 );
 
         List<BookableDateOption> options =
                 appointmentService.getBookableDateOptions(provider, selectedOffering);
 
         assertThat(options).hasSize(1);
-        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 6, 3));
 
         assertThat(options.get(0).getTimes()).containsExactly(
                 LocalTime.of(11, 30),
@@ -189,8 +190,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 4, 29),
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
+                LocalDate.of(2026, 6, 3),
                 AvailabilityDay.WEDNESDAY,
                 LocalTime.of(10, 0),
                 LocalTime.of(15, 0)
@@ -200,7 +201,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 blockingOffering,
-                LocalDate.of(2026, 4, 29),
+                LocalDate.of(2026, 6, 3),
                 LocalTime.of(10, 30)
         );
 
@@ -217,7 +218,7 @@ class AppointmentSchedulingFlowTest {
                 appointmentService.getBookableDateOptions(provider, selectedOffering);
 
         assertThat(options).hasSize(1);
-        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 4, 29));
+        assertThat(options.get(0).getDate()).isEqualTo(LocalDate.of(2026, 6, 3));
 
         assertThat(options.get(0).getTimes())
                 .doesNotContain(LocalTime.of(10, 0))
@@ -242,8 +243,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 4),
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 1),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -253,7 +254,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 firstClient,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 0)
         );
 
@@ -261,7 +262,7 @@ class AppointmentSchedulingFlowTest {
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                toUtc(LocalDate.of(2026, 5, 4), LocalTime.of(10, 15))
+                toUtc(LocalDate.of(2026, 6, 1), LocalTime.of(10, 15))
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Time slot is already booked");
@@ -280,8 +281,8 @@ class AppointmentSchedulingFlowTest {
 
         createAvailability(
                 provider,
-                LocalDate.of(2026, 5, 4),
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
+                LocalDate.of(2026, 6, 1),
                 AvailabilityDay.MONDAY,
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0)
@@ -291,7 +292,7 @@ class AppointmentSchedulingFlowTest {
                 provider,
                 client,
                 offering,
-                LocalDate.of(2026, 5, 4),
+                LocalDate.of(2026, 6, 1),
                 LocalTime.of(10, 0)
         );
 
@@ -302,7 +303,7 @@ class AppointmentSchedulingFlowTest {
 
         assertThat(terms)
                 .extracting(term -> term.getDate() + " " + term.getStartTime() + "-" + term.getEndTime())
-                .containsExactly("2026-05-04 09:00-15:00");
+                .containsExactly("2026-06-01 09:00-15:00");
     }
 
     /**

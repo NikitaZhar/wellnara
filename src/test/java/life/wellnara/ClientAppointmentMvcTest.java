@@ -88,7 +88,7 @@ class ClientAppointmentMvcTest {
                         .session(session)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
-                        .param("selectedDate", "2026-05-04")
+                        .param("selectedDate", "2026-06-01")
                         .param("selectedTime", "10:00"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/client"));
@@ -107,10 +107,10 @@ class ClientAppointmentMvcTest {
 
         /*
          * Provider timezone is Europe/Bratislava.
-         * 2026-05-04 10:00 local time is 2026-05-04 08:00 UTC.
+         * 2026-06-01 10:00 local time is 2026-06-01 08:00 UTC.
          */
         assertThat(appointment.getStartDateTimeUtc())
-                .isEqualTo(LocalDateTime.of(2026, 5, 4, 8, 0));
+                .isEqualTo(LocalDateTime.of(2026, 6, 1, 8, 0));
     }
 
     /**
@@ -182,7 +182,7 @@ class ClientAppointmentMvcTest {
                         .param("selectedTime", "10:15"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
-                .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
+                .andExpect(model().attribute("appointmentError", "Requested time is not available"));
 
         assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
                 .hasSize(1);
@@ -281,8 +281,8 @@ class ClientAppointmentMvcTest {
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 5, 1),
-                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 6, 30),
                         "Europe/Bratislava"
                 )
         );
