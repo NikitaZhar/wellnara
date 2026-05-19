@@ -52,9 +52,6 @@ public class AdminUserService {
 
         providerClientLinkRepository.deleteAllByProvider(user);
         providerClientLinkRepository.deleteAllByClient(user);
-        
-        userRepository.delete(user);
-        
         userRepository.delete(user);
     }
 }

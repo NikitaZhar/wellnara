@@ -1578,6 +1578,107 @@ class AppointmentLifecycleMvcTest {
 
         assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
     }
+    
+    @Test
+    @DisplayName("Should cancel confirmed appointment by client through MVC")
+    void shouldCancelConfirmedAppointmentByClientThroughMvc() throws Exception {
+        User provider = createUser("provider-client-cancel", UserRole.PROVIDER);
+        User client = createUser("client-client-cancel", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.confirm();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client?section=calendar"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_CLIENT);
+    }
+
+    @Test
+    @DisplayName("Should cancel confirmed appointment by provider through MVC")
+    void shouldCancelConfirmedAppointmentByProviderThroughMvc() throws Exception {
+        User provider = createUser("provider-provider-cancel", UserRole.PROVIDER);
+        User client = createUser("client-provider-cancel", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.confirm();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
+    }
+
+    @Test
+    @DisplayName("Should reschedule confirmed appointment by provider through MVC")
+    void shouldRescheduleConfirmedAppointmentByProviderThroughMvc() throws Exception {
+        User provider = createUser("provider-reschedule", UserRole.PROVIDER);
+        User client = createUser("client-reschedule", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.confirm();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId())
+                        .session(providerSession)
+                        .param("providerMessage", "Please choose another available time"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
+                .orElseThrow();
+
+        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
+        assertThat(savedAppointment.getRejectionReason())
+                .isEqualTo("Please choose another available time");
+    }
+
+    @Test
+    @DisplayName("Should delete client-cancelled appointment after provider acknowledgement")
+    void shouldDeleteClientCancelledAppointmentAfterProviderAcknowledgement() throws Exception {
+        User provider = createUser("provider-client-cancel-ack", UserRole.PROVIDER);
+        User client = createUser("client-client-cancel-ack", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.confirm();
+        appointment.cancelByClient();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
+    }
 }
 ===== ./src/test/java/life/wellnara/ProviderClientFlowMvcTest.java =====
 package life.wellnara;
@@ -1601,6 +1702,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1615,18 +1717,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Integration MVC tests for complete provider-client flow.
- *
- * <p>These tests verify the interaction between controllers, session state,
- * redirects, template rendering and database state for the following chain:
- *
- * <ul>
- *     <li>provider logs in,</li>
- *     <li>provider invites client,</li>
- *     <li>client registers by invitation token,</li>
- *     <li>provider sees registered client,</li>
- *     <li>provider can delete client,</li>
- *     <li>client can log out and log in again after successful registration.</li>
- * </ul>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -1645,12 +1735,6 @@ class ProviderClientFlowMvcTest {
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
 
-    /**
-     * Verifies that provider can create client invitation successfully and
-     * the registration link is shown only once on provider page.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should invite client successfully and show invite link only once")
     void shouldInviteClientSuccessfullyAndShowInviteLinkOnlyOnce() throws Exception {
@@ -1675,12 +1759,6 @@ class ProviderClientFlowMvcTest {
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }
 
-    /**
-     * Verifies that client registration with mismatched passwords
-     * returns user back to registration page and does not create client.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return client registration page with error when passwords do not match")
     void shouldReturnClientRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
@@ -1703,13 +1781,6 @@ class ProviderClientFlowMvcTest {
         assertThat(providerClientLinkRepository.findAllByProvider(provider)).isEmpty();
     }
 
-    /**
-     * Verifies complete successful flow:
-     * provider invites client, client registers, provider sees the client,
-     * client logs out, client logs in again, provider deletes the client.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should complete full provider-client flow successfully")
     @DirtiesContext
@@ -1790,23 +1861,15 @@ class ProviderClientFlowMvcTest {
                 .andExpect(content().string(not(containsString("client-three@example.com"))));
     }
 
-    /**
-     * Verifies that provider cannot invite client with email that already exists in the system.
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return provider page with error when client email already exists")
     void shouldReturnProviderPageWithErrorWhenClientEmailAlreadyExists() throws Exception {
         User provider = createProvider("provider-four", "provider-four@example.com", "123");
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        User existingClient = new User();
-        existingClient.setUsername("existing-client");
-        existingClient.setPassword("123");
-        existingClient.setEmail("existing-client@example.com");
-        existingClient.setRole(UserRole.CLIENT);
-        userRepository.save(existingClient);
+        User existingClient = createClient("existing-client", "existing-client@example.com", "123");
+
+        assertThat(existingClient.getRole()).isEqualTo(UserRole.CLIENT);
 
         var result = mockMvc.perform(post("/provider/invite-client")
                         .session(providerSession)
@@ -1824,15 +1887,65 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Email already used")));
     }
-    
-    /**
-     * Creates provider user for test scenario.
-     *
-     * @param username provider username
-     * @param email provider email
-     * @param password provider password
-     * @return saved provider user
-     */
+
+    @Test
+    @DisplayName("Should delete linked client through admin page")
+    void shouldDeleteLinkedClientThroughAdminPage() throws Exception {
+        User provider = createProvider(
+                "provider-admin-delete-client",
+                "provider-admin-delete-client@example.com",
+                "123"
+        );
+        User client = createClient(
+                "client-admin-delete",
+                "client-admin-delete@example.com",
+                "123"
+        );
+
+        linkClient(provider, client);
+
+        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+
+        mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
+                        .session(adminSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin"));
+
+        assertThat(userRepository.findById(client.getId())).isEmpty();
+        assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())).isEmpty();
+        assertThat(userRepository.findById(provider.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("Should delete linked provider through admin page")
+    void shouldDeleteLinkedProviderThroughAdminPage() throws Exception {
+        User provider = createProvider(
+                "provider-admin-delete-provider",
+                "provider-admin-delete-provider@example.com",
+                "123"
+        );
+        User client = createClient(
+                "client-of-deleted-provider",
+                "client-of-deleted-provider@example.com",
+                "123"
+        );
+
+        linkClient(provider, client);
+
+        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+
+        mockMvc.perform(post("/admin/users/{id}/delete", provider.getId())
+                        .session(adminSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin"));
+
+        assertThat(userRepository.findById(provider.getId())).isEmpty();
+        assertThat(userRepository.findById(client.getId())).isPresent();
+
+        assertThat(providerClientLinkRepository.findAll())
+                .noneMatch(link -> link.getProvider().getId().equals(provider.getId()));
+    }
+
     private User createProvider(String username, String email, String password) {
         User provider = new User();
         provider.setUsername(username);
@@ -1842,42 +1955,50 @@ class ProviderClientFlowMvcTest {
         return userRepository.save(provider);
     }
 
-    /**
-     * Creates client invitation for test scenario.
-     *
-     * @param provider provider user
-     * @param email invited client email
-     * @return saved client invitation
-     */
+    private User createClient(String username, String email, String password) {
+        User client = new User();
+        client.setUsername(username);
+        client.setPassword(password);
+        client.setEmail(email);
+        client.setRole(UserRole.CLIENT);
+        return userRepository.save(client);
+    }
+
     private ClientInvitation createClientInvitation(User provider, String email) {
         ClientInvitation invitation = new ClientInvitation(provider, email);
         return clientInvitationRepository.save(invitation);
     }
 
-    /**
-     * Creates session containing authenticated current user.
-     *
-     * @param user authenticated user
-     * @return mock HTTP session with currentUser attribute
-     */
+    private ProviderClientLink linkClient(User provider, User client) {
+        ProviderClientLink link = new ProviderClientLink(provider, client, LocalDateTime.now());
+        return providerClientLinkRepository.save(link);
+    }
+
     private MockHttpSession createSessionWithCurrentUser(User user) {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("currentUser", user);
         return session;
     }
 
-    /**
-     * Returns invitation token for email from repository.
-     *
-     * @param email invited client email
-     * @return invitation token
-     */
     private String extractTokenFromInvitationEmail(String email) {
         return clientInvitationRepository.findAll().stream()
                 .filter(invitation -> invitation.getEmail().equals(email))
                 .findFirst()
                 .map(ClientInvitation::getToken)
                 .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
+    }
+
+    private MockHttpSession loginAs(String username,
+                                    String password,
+                                    String expectedRedirectUrl) throws Exception {
+        MvcResult result = mockMvc.perform(post("/auth/login")
+                        .param("username", username)
+                        .param("password", password))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl(expectedRedirectUrl))
+                .andReturn();
+
+        return (MockHttpSession) result.getRequest().getSession(false);
     }
 }
 ===== ./src/test/java/life/wellnara/AppointmentRepositoryTest.java =====
@@ -5814,6 +5935,13 @@ public interface ProviderClientLinkRepository extends JpaRepository<ProviderClie
      * @param client client user
      */
     void deleteAllByClient(User client);
+    
+    /**
+     * Deletes all provider-client links for the specified provider.
+     *
+     * @param provider provider whose client links must be deleted
+     */
+    void deleteAllByProvider(User provider);
 }
 ===== ./src/main/java/life/wellnara/repository/AppointmentRepository.java =====
 package life.wellnara.repository;
@@ -8781,15 +8909,15 @@ public class SessionUserService {
      * @param session current HTTP session
      * @return authenticated user or null
      */
-    public User getCurrentUser(HttpSession session) {
-        Object sessionUser = session.getAttribute(CURRENT_USER_ATTRIBUTE);
-
-        if (!(sessionUser instanceof User currentUser)) {
-            return null;
-        }
-
-        return currentUser;
-    }
+//    public User getCurrentUser(HttpSession session) {
+//        Object sessionUser = session.getAttribute(CURRENT_USER_ATTRIBUTE);
+//
+//        if (!(sessionUser instanceof User currentUser)) {
+//            return null;
+//        }
+//
+//        return currentUser;
+//    }
 
     /**
      * Returns current admin user from session.
@@ -8935,6 +9063,449 @@ public class ProviderInvitationService {
         return savedUser;
     }
 }
+===== ./src/main/java/life/wellnara/service/AppointmentCommandService.java =====
+package life.wellnara.service;
+
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.AvailabilityOverrideType;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
+
+/**
+ * Executes all state-changing operations in the appointment lifecycle.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>create appointment requests,</li>
+ *   <li>drive status transitions (reject, pay, cancel, complete, …),</li>
+ *   <li>delete acknowledged or expired appointments.</li>
+ * </ul>
+ *
+ * <p>All precondition violations throw {@link IllegalArgumentException}.
+ */
+@Service
+public class AppointmentCommandService {
+
+    private final AppointmentRepository appointmentRepository;
+    private final UserRepository userRepository;
+    private final OfferingRepository offeringRepository;
+    private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final ProviderCalendarService providerCalendarService;
+    private final AppointmentAvailabilityService availabilityService;
+
+    /**
+     * Creates appointment command service.
+     *
+     * @param appointmentRepository        repository for appointments
+     * @param userRepository               repository for users
+     * @param offeringRepository           repository for offerings
+     * @param providerClientLinkRepository repository for provider-client links
+     * @param providerCalendarService      service for provider calendar operations
+     * @param availabilityService          service for conflict detection
+     */
+    public AppointmentCommandService(AppointmentRepository appointmentRepository,
+                                     UserRepository userRepository,
+                                     OfferingRepository offeringRepository,
+                                     ProviderClientLinkRepository providerClientLinkRepository,
+                                     ProviderCalendarService providerCalendarService,
+                                     AppointmentAvailabilityService availabilityService) {
+        this.appointmentRepository = appointmentRepository;
+        this.userRepository = userRepository;
+        this.offeringRepository = offeringRepository;
+        this.providerClientLinkRepository = providerClientLinkRepository;
+        this.providerCalendarService = providerCalendarService;
+        this.availabilityService = availabilityService;
+    }
+
+    /**
+     * Creates appointment request from client to provider.
+     *
+     * @param client           client who requests appointment
+     * @param providerId       provider identifier
+     * @param offeringId       offering identifier
+     * @param startDateTimeUtc requested start date and time in UTC
+     * @return saved appointment request
+     */
+    @Transactional
+    public Appointment requestAppointment(User client,
+                                          Long providerId,
+                                          Long offeringId,
+                                          LocalDateTime startDateTimeUtc) {
+        validateClient(client);
+        validateStartDateTime(startDateTimeUtc);
+
+        User provider = findProvider(providerId);
+        validateClientBelongsToProvider(client, provider);
+
+        Offering offering = findProviderOffering(provider, offeringId);
+        validateOfferingIsActive(offering);
+        validateProviderAvailability(provider, offering, startDateTimeUtc);
+        availabilityService.validateNoConflicts(provider, offering, startDateTimeUtc);
+
+        return appointmentRepository.save(
+                new Appointment(provider, client, offering, startDateTimeUtc));
+    }
+
+    /**
+     * Rejects requested appointment by provider.
+     *
+     * @param provider        provider who owns appointment
+     * @param appointmentId   appointment identifier
+     * @param rejectionReason rejection reason
+     */
+    @Transactional
+    public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+            throw new IllegalArgumentException("Only requested appointment can be rejected");
+        }
+
+        appointment.reject(rejectionReason);
+    }
+
+    /**
+     * Accepts requested appointment and asks client to complete payment.
+     *
+     * @param provider      provider who accepts appointment request
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void requestPaymentForAppointment(User provider, Long appointmentId) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
+            throw new IllegalArgumentException("Only requested appointment can be accepted");
+        }
+
+        appointment.requestPayment();
+    }
+
+    /**
+     * Cancels confirmed appointment by provider.
+     *
+     * @param provider      provider who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void cancelConfirmedAppointment(User provider, Long appointmentId) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
+        }
+
+        appointment.cancelByProvider();
+    }
+
+    /**
+     * Reschedules confirmed appointment by provider.
+     *
+     * <p>The original appointment time is marked as unavailable, and the client
+     * receives a provider message asking to choose a new available time.
+     *
+     * @param provider        provider who owns appointment
+     * @param appointmentId   appointment identifier
+     * @param providerMessage message shown to client
+     */
+    @Transactional
+    public void rescheduleConfirmedAppointment(User provider,
+                                               Long appointmentId,
+                                               String providerMessage) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be rescheduled");
+        }
+
+        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+        LocalDateTime localStart = toProviderLocalDateTime(appointment, providerZone);
+
+        providerCalendarService.createAvailabilityOverride(
+                provider,
+                localStart.toLocalDate(),
+                localStart.toLocalTime(),
+                localStart.toLocalTime().plusMinutes(appointment.getOffering().getDurationMinutes()),
+                AvailabilityOverrideType.UNAVAILABLE
+        );
+
+        appointment.cancelByProvider(providerMessage);
+    }
+
+    /**
+     * Marks confirmed appointment as completed by provider.
+     *
+     * @param provider      provider who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void completeConfirmedAppointment(User provider, Long appointmentId) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be completed");
+        }
+
+        appointment.complete();
+    }
+
+    /**
+     * Deletes provider appointment notification after acknowledgement.
+     *
+     * @param provider      provider who acknowledges notification
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void acknowledgeProviderAppointmentNotification(User provider, Long appointmentId) {
+        validateProvider(provider);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to provider");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CANCELLED_BY_CLIENT) {
+            throw new IllegalArgumentException(
+                    "Only client-cancelled appointment notification can be acknowledged");
+        }
+
+        appointmentRepository.delete(appointment);
+    }
+
+    /**
+     * Confirms appointment after client payment.
+     *
+     * @param client        client who pays for appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void payForAppointment(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+            throw new IllegalArgumentException("Only payment requested appointment can be paid");
+        }
+
+        appointment.confirm();
+    }
+
+    /**
+     * Deletes pending appointment cancelled by client before confirmation.
+     *
+     * @param client        client who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REQUESTED
+                && appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
+            throw new IllegalArgumentException("Only pending appointment can be cancelled");
+        }
+
+        appointmentRepository.delete(appointment);
+    }
+
+    /**
+     * Cancels confirmed appointment by client.
+     *
+     * @param client        client who owns appointment
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void cancelConfirmedAppointmentByClient(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
+        }
+
+        appointment.cancelByClient();
+    }
+
+    /**
+     * Deletes rejected, provider-cancelled or completed appointment after client acknowledgement.
+     *
+     * @param client        client who acknowledges appointment notification
+     * @param appointmentId appointment identifier
+     */
+    @Transactional
+    public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
+        validateClient(client);
+
+        Appointment appointment = findAppointment(appointmentId);
+
+        if (!appointment.getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Appointment does not belong to client");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.REJECTED
+                && appointment.getStatus() != AppointmentStatus.CANCELLED_BY_PROVIDER
+                && appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new IllegalArgumentException(
+                    "Only rejected, provider-cancelled or completed appointment can be acknowledged");
+        }
+
+        appointmentRepository.delete(appointment);
+    }
+
+    /**
+     * Deletes expired unpaid appointment requests.
+     *
+     * <p>Only REQUESTED and PAYMENT_REQUESTED appointments are deleted.
+     * Confirmed, paid, completed, rejected or cancelled appointments are not affected.
+     */
+    @Transactional
+    public void deleteExpiredUnpaidAppointments() {
+        List<Appointment> expired = appointmentRepository.findAllByStatusInAndStartDateTimeUtcBefore(
+                List.of(
+                        AppointmentStatus.REQUESTED,
+                        AppointmentStatus.PAYMENT_REQUESTED
+                ),
+                LocalDateTime.now(ZoneOffset.UTC)
+        );
+
+        appointmentRepository.deleteAll(expired);
+    }
+
+    // ===== Private helpers =====
+
+    private Appointment findAppointment(Long appointmentId) {
+        return appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+    }
+
+    private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
+        return appointment.getStartDateTimeUtc()
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(providerZone)
+                .toLocalDateTime();
+    }
+
+    private void validateProviderAvailability(User provider,
+                                              Offering offering,
+                                              LocalDateTime startDateTimeUtc) {
+        boolean available = providerCalendarService.isAvailable(
+                provider,
+                startDateTimeUtc,
+                offering.getDurationMinutes()
+        );
+
+        if (!available) {
+            throw new IllegalArgumentException("Requested time is not available");
+        }
+    }
+
+    private void validateClient(User client) {
+        if (client == null || client.getRole() != UserRole.CLIENT) {
+            throw new IllegalArgumentException("Only client can request appointment");
+        }
+    }
+
+    private void validateProvider(User provider) {
+        if (provider == null || provider.getRole() != UserRole.PROVIDER) {
+            throw new IllegalArgumentException("Only provider can manage appointment");
+        }
+    }
+
+    private void validateStartDateTime(LocalDateTime startDateTimeUtc) {
+        if (startDateTimeUtc == null) {
+            throw new IllegalArgumentException("Appointment start time is required");
+        }
+    }
+
+    private User findProvider(Long providerId) {
+        User provider = userRepository.findById(providerId)
+                .orElseThrow(() -> new IllegalArgumentException("Provider not found"));
+
+        if (provider.getRole() != UserRole.PROVIDER) {
+            throw new IllegalArgumentException("User is not a provider");
+        }
+
+        return provider;
+    }
+
+    private void validateClientBelongsToProvider(User client, User provider) {
+        providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Client is not linked to provider"));
+    }
+
+    private Offering findProviderOffering(User provider, Long offeringId) {
+        return offeringRepository.findByProviderAndId(provider, offeringId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Offering not found for provider"));
+    }
+
+    private void validateOfferingIsActive(Offering offering) {
+        if (!offering.isActive()) {
+            throw new IllegalArgumentException("Offering is not active");
+        }
+    }
+}
 ===== ./src/main/java/life/wellnara/service/AvailabilityOverrideApplier.java =====
 package life.wellnara.service;
 
@@ -9065,99 +9636,53 @@ public class AvailabilityOverrideApplier {
         return first.isAfter(second) ? first : second;
     }
 }
-===== ./src/main/java/life/wellnara/service/AppointmentService.java =====
+===== ./src/main/java/life/wellnara/service/AppointmentQueryService.java =====
 package life.wellnara.service;
 
 import life.wellnara.dto.AppointmentView;
-import life.wellnara.dto.BookableDateOption;
-import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
-import life.wellnara.model.AvailabilityOverrideType;
-import life.wellnara.model.Offering;
 import life.wellnara.model.User;
-import life.wellnara.model.UserRole;
 import life.wellnara.repository.AppointmentRepository;
-import life.wellnara.repository.OfferingRepository;
-import life.wellnara.repository.ProviderClientLinkRepository;
-import life.wellnara.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
- * Service for appointment booking and appointment lifecycle operations.
+ * Provides read-only access to appointment data for UI rendering.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>query appointments by actor and status,</li>
+ *   <li>convert results to {@link AppointmentView} via {@link AppointmentViewMapper}.</li>
+ * </ul>
+ *
+ * <p>All methods are read-only transactions. No state mutations.
+ * For slot availability use {@link AppointmentAvailabilityService}.
  */
 @Service
-public class AppointmentService {
+public class AppointmentQueryService {
 
     private final AppointmentRepository appointmentRepository;
-    private final UserRepository userRepository;
-    private final OfferingRepository offeringRepository;
-    private final ProviderClientLinkRepository providerClientLinkRepository;
     private final ProviderCalendarService providerCalendarService;
-
-    private static final int BOOKING_STEP_MINUTES = 15;
+    private final AppointmentViewMapper viewMapper;
 
     /**
-     * Creates appointment service.
+     * Creates appointment query service.
      *
-     * @param appointmentRepository repository for appointments
-     * @param userRepository repository for users
-     * @param offeringRepository repository for offerings
-     * @param providerClientLinkRepository repository for provider-client links
+     * @param appointmentRepository   repository for appointments
      * @param providerCalendarService service for provider calendar operations
+     * @param viewMapper              mapper for Appointment → AppointmentView conversion
      */
-    public AppointmentService(AppointmentRepository appointmentRepository,
-                              UserRepository userRepository,
-                              OfferingRepository offeringRepository,
-                              ProviderClientLinkRepository providerClientLinkRepository,
-                              ProviderCalendarService providerCalendarService) {
+    public AppointmentQueryService(AppointmentRepository appointmentRepository,
+                                   ProviderCalendarService providerCalendarService,
+                                   AppointmentViewMapper viewMapper) {
         this.appointmentRepository = appointmentRepository;
-        this.userRepository = userRepository;
-        this.offeringRepository = offeringRepository;
-        this.providerClientLinkRepository = providerClientLinkRepository;
         this.providerCalendarService = providerCalendarService;
-    }
-
-    /**
-     * Creates appointment request from client to provider.
-     *
-     * @param client client who requests appointment
-     * @param providerId provider identifier
-     * @param offeringId offering identifier
-     * @param startDateTimeUtc requested start date and time in UTC
-     * @return saved appointment request
-     */
-    @Transactional
-    public Appointment requestAppointment(User client,
-                                          Long providerId,
-                                          Long offeringId,
-                                          LocalDateTime startDateTimeUtc) {
-        validateClient(client);
-        validateStartDateTime(startDateTimeUtc);
-
-        User provider = findProvider(providerId);
-        validateClientBelongsToProvider(client, provider);
-
-        Offering offering = findProviderOffering(provider, offeringId);
-        validateOfferingIsActive(offering);
-        validateProviderAvailability(provider, offering, startDateTimeUtc);
-        validateNoConflicts(provider, offering, startDateTimeUtc);
-
-        Appointment appointment = new Appointment(provider, client, offering, startDateTimeUtc);
-
-        return appointmentRepository.save(appointment);
+        this.viewMapper = viewMapper;
     }
 
     /**
@@ -9190,7 +9715,7 @@ public class AppointmentService {
      */
     @Transactional(readOnly = true)
     public List<AppointmentView> getAppointmentViewsOfClient(User client) {
-        ZoneId clientZone = ZoneId.systemDefault();
+        ZoneId clientZone = getClientDisplayTimezone(client);
 
         return appointmentRepository
                 .findAllByClientAndStatusInOrderByStartDateTimeUtcAsc(
@@ -9204,7 +9729,7 @@ public class AppointmentService {
                         )
                 )
                 .stream()
-                .map(appointment -> toAppointmentView(appointment, clientZone))
+                .map(appointment -> viewMapper.toView(appointment, clientZone))
                 .toList();
     }
 
@@ -9224,7 +9749,7 @@ public class AppointmentService {
                         AppointmentStatus.REQUESTED
                 )
                 .stream()
-                .map(appointment -> toAppointmentView(appointment, providerZone))
+                .map(appointment -> viewMapper.toView(appointment, providerZone))
                 .toList();
     }
 
@@ -9247,10 +9772,10 @@ public class AppointmentService {
                         )
                 )
                 .stream()
-                .map(appointment -> toAppointmentView(appointment, providerZone))
+                .map(appointment -> viewMapper.toView(appointment, providerZone))
                 .toList();
     }
-    
+
     /**
      * Returns confirmed appointments of client for calendar section.
      *
@@ -9259,7 +9784,7 @@ public class AppointmentService {
      */
     @Transactional(readOnly = true)
     public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
-        ZoneId clientZone = ZoneId.systemDefault();
+        ZoneId clientZone = getClientDisplayTimezone(client);
 
         return appointmentRepository
                 .findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
@@ -9267,7 +9792,7 @@ public class AppointmentService {
                         AppointmentStatus.CONFIRMED
                 )
                 .stream()
-                .map(appointment -> toAppointmentView(appointment, clientZone))
+                .map(appointment -> viewMapper.toView(appointment, clientZone))
                 .toList();
     }
 
@@ -9287,8 +9812,260 @@ public class AppointmentService {
                         AppointmentStatus.CANCELLED_BY_CLIENT
                 )
                 .stream()
-                .map(appointment -> toAppointmentView(appointment, providerZone))
+                .map(appointment -> viewMapper.toView(appointment, providerZone))
                 .toList();
+    }
+
+    // ===== Private helpers =====
+
+    /**
+     * Returns timezone used to display appointments for client.
+     *
+     * <p>All appointments of one client belong to the same provider,
+     * therefore provider timezone is taken from any existing appointment.
+     * Falls back to UTC if client has no appointments yet.
+     *
+     * @param client authenticated client
+     * @return provider timezone, or UTC if no appointments exist
+     */
+    private ZoneId getClientDisplayTimezone(User client) {
+        List<Appointment> appointments = getAppointmentsOfClient(client);
+
+        if (appointments.isEmpty()) {
+            return ZoneOffset.UTC;
+        }
+
+        User provider = appointments.get(0).getProvider();
+
+        return providerCalendarService.getProviderTimezone(provider);
+    }
+}
+===== ./src/main/java/life/wellnara/service/AppointmentService.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.AppointmentView;
+import life.wellnara.dto.BookableDateOption;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+/**
+ * Backward-compatibility facade over {@link AppointmentCommandService},
+ * {@link AppointmentQueryService}, and {@link AppointmentAvailabilityService}.
+ *
+ * <p>Exists solely so that existing controllers compile without change.
+ * Every method is a one-line delegate.
+ * <strong>No logic lives here.</strong>
+ *
+ * <p>Migration: once controllers inject the sub-services directly,
+ * this class should be deleted.
+ */
+@Service
+public class AppointmentService {
+
+    private final AppointmentCommandService commandService;
+    private final AppointmentQueryService queryService;
+    private final AppointmentAvailabilityService availabilityService;
+
+    /**
+     * Creates appointment service facade.
+     *
+     * @param commandService      service for state-changing appointment operations
+     * @param queryService        service for read-only appointment queries
+     * @param availabilityService service for slot availability computation
+     */
+    public AppointmentService(AppointmentCommandService commandService,
+                               AppointmentQueryService queryService,
+                               AppointmentAvailabilityService availabilityService) {
+        this.commandService = commandService;
+        this.queryService = queryService;
+        this.availabilityService = availabilityService;
+    }
+
+    // ===== Commands =====
+
+    public Appointment requestAppointment(User client, Long providerId,
+                                          Long offeringId, LocalDateTime startDateTimeUtc) {
+        return commandService.requestAppointment(client, providerId, offeringId, startDateTimeUtc);
+    }
+
+    public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
+        commandService.rejectAppointment(provider, appointmentId, rejectionReason);
+    }
+
+    public void requestPaymentForAppointment(User provider, Long appointmentId) {
+        commandService.requestPaymentForAppointment(provider, appointmentId);
+    }
+
+    public void cancelConfirmedAppointment(User provider, Long appointmentId) {
+        commandService.cancelConfirmedAppointment(provider, appointmentId);
+    }
+
+    public void rescheduleConfirmedAppointment(User provider,
+                                               Long appointmentId,
+                                               String providerMessage) {
+        commandService.rescheduleConfirmedAppointment(provider, appointmentId, providerMessage);
+    }
+
+    public void completeConfirmedAppointment(User provider, Long appointmentId) {
+        commandService.completeConfirmedAppointment(provider, appointmentId);
+    }
+
+    public void acknowledgeProviderAppointmentNotification(User provider, Long appointmentId) {
+        commandService.acknowledgeProviderAppointmentNotification(provider, appointmentId);
+    }
+
+    public void payForAppointment(User client, Long appointmentId) {
+        commandService.payForAppointment(client, appointmentId);
+    }
+
+    public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
+        commandService.cancelPendingAppointmentByClient(client, appointmentId);
+    }
+
+    public void cancelConfirmedAppointmentByClient(User client, Long appointmentId) {
+        commandService.cancelConfirmedAppointmentByClient(client, appointmentId);
+    }
+
+    public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
+        commandService.acknowledgeRejectedAppointment(client, appointmentId);
+    }
+
+    public void deleteExpiredUnpaidAppointments() {
+        commandService.deleteExpiredUnpaidAppointments();
+    }
+
+    // ===== Queries =====
+
+    public List<Appointment> getAppointmentsOfClient(User client) {
+        return queryService.getAppointmentsOfClient(client);
+    }
+
+    public List<Appointment> getAppointmentsOfProvider(User provider) {
+        return queryService.getAppointmentsOfProvider(provider);
+    }
+
+    public List<AppointmentView> getAppointmentViewsOfClient(User client) {
+        return queryService.getAppointmentViewsOfClient(client);
+    }
+
+    public List<AppointmentView> getAppointmentViewsOfProvider(User provider) {
+        return queryService.getAppointmentViewsOfProvider(provider);
+    }
+
+    public List<AppointmentView> getConfirmedAppointmentViewsOfProvider(User provider) {
+        return queryService.getConfirmedAppointmentViewsOfProvider(provider);
+    }
+
+    public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
+        return queryService.getConfirmedAppointmentViewsOfClient(client);
+    }
+
+    public List<AppointmentView> getAppointmentNotificationViewsOfProvider(User provider) {
+        return queryService.getAppointmentNotificationViewsOfProvider(provider);
+    }
+
+    // ===== Availability =====
+
+    public List<CalendarTerm> getFreeCalendarTerms(User provider) {
+        return availabilityService.getFreeCalendarTerms(provider);
+    }
+
+    public List<BookableDateOption> getBookableDateOptions(User provider, Offering offering) {
+        return availabilityService.getBookableDateOptions(provider, offering);
+    }
+
+    public List<LocalTime> getBookableTimes(User provider, Offering offering, LocalDate date) {
+        return availabilityService.getBookableTimes(provider, offering, date);
+    }
+
+    public List<LocalTime> getBookableTimesForTerm(CalendarTerm term, Offering offering) {
+        return availabilityService.getBookableTimesForTerm(term, offering);
+    }
+}
+===== ./src/main/java/life/wellnara/service/AppointmentAvailabilityService.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.BookableDateOption;
+import life.wellnara.dto.CalendarTerm;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.Offering;
+import life.wellnara.model.User;
+import life.wellnara.repository.AppointmentRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+/**
+ * Computes provider slot availability for booking.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>compute free calendar terms by subtracting blocking appointments,</li>
+ *   <li>enumerate bookable start times per offering duration,</li>
+ *   <li>detect scheduling conflicts with existing appointments.</li>
+ * </ul>
+ *
+ * <p>All methods are read-only transactions. No state mutations.
+ */
+@Service
+public class AppointmentAvailabilityService {
+
+    private final AppointmentRepository appointmentRepository;
+    private final ProviderCalendarService providerCalendarService;
+
+    private static final int BOOKING_STEP_MINUTES = 15;
+
+    /**
+     * Creates appointment availability service.
+     *
+     * @param appointmentRepository   repository for appointments
+     * @param providerCalendarService service for provider calendar operations
+     */
+    public AppointmentAvailabilityService(AppointmentRepository appointmentRepository,
+                                          ProviderCalendarService providerCalendarService) {
+        this.appointmentRepository = appointmentRepository;
+        this.providerCalendarService = providerCalendarService;
+    }
+
+    /**
+     * Returns provider calendar terms excluding already blocked appointments.
+     *
+     * @param provider provider whose free calendar terms should be returned
+     * @return calendar terms available for booking
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarTerm> getFreeCalendarTerms(User provider) {
+        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+        List<CalendarTerm> calendarTerms = providerCalendarService.generateCalendar(provider);
+        List<Appointment> blockingAppointments = getBlockingAppointments(provider);
+
+        List<CalendarTerm> result = new ArrayList<>();
+
+        for (CalendarTerm term : calendarTerms) {
+            result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
+        }
+
+        return removePastCalendarTerms(result, providerZone);
     }
 
     /**
@@ -9334,7 +10111,7 @@ public class AppointmentService {
      *
      * @param provider provider whose calendar is checked
      * @param offering offering selected by client
-     * @param date provider-local booking date
+     * @param date     provider-local booking date
      * @return available booking start times
      */
     @Transactional(readOnly = true)
@@ -9378,7 +10155,7 @@ public class AppointmentService {
     /**
      * Returns possible booking start times inside one free calendar term.
      *
-     * @param term free calendar term
+     * @param term     free calendar term
      * @param offering selected offering
      * @return possible booking start times
      */
@@ -9403,35 +10180,35 @@ public class AppointmentService {
     }
 
     /**
-     * Returns provider calendar terms excluding already blocked appointments.
+     * Throws if the requested time slot conflicts with any active appointment.
      *
-     * @param provider provider whose free calendar terms should be returned
-     * @return calendar terms available for booking
+     * @param provider         provider whose appointments are checked
+     * @param offering         offering to book
+     * @param startDateTimeUtc requested start time in UTC
+     * @throws IllegalArgumentException if a scheduling conflict is detected
      */
-    @Transactional(readOnly = true)
-    public List<CalendarTerm> getFreeCalendarTerms(User provider) {
-        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
-        List<CalendarTerm> calendarTerms = providerCalendarService.generateCalendar(provider);
-        List<Appointment> blockingAppointments = getBlockingAppointments(provider);
+    public void validateNoConflicts(User provider,
+                                    Offering offering,
+                                    LocalDateTime startDateTimeUtc) {
+        LocalDateTime end = startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
 
-        List<CalendarTerm> result = new ArrayList<>();
+        List<Appointment> blocking = getBlockingAppointments(provider);
 
-        for (CalendarTerm term : calendarTerms) {
-            result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
+        for (Appointment existing : blocking) {
+            LocalDateTime existingStart = existing.getStartDateTimeUtc();
+            LocalDateTime existingEnd = existingStart
+                    .plusMinutes(existing.getOffering().getDurationMinutes());
+
+            if (overlaps(startDateTimeUtc, end, existingStart, existingEnd)) {
+                throw new IllegalArgumentException("Time slot is already booked");
+            }
         }
-
-        return removePastCalendarTerms(result, providerZone);
     }
-    
-    /**
-     * Removes calendar terms that cannot be booked anymore.
-     *
-     * @param terms calendar terms
-     * @param providerZone provider timezone
-     * @return future bookable calendar terms
-     */
+
+    // ===== Private helpers =====
+
     private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
-                                                       ZoneId providerZone) {
+                                                        ZoneId providerZone) {
         LocalDate today = LocalDate.now(providerZone);
         LocalTime now = LocalTime.now(providerZone);
 
@@ -9441,329 +10218,6 @@ public class AppointmentService {
                 .toList();
     }
 
-    /**
-     * Rejects requested appointment by provider.
-     *
-     * @param provider provider who owns appointment
-     * @param appointmentId appointment identifier
-     * @param rejectionReason rejection reason
-     */
-    @Transactional
-    public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
-            throw new IllegalArgumentException("Only requested appointment can be rejected");
-        }
-
-        appointment.reject(rejectionReason);
-    }
-
-    /**
-     * Deletes rejected, provider-cancelled or completed appointment after client acknowledgement.
-     *
-     * @param client client who acknowledges appointment notification
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
-        validateClient(client);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to client");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.REJECTED
-                && appointment.getStatus() != AppointmentStatus.CANCELLED_BY_PROVIDER
-                && appointment.getStatus() != AppointmentStatus.COMPLETED) {
-            throw new IllegalArgumentException(
-                    "Only rejected, provider-cancelled or completed appointment can be acknowledged"
-            );
-        }
-
-        appointmentRepository.delete(appointment);
-    }
-
-    /**
-     * Accepts requested appointment and asks client to complete payment.
-     *
-     * @param provider provider who accepts appointment request
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void requestPaymentForAppointment(User provider, Long appointmentId) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.REQUESTED) {
-            throw new IllegalArgumentException("Only requested appointment can be accepted");
-        }
-
-        appointment.requestPayment();
-    }
-
-    /**
-     * Deletes expired unpaid appointment requests.
-     *
-     * <p>Only REQUESTED and PAYMENT_REQUESTED appointments are deleted.
-     * Confirmed, paid, completed, rejected or cancelled appointments are not affected.
-     */
-    @Transactional
-    public void deleteExpiredUnpaidAppointments() {
-        List<Appointment> expiredAppointments =
-                appointmentRepository.findAllByStatusInAndStartDateTimeUtcBefore(
-                        List.of(
-                                AppointmentStatus.REQUESTED,
-                                AppointmentStatus.PAYMENT_REQUESTED
-                        ),
-                        LocalDateTime.now(ZoneOffset.UTC)
-                );
-
-        appointmentRepository.deleteAll(expiredAppointments);
-    }
-
-    /**
-     * Confirms appointment after fake client payment.
-     *
-     * @param client client who pays for appointment
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void payForAppointment(User client, Long appointmentId) {
-        validateClient(client);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to client");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
-            throw new IllegalArgumentException("Only payment requested appointment can be paid");
-        }
-
-        appointment.confirm();
-    }
-
-    /**
-     * Cancels confirmed appointment by provider.
-     *
-     * @param provider provider who owns appointment
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void cancelConfirmedAppointment(User provider, Long appointmentId) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
-        }
-
-        appointment.cancelByProvider();
-    }
-    
-    /**
-     * Reschedules confirmed appointment by provider.
-     *
-     * <p>The original appointment time is marked as unavailable, and the client
-     * receives a provider message asking to choose a new available time.</p>
-     *
-     * @param provider provider who owns appointment
-     * @param appointmentId appointment identifier
-     * @param providerMessage message shown to client
-     */
-    @Transactional
-    public void rescheduleConfirmedAppointment(
-            User provider,
-            Long appointmentId,
-            String providerMessage
-    ) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Only confirmed appointment can be rescheduled");
-        }
-
-        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
-
-        LocalDateTime localStartDateTime =
-                toProviderLocalDateTime(appointment, providerZone);
-
-        providerCalendarService.createAvailabilityOverride(
-                provider,
-                localStartDateTime.toLocalDate(),
-                localStartDateTime.toLocalTime(),
-                localStartDateTime.toLocalTime()
-                        .plusMinutes(appointment.getOffering().getDurationMinutes()),
-                AvailabilityOverrideType.UNAVAILABLE
-        );
-
-        appointment.cancelByProvider(providerMessage);
-    }
-    
-    /**
-     * Deletes pending appointment cancelled by client before confirmation.
-     *
-     * @param client client who owns appointment
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
-        validateClient(client);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to client");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.REQUESTED
-                && appointment.getStatus() != AppointmentStatus.PAYMENT_REQUESTED) {
-            throw new IllegalArgumentException("Only pending appointment can be cancelled");
-        }
-
-        appointmentRepository.delete(appointment);
-    }
-
-    /**
-     * Cancels confirmed appointment by client.
-     *
-     * @param client client who owns appointment
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void cancelConfirmedAppointmentByClient(User client, Long appointmentId) {
-        validateClient(client);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to client");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Only confirmed appointment can be cancelled");
-        }
-
-        appointment.cancelByClient();
-    }
-
-    /**
-     * Marks confirmed appointment as completed by provider.
-     *
-     * @param provider provider who owns appointment
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void completeConfirmedAppointment(User provider, Long appointmentId) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Only confirmed appointment can be completed");
-        }
-
-        appointment.complete();
-    }
-
-    /**
-     * Deletes provider appointment notification after acknowledgement.
-     *
-     * @param provider provider who acknowledges notification
-     * @param appointmentId appointment identifier
-     */
-    @Transactional
-    public void acknowledgeProviderAppointmentNotification(User provider, Long appointmentId) {
-        validateProvider(provider);
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
-
-        if (!appointment.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Appointment does not belong to provider");
-        }
-
-        if (appointment.getStatus() != AppointmentStatus.CANCELLED_BY_CLIENT) {
-            throw new IllegalArgumentException(
-                    "Only client-cancelled appointment notification can be acknowledged"
-            );
-        }
-
-        appointmentRepository.delete(appointment);
-    }
-
-    /**
-     * Validates that requested appointment does not overlap active appointments.
-     *
-     * @param provider provider who owns appointments
-     * @param offering requested offering
-     * @param startDateTimeUtc requested appointment start in UTC
-     */
-    private void validateNoConflicts(User provider,
-                                     Offering offering,
-                                     LocalDateTime startDateTimeUtc) {
-
-        LocalDateTime endDateTimeUtc =
-                startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
-
-        List<Appointment> activeAppointments = getBlockingAppointments(provider);
-
-        for (Appointment existing : activeAppointments) {
-            LocalDateTime existingStart = existing.getStartDateTimeUtc();
-            LocalDateTime existingEnd = existingStart
-                    .plusMinutes(existing.getOffering().getDurationMinutes());
-
-            if (overlaps(startDateTimeUtc, endDateTimeUtc, existingStart, existingEnd)) {
-                throw new IllegalArgumentException("Time slot is already booked");
-            }
-        }
-    }
-
-    /**
-     * Returns appointments that block provider calendar slots.
-     *
-     * @param provider provider who owns appointments
-     * @return blocking appointments
-     */
     private List<Appointment> getBlockingAppointments(User provider) {
         return appointmentRepository.findAllByProviderIdAndStatusIn(
                 provider.getId(),
@@ -9775,14 +10229,6 @@ public class AppointmentService {
         );
     }
 
-    /**
-     * Checks whether existing appointment list conflicts with requested time interval.
-     *
-     * @param appointments appointments to check
-     * @param start requested start date and time
-     * @param end requested end date and time
-     * @return true if conflict exists
-     */
     private boolean hasConflict(List<Appointment> appointments,
                                 LocalDateTime start,
                                 LocalDateTime end) {
@@ -9796,15 +10242,6 @@ public class AppointmentService {
                 ));
     }
 
-    /**
-     * Checks whether two time intervals overlap.
-     *
-     * @param firstStart first interval start
-     * @param firstEnd first interval end
-     * @param secondStart second interval start
-     * @param secondEnd second interval end
-     * @return true if intervals overlap
-     */
     private boolean overlaps(LocalDateTime firstStart,
                              LocalDateTime firstEnd,
                              LocalDateTime secondStart,
@@ -9812,33 +10249,25 @@ public class AppointmentService {
         return firstStart.isBefore(secondEnd) && firstEnd.isAfter(secondStart);
     }
 
-    /**
-     * Splits one calendar term into free parts by excluding blocking appointments.
-     *
-     * @param term source calendar term
-     * @param blockingAppointments requested or confirmed provider appointments
-     * @param providerZone provider timezone
-     * @return free parts of the original calendar term
-     */
     private List<CalendarTerm> excludeBlockingAppointments(CalendarTerm term,
-                                                           List<Appointment> blockingAppointments,
-                                                           ZoneId providerZone) {
-
+                                                            List<Appointment> blockingAppointments,
+                                                            ZoneId providerZone) {
         List<CalendarTerm> freeTerms = new ArrayList<>();
         LocalTime freeStart = term.getStartTime();
 
         List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
-                .filter(appointment -> isAppointmentOnDate(appointment, term.getDate(), providerZone))
+                .filter(appointment ->
+                        isAppointmentOnDate(appointment, term.getDate(), providerZone))
                 .sorted(Comparator.comparing(appointment ->
                         toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
                 .toList();
-        
+
         for (Appointment appointment : appointmentsOnTermDate) {
-            LocalDateTime appointmentStartLocal = toProviderLocalDateTime(appointment, providerZone);
+            LocalDateTime appointmentStartLocal =
+                    toProviderLocalDateTime(appointment, providerZone);
             LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
-            LocalTime appointmentEnd = appointmentStart.plusMinutes(
-                    appointment.getOffering().getDurationMinutes()
-            );
+            LocalTime appointmentEnd = appointmentStart
+                    .plusMinutes(appointment.getOffering().getDurationMinutes());
 
             if (!overlaps(
                     LocalDateTime.of(term.getDate(), term.getStartTime()),
@@ -9865,37 +10294,6 @@ public class AppointmentService {
         return freeTerms;
     }
 
-    /**
-     * Converts appointment to appointment view.
-     *
-     * @param appointment appointment to convert
-     * @param zone target timezone
-     * @return appointment view
-     */
-    private AppointmentView toAppointmentView(Appointment appointment, ZoneId zone) {
-        LocalDateTime localDateTime = appointment.getStartDateTimeUtc()
-                .atZone(ZoneOffset.UTC)
-                .withZoneSameInstant(zone)
-                .toLocalDateTime();
-
-        return new AppointmentView(
-                appointment.getId(),
-                appointment.getClient().getUsername(),
-                appointment.getOffering().getName(),
-                localDateTime.toLocalDate(),
-                localDateTime.toLocalTime(),
-                appointment.getStatus(),
-                appointment.getRejectionReason()
-        );
-    }
-
-    /**
-     * Converts appointment start time from UTC to provider-local date and time.
-     *
-     * @param appointment appointment to convert
-     * @param providerZone provider timezone
-     * @return provider-local appointment start date and time
-     */
     private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
         return appointment.getStartDateTimeUtc()
                 .atZone(ZoneOffset.UTC)
@@ -9903,126 +10301,13 @@ public class AppointmentService {
                 .toLocalDateTime();
     }
 
-    /**
-     * Checks whether appointment starts on given provider-local date.
-     *
-     * @param appointment appointment to check
-     * @param date provider-local date
-     * @param providerZone provider timezone
-     * @return true if appointment starts on given date
-     */
-    private boolean isAppointmentOnDate(Appointment appointment, LocalDate date, ZoneId providerZone) {
+    private boolean isAppointmentOnDate(Appointment appointment,
+                                        LocalDate date,
+                                        ZoneId providerZone) {
         return toProviderLocalDateTime(appointment, providerZone)
                 .toLocalDate()
                 .equals(date);
     }
-
-    /**
-     * Validates that requested appointment time is inside provider availability.
-     *
-     * @param provider provider who owns availability
-     * @param offering requested offering
-     * @param startDateTimeUtc requested appointment start in UTC
-     */
-    private void validateProviderAvailability(User provider,
-                                              Offering offering,
-                                              LocalDateTime startDateTimeUtc) {
-        boolean available = providerCalendarService.isAvailable(
-                provider,
-                startDateTimeUtc,
-                offering.getDurationMinutes()
-        );
-
-        if (!available) {
-            throw new IllegalArgumentException("Requested time is not available");
-        }
-    }
-
-    /**
-     * Validates that user has client role.
-     *
-     * @param client user to validate
-     */
-    private void validateClient(User client) {
-        if (client == null || client.getRole() != UserRole.CLIENT) {
-            throw new IllegalArgumentException("Only client can request appointment");
-        }
-    }
-
-    /**
-     * Validates that user has provider role.
-     *
-     * @param provider user to validate
-     */
-    private void validateProvider(User provider) {
-        if (provider == null || provider.getRole() != UserRole.PROVIDER) {
-            throw new IllegalArgumentException("Only provider can manage appointment");
-        }
-    }
-
-    /**
-     * Validates appointment start date and time.
-     *
-     * @param startDateTimeUtc requested start date and time
-     */
-    private void validateStartDateTime(LocalDateTime startDateTimeUtc) {
-        if (startDateTimeUtc == null) {
-            throw new IllegalArgumentException("Appointment start time is required");
-        }
-    }
-
-    /**
-     * Finds provider by id and validates provider role.
-     *
-     * @param providerId provider identifier
-     * @return provider user
-     */
-    private User findProvider(Long providerId) {
-        User provider = userRepository.findById(providerId)
-                .orElseThrow(() -> new IllegalArgumentException("Provider not found"));
-
-        if (provider.getRole() != UserRole.PROVIDER) {
-            throw new IllegalArgumentException("User is not a provider");
-        }
-
-        return provider;
-    }
-
-    /**
-     * Validates that client is linked to provider.
-     *
-     * @param client client user
-     * @param provider provider user
-     */
-    private void validateClientBelongsToProvider(User client, User provider) {
-        providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Client is not linked to provider"));
-    }
-
-    /**
-     * Finds offering owned by provider.
-     *
-     * @param provider provider owner
-     * @param offeringId offering identifier
-     * @return offering owned by provider
-     */
-    private Offering findProviderOffering(User provider, Long offeringId) {
-        return offeringRepository.findByProviderAndId(provider, offeringId)
-                .orElseThrow(() -> new IllegalArgumentException("Offering not found for provider"));
-    }
-
-    /**
-     * Validates that offering can be booked.
-     *
-     * @param offering offering to validate
-     */
-    private void validateOfferingIsActive(Offering offering) {
-        if (!offering.isActive()) {
-            throw new IllegalArgumentException("Offering is not active");
-        }
-    }
-    
-    
 }
 ===== ./src/main/java/life/wellnara/service/AdminUserService.java =====
 package life.wellnara.service;
@@ -10077,6 +10362,7 @@ public class AdminUserService {
         User user = userRepository.findByIdAndRoleNot(userId, UserRole.ADMIN)
                 .orElseThrow(() -> new IllegalArgumentException("User not found or cannot be deleted"));
 
+        providerClientLinkRepository.deleteAllByProvider(user);
         providerClientLinkRepository.deleteAllByClient(user);
         userRepository.delete(user);
     }
@@ -10206,6 +10492,52 @@ public class ClientOfferingService {
 
         return offeringRepository.findByProviderAndId(providerClientLink.getProvider(), offeringId)
                 .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
+    }
+}
+===== ./src/main/java/life/wellnara/service/AppointmentViewMapper.java =====
+package life.wellnara.service;
+
+import life.wellnara.dto.AppointmentView;
+import life.wellnara.model.Appointment;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+
+/**
+ * Converts {@link Appointment} entities into {@link AppointmentView} DTOs.
+ *
+ * <p>Single responsibility: project appointment fields into a view model,
+ * converting the UTC start time to the caller-supplied display timezone.
+ *
+ * <p>Stateless. No business logic. No repository access.
+ */
+@Component
+public class AppointmentViewMapper {
+
+    /**
+     * Builds an {@link AppointmentView} for the given display timezone.
+     *
+     * @param appointment appointment to project
+     * @param displayZone timezone of the user who will see this view
+     * @return populated view model
+     */
+    public AppointmentView toView(Appointment appointment, ZoneId displayZone) {
+        LocalDateTime local = appointment.getStartDateTimeUtc()
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(displayZone)
+                .toLocalDateTime();
+
+        return new AppointmentView(
+                appointment.getId(),
+                appointment.getClient().getUsername(),
+                appointment.getOffering().getName(),
+                local.toLocalDate(),
+                local.toLocalTime(),
+                appointment.getStatus(),
+                appointment.getRejectionReason()
+        );
     }
 }
 ===== ./src/main/java/life/wellnara/service/ProviderClientService.java =====
