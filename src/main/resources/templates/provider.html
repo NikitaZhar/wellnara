@@ -334,7 +334,7 @@
 									<button type="submit">Cancel</button>
 								</form>
 
-								<form
+								<form th:if="${appointment.completable}"
 									th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
 									method="post" style="display: inline;"
 									onsubmit="return confirm('Mark this appointment as completed?');">
@@ -469,9 +469,9 @@
 					<select name="type" required>
 						<option value="AVAILABLE">Available</option>
 						<option value="UNAVAILABLE">Unavailable</option>
-					</select> <input id="overrideDate" type="date" name="overrideDate" required>
-
-					<select id="overrideStartTime" name="startTime" required>
+					</select> <input id="overrideDate" type="date" name="overrideDate"
+						th:min="${today}" required> <select id="overrideStartTime"
+						name="startTime" required>
 						<option value="">Start</option>
 					</select> <select id="overrideEndTime" name="endTime" required>
 						<option value="">End</option>

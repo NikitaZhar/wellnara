@@ -6,6 +6,8 @@ import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
+import life.wellnara.service.time.ApplicationTimeService;
+
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
@@ -19,6 +21,7 @@ public class ProviderPageModelAssembler {
     private final OfferingService offeringService;
     private final ProviderCalendarService providerCalendarService;
     private final AppointmentService appointmentService;
+    private final ApplicationTimeService applicationTimeService;
 
     /**
      * Creates provider page model assembler.
@@ -27,15 +30,18 @@ public class ProviderPageModelAssembler {
      * @param offeringService service for offering management
      * @param providerCalendarService service for provider calendar management
      * @param appointmentService service for appointment operations
+     * @param applicationTimeService service for application time calculations
      */
     public ProviderPageModelAssembler(ProviderClientService providerClientService,
                                       OfferingService offeringService,
                                       ProviderCalendarService providerCalendarService,
-                                      AppointmentService appointmentService) {
+                                      AppointmentService appointmentService,
+                                      ApplicationTimeService applicationTimeService) {
         this.providerClientService = providerClientService;
         this.offeringService = offeringService;
         this.providerCalendarService = providerCalendarService;
         this.appointmentService = appointmentService;
+        this.applicationTimeService = applicationTimeService;
     }
 
     /**
@@ -55,14 +61,21 @@ public class ProviderPageModelAssembler {
         populateCalendarModel(model, provider);
     }
 
+    /**
+     * Adds provider calendar section data to MVC model.
+     *
+     * @param model MVC model
+     * @param provider authenticated provider
+     */
     private void populateCalendarModel(Model model, User provider) {
-        ProviderCalendarForm calendarForm = providerCalendarService.getLatestCalendarForm(provider);
+        ProviderCalendarForm calendarForm =
+                providerCalendarService.getLatestCalendarForm(provider);
 
         model.addAttribute("calendarForm", calendarForm);
         model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
         model.addAttribute("planningTo", calendarForm.getPlanningTo());
+        model.addAttribute("today", applicationTimeService.currentProviderCalendarDate(provider));
         model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
-        model.addAttribute("availabilityOverrides",
-                providerCalendarService.getAvailabilityOverrides(provider));
+        model.addAttribute("availabilityOverrides", providerCalendarService.getAvailabilityOverrides(provider));
     }
 }

@@ -59,4 +59,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             User provider,
             List<AppointmentStatus> statuses
     );
+    
+    void deleteAllByStatusInAndStartDateTimeUtcBefore(
+            List<AppointmentStatus> statuses,
+            LocalDateTime dateTimeUtc
+    );
 }

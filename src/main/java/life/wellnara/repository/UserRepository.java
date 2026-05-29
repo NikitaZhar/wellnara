@@ -45,4 +45,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return found user or empty result
      */
     Optional<User> findByIdAndRoleNot(Long id, UserRole role);
+    
+    /**
+     * Checks whether a user with the specified role exists.
+     *
+     * @param role user role to check
+     * @return true if at least one user with the role exists, otherwise false
+     */
+    boolean existsByRole(UserRole role);
 }

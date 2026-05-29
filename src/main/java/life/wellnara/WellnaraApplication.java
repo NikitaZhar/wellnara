@@ -14,7 +14,7 @@ public class WellnaraApplication {
 
 //http://localhost:8080/auth/login
 //admin
-//123
+//#admin@
 
 //http://localhost:8080/provider/register?token=bf8582ee-36f8-4680-90ae-e75452f17b5d
 //http://localhost:8080/client/register?token=

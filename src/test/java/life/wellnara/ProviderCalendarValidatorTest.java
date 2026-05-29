@@ -22,13 +22,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProviderCalendarValidatorTest {
 
     private final ProviderCalendarValidator validator = new ProviderCalendarValidator();
+    
+    private final LocalDate currentDate = LocalDate.of(2026, 1, 1);
 
     @Test
     @DisplayName("Should accept valid provider calendar form")
     void shouldAcceptValidProviderCalendarForm() {
         ProviderCalendarForm form = validForm();
 
-        validator.validateCalendarForm(form);
+        validator.validateCalendarForm(form, currentDate);
     }
 
     @Test
@@ -37,7 +39,7 @@ class ProviderCalendarValidatorTest {
         ProviderCalendarForm form = validForm();
         form.setProviderTimezone(null);
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -54,7 +56,7 @@ class ProviderCalendarValidatorTest {
         ProviderCalendarForm form = validForm();
         form.setProviderTimezone("Invalid/Timezone");
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -69,9 +71,9 @@ class ProviderCalendarValidatorTest {
     @DisplayName("Should reject planning dates before today")
     void shouldRejectPlanningDatesBeforeToday() {
         ProviderCalendarForm form = validForm();
-        form.setPlanningFrom(LocalDate.now(ZoneId.of("Europe/Bratislava")).minusDays(1));
+        form.setPlanningFrom(currentDate.minusDays(1));
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -85,13 +87,13 @@ class ProviderCalendarValidatorTest {
     @Test
     @DisplayName("Should reject end date before start date")
     void shouldRejectEndDateBeforeStartDate() {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Bratislava"));
+    	LocalDate today = currentDate;
 
         ProviderCalendarForm form = validForm();
         form.setPlanningFrom(today.plusDays(5));
         form.setPlanningTo(today.plusDays(3));
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -109,7 +111,7 @@ class ProviderCalendarValidatorTest {
         form.setMondayStart(LocalTime.of(9, 0));
         form.setMondayEnd(null);
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -127,7 +129,7 @@ class ProviderCalendarValidatorTest {
         form.setTuesdayStart(LocalTime.of(14, 0));
         form.setTuesdayEnd(LocalTime.of(13, 0));
 
-        assertThatThrownBy(() -> validator.validateCalendarForm(form))
+        assertThatThrownBy(() -> validator.validateCalendarForm(form, currentDate))
                 .isInstanceOf(CalendarValidationException.class)
                 .satisfies(exception -> {
                     CalendarValidationException validationException =
@@ -145,10 +147,11 @@ class ProviderCalendarValidatorTest {
 
         assertThatThrownBy(() -> validator.validateAvailabilityOverride(
                 provider,
-                LocalDate.now(ZoneId.of("Europe/Bratislava")).plusDays(1),
+                currentDate.plusDays(1),
                 LocalTime.of(12, 0),
                 LocalTime.of(11, 0),
-                AvailabilityOverrideType.AVAILABLE
+                AvailabilityOverrideType.AVAILABLE,
+                currentDate
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("End time must be after start time");
@@ -161,17 +164,18 @@ class ProviderCalendarValidatorTest {
 
         assertThatThrownBy(() -> validator.validateAvailabilityOverride(
                 provider,
-                LocalDate.now(ZoneId.of("Europe/Bratislava")).plusDays(1),
+                currentDate.plusDays(1),
                 LocalTime.of(10, 10),
                 LocalTime.of(11, 0),
-                AvailabilityOverrideType.AVAILABLE
+                AvailabilityOverrideType.AVAILABLE,
+                currentDate
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Time must use 15-minute intervals");
     }
 
     private ProviderCalendarForm validForm() {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Bratislava"));
+    	LocalDate today = currentDate;
 
         ProviderCalendarForm form = new ProviderCalendarForm();
         form.setPlanningFrom(today.plusDays(1));

@@ -7,6 +7,8 @@ import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.service.time.ApplicationTimeService;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,282 +39,287 @@ import java.util.stream.Collectors;
 @Service
 public class AppointmentAvailabilityService {
 
-    private final AppointmentRepository appointmentRepository;
-    private final ProviderCalendarService providerCalendarService;
+	private final AppointmentRepository appointmentRepository;
+	private final ProviderCalendarService providerCalendarService;
 
-    private static final int BOOKING_STEP_MINUTES = 15;
+	private final ApplicationTimeService applicationTimeService;
 
-    /**
-     * Creates appointment availability service.
-     *
-     * @param appointmentRepository   repository for appointments
-     * @param providerCalendarService service for provider calendar operations
-     */
-    public AppointmentAvailabilityService(AppointmentRepository appointmentRepository,
-                                          ProviderCalendarService providerCalendarService) {
-        this.appointmentRepository = appointmentRepository;
-        this.providerCalendarService = providerCalendarService;
-    }
 
-    /**
-     * Returns provider calendar terms excluding already blocked appointments.
-     *
-     * @param provider provider whose free calendar terms should be returned
-     * @return calendar terms available for booking
-     */
-    @Transactional(readOnly = true)
-    public List<CalendarTerm> getFreeCalendarTerms(User provider) {
-        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
-        List<CalendarTerm> calendarTerms = providerCalendarService.generateCalendar(provider);
-        List<Appointment> blockingAppointments = getBlockingAppointments(provider);
+	private static final int BOOKING_STEP_MINUTES = 15;
 
-        List<CalendarTerm> result = new ArrayList<>();
+	/**
+	 * Creates appointment availability service.
+	 *
+	 * @param appointmentRepository   repository for appointments
+	 * @param providerCalendarService service for provider calendar operations
+	 */
+	public AppointmentAvailabilityService(AppointmentRepository appointmentRepository,
+			ProviderCalendarService providerCalendarService,
+			ApplicationTimeService applicationTimeService) {
+		this.appointmentRepository = appointmentRepository;
+		this.providerCalendarService = providerCalendarService;
+		this.applicationTimeService = applicationTimeService;
+	}
 
-        for (CalendarTerm term : calendarTerms) {
-            result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
-        }
+	/**
+	 * Returns provider calendar terms excluding already blocked appointments.
+	 *
+	 * @param provider provider whose free calendar terms should be returned
+	 * @return calendar terms available for booking
+	 */
+	@Transactional(readOnly = true)
+	public List<CalendarTerm> getFreeCalendarTerms(User provider) {
+		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+		List<CalendarTerm> calendarTerms = providerCalendarService.generateCalendar(provider);
+		List<Appointment> blockingAppointments = getBlockingAppointments(provider);
 
-        return removePastCalendarTerms(result, providerZone);
-    }
+		List<CalendarTerm> result = new ArrayList<>();
 
-    /**
-     * Returns bookable start times grouped by date.
-     *
-     * @param provider provider whose calendar is used
-     * @param offering selected offering
-     * @return bookable date options
-     */
-    @Transactional(readOnly = true)
-    public List<BookableDateOption> getBookableDateOptions(User provider, Offering offering) {
-        Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
+		for (CalendarTerm term : calendarTerms) {
+			result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
+		}
 
-        for (CalendarTerm term : getFreeCalendarTerms(provider)) {
-            List<LocalTime> times = getBookableTimesForTerm(term, offering);
+		return removePastCalendarTerms(result, providerZone);
+	}
 
-            if (!times.isEmpty()) {
-                timesByDate
-                        .computeIfAbsent(term.getDate(), date -> new ArrayList<>())
-                        .addAll(times);
-            }
-        }
+	/**
+	 * Returns bookable start times grouped by date.
+	 *
+	 * @param provider provider whose calendar is used
+	 * @param offering selected offering
+	 * @return bookable date options
+	 */
+	@Transactional(readOnly = true)
+	public List<BookableDateOption> getBookableDateOptions(User provider, Offering offering) {
+		Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
 
-        List<BookableDateOption> result = new ArrayList<>();
+		for (CalendarTerm term : getFreeCalendarTerms(provider)) {
+			List<LocalTime> times = getBookableTimesForTerm(term, offering);
 
-        for (Map.Entry<LocalDate, List<LocalTime>> entry : timesByDate.entrySet()) {
-            List<LocalTime> times = entry.getValue()
-                    .stream()
-                    .distinct()
-                    .sorted()
-                    .collect(Collectors.toList());
+			if (!times.isEmpty()) {
+				timesByDate
+				.computeIfAbsent(term.getDate(), date -> new ArrayList<>())
+				.addAll(times);
+			}
+		}
 
-            if (!times.isEmpty()) {
-                result.add(new BookableDateOption(entry.getKey(), times));
-            }
-        }
+		List<BookableDateOption> result = new ArrayList<>();
 
-        return result;
-    }
+		for (Map.Entry<LocalDate, List<LocalTime>> entry : timesByDate.entrySet()) {
+			List<LocalTime> times = entry.getValue()
+					.stream()
+					.distinct()
+					.sorted()
+					.collect(Collectors.toList());
 
-    /**
-     * Returns possible booking start times for selected offering on selected date.
-     *
-     * @param provider provider whose calendar is checked
-     * @param offering offering selected by client
-     * @param date     provider-local booking date
-     * @return available booking start times
-     */
-    @Transactional(readOnly = true)
-    public List<LocalTime> getBookableTimes(User provider, Offering offering, LocalDate date) {
-        ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+			if (!times.isEmpty()) {
+				result.add(new BookableDateOption(entry.getKey(), times));
+			}
+		}
 
-        List<CalendarTerm> terms = getFreeCalendarTerms(provider).stream()
-                .filter(term -> term.getDate().equals(date))
-                .toList();
+		return result;
+	}
 
-        List<LocalTime> result = new ArrayList<>();
+	/**
+	 * Returns possible booking start times for selected offering on selected date.
+	 *
+	 * @param provider provider whose calendar is checked
+	 * @param offering offering selected by client
+	 * @param date     provider-local booking date
+	 * @return available booking start times
+	 */
+	@Transactional(readOnly = true)
+	public List<LocalTime> getBookableTimes(User provider, Offering offering, LocalDate date) {
+		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
 
-        for (CalendarTerm term : terms) {
-            LocalTime latestStart = term.getEndTime()
-                    .minusMinutes(offering.getDurationMinutes());
+		List<CalendarTerm> terms = getFreeCalendarTerms(provider).stream()
+				.filter(term -> term.getDate().equals(date))
+				.toList();
 
-            if (latestStart.isBefore(term.getStartTime())) {
-                continue;
-            }
+		List<LocalTime> result = new ArrayList<>();
 
-            for (LocalTime current = term.getStartTime();
-                 !current.isAfter(latestStart);
-                 current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
+		for (CalendarTerm term : terms) {
+			LocalTime latestStart = term.getEndTime()
+					.minusMinutes(offering.getDurationMinutes());
 
-                LocalDateTime startUtc = LocalDateTime.of(date, current)
-                        .atZone(providerZone)
-                        .withZoneSameInstant(ZoneOffset.UTC)
-                        .toLocalDateTime();
+			if (latestStart.isBefore(term.getStartTime())) {
+				continue;
+			}
 
-                LocalDateTime endUtc = startUtc.plusMinutes(offering.getDurationMinutes());
+			for (LocalTime current = term.getStartTime();
+					!current.isAfter(latestStart);
+					current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
 
-                if (!hasConflict(getBlockingAppointments(provider), startUtc, endUtc)) {
-                    result.add(current);
-                }
-            }
-        }
+				LocalDateTime startUtc = LocalDateTime.of(date, current)
+						.atZone(providerZone)
+						.withZoneSameInstant(ZoneOffset.UTC)
+						.toLocalDateTime();
 
-        return result;
-    }
+				LocalDateTime endUtc = startUtc.plusMinutes(offering.getDurationMinutes());
 
-    /**
-     * Returns possible booking start times inside one free calendar term.
-     *
-     * @param term     free calendar term
-     * @param offering selected offering
-     * @return possible booking start times
-     */
-    public List<LocalTime> getBookableTimesForTerm(CalendarTerm term, Offering offering) {
-        List<LocalTime> result = new ArrayList<>();
+				if (!hasConflict(getBlockingAppointments(provider), startUtc, endUtc)) {
+					result.add(current);
+				}
+			}
+		}
 
-        LocalTime latestStart = term.getEndTime()
-                .minusMinutes(offering.getDurationMinutes());
+		return result;
+	}
 
-        if (latestStart.isBefore(term.getStartTime())) {
-            return result;
-        }
+	/**
+	 * Returns possible booking start times inside one free calendar term.
+	 *
+	 * @param term     free calendar term
+	 * @param offering selected offering
+	 * @return possible booking start times
+	 */
+	public List<LocalTime> getBookableTimesForTerm(CalendarTerm term, Offering offering) {
+		List<LocalTime> result = new ArrayList<>();
 
-        for (LocalTime current = term.getStartTime();
-             !current.isAfter(latestStart);
-             current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
+		LocalTime latestStart = term.getEndTime()
+				.minusMinutes(offering.getDurationMinutes());
 
-            result.add(current);
-        }
+		if (latestStart.isBefore(term.getStartTime())) {
+			return result;
+		}
 
-        return result;
-    }
+		for (LocalTime current = term.getStartTime();
+				!current.isAfter(latestStart);
+				current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
 
-    /**
-     * Throws if the requested time slot conflicts with any active appointment.
-     *
-     * @param provider         provider whose appointments are checked
-     * @param offering         offering to book
-     * @param startDateTimeUtc requested start time in UTC
-     * @throws IllegalArgumentException if a scheduling conflict is detected
-     */
-    public void validateNoConflicts(User provider,
-                                    Offering offering,
-                                    LocalDateTime startDateTimeUtc) {
-        LocalDateTime end = startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
+			result.add(current);
+		}
 
-        List<Appointment> blocking = getBlockingAppointments(provider);
+		return result;
+	}
 
-        for (Appointment existing : blocking) {
-            LocalDateTime existingStart = existing.getStartDateTimeUtc();
-            LocalDateTime existingEnd = existingStart
-                    .plusMinutes(existing.getOffering().getDurationMinutes());
+	/**
+	 * Throws if the requested time slot conflicts with any active appointment.
+	 *
+	 * @param provider         provider whose appointments are checked
+	 * @param offering         offering to book
+	 * @param startDateTimeUtc requested start time in UTC
+	 * @throws IllegalArgumentException if a scheduling conflict is detected
+	 */
+	public void validateNoConflicts(User provider,
+			Offering offering,
+			LocalDateTime startDateTimeUtc) {
+		LocalDateTime end = startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
 
-            if (overlaps(startDateTimeUtc, end, existingStart, existingEnd)) {
-                throw new IllegalArgumentException("Time slot is already booked");
-            }
-        }
-    }
+		List<Appointment> blocking = getBlockingAppointments(provider);
 
-    // ===== Private helpers =====
+		for (Appointment existing : blocking) {
+			LocalDateTime existingStart = existing.getStartDateTimeUtc();
+			LocalDateTime existingEnd = existingStart
+					.plusMinutes(existing.getOffering().getDurationMinutes());
 
-    private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
-                                                        ZoneId providerZone) {
-        LocalDate today = LocalDate.now(providerZone);
-        LocalTime now = LocalTime.now(providerZone);
+			if (overlaps(startDateTimeUtc, end, existingStart, existingEnd)) {
+				throw new IllegalArgumentException("Time slot is already booked");
+			}
+		}
+	}
 
-        return terms.stream()
-                .filter(term -> term.getDate().isAfter(today)
-                        || !term.getStartTime().isBefore(now))
-                .toList();
-    }
+	// ===== Private helpers =====
 
-    private List<Appointment> getBlockingAppointments(User provider) {
-        return appointmentRepository.findAllByProviderIdAndStatusIn(
-                provider.getId(),
-                List.of(
-                        AppointmentStatus.REQUESTED,
-                        AppointmentStatus.PAYMENT_REQUESTED,
-                        AppointmentStatus.CONFIRMED
-                )
-        );
-    }
+	private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
+			ZoneId providerZone) {
+		LocalDate today = applicationTimeService.currentDate(providerZone);
+		LocalTime now = applicationTimeService.currentTime(providerZone);
 
-    private boolean hasConflict(List<Appointment> appointments,
-                                LocalDateTime start,
-                                LocalDateTime end) {
-        return appointments.stream()
-                .anyMatch(existing -> overlaps(
-                        start,
-                        end,
-                        existing.getStartDateTimeUtc(),
-                        existing.getStartDateTimeUtc()
-                                .plusMinutes(existing.getOffering().getDurationMinutes())
-                ));
-    }
+		return terms.stream()
+				.filter(term -> term.getDate().isAfter(today)
+						|| !term.getStartTime().isBefore(now))
+				.toList();
+	}
 
-    private boolean overlaps(LocalDateTime firstStart,
-                             LocalDateTime firstEnd,
-                             LocalDateTime secondStart,
-                             LocalDateTime secondEnd) {
-        return firstStart.isBefore(secondEnd) && firstEnd.isAfter(secondStart);
-    }
+	private List<Appointment> getBlockingAppointments(User provider) {
+		return appointmentRepository.findAllByProviderIdAndStatusIn(
+				provider.getId(),
+				List.of(
+						AppointmentStatus.REQUESTED,
+						AppointmentStatus.PAYMENT_REQUESTED,
+						AppointmentStatus.CONFIRMED
+						)
+				);
+	}
 
-    private List<CalendarTerm> excludeBlockingAppointments(CalendarTerm term,
-                                                            List<Appointment> blockingAppointments,
-                                                            ZoneId providerZone) {
-        List<CalendarTerm> freeTerms = new ArrayList<>();
-        LocalTime freeStart = term.getStartTime();
+	private boolean hasConflict(List<Appointment> appointments,
+			LocalDateTime start,
+			LocalDateTime end) {
+		return appointments.stream()
+				.anyMatch(existing -> overlaps(
+						start,
+						end,
+						existing.getStartDateTimeUtc(),
+						existing.getStartDateTimeUtc()
+						.plusMinutes(existing.getOffering().getDurationMinutes())
+						));
+	}
 
-        List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
-                .filter(appointment ->
-                        isAppointmentOnDate(appointment, term.getDate(), providerZone))
-                .sorted(Comparator.comparing(appointment ->
-                        toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
-                .toList();
+	private boolean overlaps(LocalDateTime firstStart,
+			LocalDateTime firstEnd,
+			LocalDateTime secondStart,
+			LocalDateTime secondEnd) {
+		return firstStart.isBefore(secondEnd) && firstEnd.isAfter(secondStart);
+	}
 
-        for (Appointment appointment : appointmentsOnTermDate) {
-            LocalDateTime appointmentStartLocal =
-                    toProviderLocalDateTime(appointment, providerZone);
-            LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
-            LocalTime appointmentEnd = appointmentStart
-                    .plusMinutes(appointment.getOffering().getDurationMinutes());
+	private List<CalendarTerm> excludeBlockingAppointments(CalendarTerm term,
+			List<Appointment> blockingAppointments,
+			ZoneId providerZone) {
+		List<CalendarTerm> freeTerms = new ArrayList<>();
+		LocalTime freeStart = term.getStartTime();
 
-            if (!overlaps(
-                    LocalDateTime.of(term.getDate(), term.getStartTime()),
-                    LocalDateTime.of(term.getDate(), term.getEndTime()),
-                    LocalDateTime.of(term.getDate(), appointmentStart),
-                    LocalDateTime.of(term.getDate(), appointmentEnd)
-            )) {
-                continue;
-            }
+		List<Appointment> appointmentsOnTermDate = blockingAppointments.stream()
+				.filter(appointment ->
+				isAppointmentOnDate(appointment, term.getDate(), providerZone))
+				.sorted(Comparator.comparing(appointment ->
+				toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
+				.toList();
 
-            if (freeStart.isBefore(appointmentStart)) {
-                freeTerms.add(new CalendarTerm(term.getDate(), freeStart, appointmentStart));
-            }
+		for (Appointment appointment : appointmentsOnTermDate) {
+			LocalDateTime appointmentStartLocal =
+					toProviderLocalDateTime(appointment, providerZone);
+			LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
+			LocalTime appointmentEnd = appointmentStart
+					.plusMinutes(appointment.getOffering().getDurationMinutes());
 
-            if (freeStart.isBefore(appointmentEnd)) {
-                freeStart = appointmentEnd;
-            }
-        }
+			if (!overlaps(
+					LocalDateTime.of(term.getDate(), term.getStartTime()),
+					LocalDateTime.of(term.getDate(), term.getEndTime()),
+					LocalDateTime.of(term.getDate(), appointmentStart),
+					LocalDateTime.of(term.getDate(), appointmentEnd)
+					)) {
+				continue;
+			}
 
-        if (freeStart.isBefore(term.getEndTime())) {
-            freeTerms.add(new CalendarTerm(term.getDate(), freeStart, term.getEndTime()));
-        }
+			if (freeStart.isBefore(appointmentStart)) {
+				freeTerms.add(new CalendarTerm(term.getDate(), freeStart, appointmentStart));
+			}
 
-        return freeTerms;
-    }
+			if (freeStart.isBefore(appointmentEnd)) {
+				freeStart = appointmentEnd;
+			}
+		}
 
-    private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
-        return appointment.getStartDateTimeUtc()
-                .atZone(ZoneOffset.UTC)
-                .withZoneSameInstant(providerZone)
-                .toLocalDateTime();
-    }
+		if (freeStart.isBefore(term.getEndTime())) {
+			freeTerms.add(new CalendarTerm(term.getDate(), freeStart, term.getEndTime()));
+		}
 
-    private boolean isAppointmentOnDate(Appointment appointment,
-                                        LocalDate date,
-                                        ZoneId providerZone) {
-        return toProviderLocalDateTime(appointment, providerZone)
-                .toLocalDate()
-                .equals(date);
-    }
+		return freeTerms;
+	}
+
+	private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
+		return appointment.getStartDateTimeUtc()
+				.atZone(ZoneOffset.UTC)
+				.withZoneSameInstant(providerZone)
+				.toLocalDateTime();
+	}
+
+	private boolean isAppointmentOnDate(Appointment appointment,
+			LocalDate date,
+			ZoneId providerZone) {
+		return toProviderLocalDateTime(appointment, providerZone)
+				.toLocalDate()
+				.equals(date);
+	}
 }

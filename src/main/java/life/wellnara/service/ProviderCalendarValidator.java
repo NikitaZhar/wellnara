@@ -5,6 +5,7 @@ import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
 import org.springframework.stereotype.Component;
+
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -22,12 +23,13 @@ public class ProviderCalendarValidator {
      * Validates provider calendar form.
      *
      * @param form provider calendar form
+     * @param currentDate current date in provider calendar timezone
      */
-    public void validateCalendarForm(ProviderCalendarForm form) {
+    public void validateCalendarForm(ProviderCalendarForm form, LocalDate currentDate) {
         Map<String, String> errors = new HashMap<>();
 
         validateRequiredCalendarFields(errors, form);
-        validateCalendarDateRange(errors, form);
+        validateCalendarDateRange(errors, form, currentDate);
         validateWeekdayTimeRanges(errors, form);
 
         if (!errors.isEmpty()) {
@@ -43,18 +45,28 @@ public class ProviderCalendarValidator {
      * @param startTime override start time
      * @param endTime override end time
      * @param type override type
+     * @param currentDate current date in provider calendar timezone
      */
     public void validateAvailabilityOverride(User provider,
                                              LocalDate date,
                                              LocalTime startTime,
                                              LocalTime endTime,
-                                             AvailabilityOverrideType type) {
+                                             AvailabilityOverrideType type,
+                                             LocalDate currentDate) {
         if (provider == null) {
             throw new IllegalArgumentException("Provider is required");
         }
 
         if (date == null) {
             throw new IllegalArgumentException("Date is required");
+        }
+
+        if (currentDate == null) {
+            throw new IllegalArgumentException("Current date is required");
+        }
+
+        if (date.isBefore(currentDate)) {
+            throw new IllegalArgumentException("Date must not be in the past");
         }
 
         if (startTime == null) {
@@ -110,18 +122,18 @@ public class ProviderCalendarValidator {
     }
 
     private void validateCalendarDateRange(Map<String, String> errors,
-                                           ProviderCalendarForm form) {
-        if (errors.containsKey("providerTimezone")) {
+                                           ProviderCalendarForm form,
+                                           LocalDate currentDate) {
+        if (currentDate == null) {
+            errors.put("currentDate", "Current date is required");
             return;
         }
 
-        LocalDate today = LocalDate.now(ZoneId.of(form.getProviderTimezone()));
-
-        if (form.getPlanningFrom() != null && form.getPlanningFrom().isBefore(today)) {
+        if (form.getPlanningFrom() != null && form.getPlanningFrom().isBefore(currentDate)) {
             errors.put("planningFrom", "Start date must not be before today");
         }
 
-        if (form.getPlanningTo() != null && form.getPlanningTo().isBefore(today)) {
+        if (form.getPlanningTo() != null && form.getPlanningTo().isBefore(currentDate)) {
             errors.put("planningTo", "End date must not be before today");
         }
 

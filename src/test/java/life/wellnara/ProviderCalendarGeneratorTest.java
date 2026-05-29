@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
@@ -25,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProviderCalendarGeneratorTest {
 
     private final ProviderCalendarGenerator generator = new ProviderCalendarGenerator();
+    private final LocalDate currentDate = LocalDate.of(2026, 1, 1);
 
     @Test
     @DisplayName("Should generate calendar terms from availability period and weekly rules")
@@ -54,7 +54,7 @@ class ProviderCalendarGeneratorTest {
                 )
         );
 
-        List<CalendarTerm> terms = generator.generate(period, rules);
+        List<CalendarTerm> terms = generator.generate(period, rules, currentDate);
 
         assertThat(terms).hasSize(2);
 
@@ -70,16 +70,15 @@ class ProviderCalendarGeneratorTest {
     @Test
     @DisplayName("Should not generate terms before today")
     void shouldNotGenerateTermsBeforeToday() {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Bratislava"));
-
         AvailabilityPeriod period = new AvailabilityPeriod(
                 createProvider(),
-                today.minusDays(7),
-                today.plusDays(7),
+                currentDate.minusDays(7),
+                currentDate.plusDays(7),
                 "Europe/Bratislava"
         );
 
-        AvailabilityDay todayAvailabilityDay = AvailabilityDay.valueOf(today.getDayOfWeek().name());
+        AvailabilityDay todayAvailabilityDay =
+                AvailabilityDay.valueOf(currentDate.getDayOfWeek().name());
 
         List<AvailabilityRule> rules = List.of(
                 new AvailabilityRule(
@@ -90,11 +89,11 @@ class ProviderCalendarGeneratorTest {
                 )
         );
 
-        List<CalendarTerm> terms = generator.generate(period, rules);
+        List<CalendarTerm> terms = generator.generate(period, rules, currentDate);
 
         assertThat(terms).isNotEmpty();
         assertThat(terms)
-                .allMatch(term -> !term.getDate().isBefore(today));
+                .allMatch(term -> !term.getDate().isBefore(currentDate));
     }
 
     @Test
@@ -119,14 +118,13 @@ class ProviderCalendarGeneratorTest {
                 )
         );
 
-        List<CalendarTerm> terms = generator.generate(period, rules);
+        List<CalendarTerm> terms = generator.generate(period, rules, currentDate);
 
         assertThat(terms).isEmpty();
     }
 
     private LocalDate nextOrSame(DayOfWeek dayOfWeek) {
-        return LocalDate.now(ZoneId.of("Europe/Bratislava"))
-                .with(TemporalAdjusters.nextOrSame(dayOfWeek));
+        return currentDate.with(TemporalAdjusters.nextOrSame(dayOfWeek));
     }
 
     private User createProvider() {

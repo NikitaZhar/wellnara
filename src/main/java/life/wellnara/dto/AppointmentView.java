@@ -17,6 +17,7 @@ public class AppointmentView {
 	private final LocalTime localTime;
 	private final AppointmentStatus status;
 	private final String rejectionReason;
+	private boolean completable;
 
 	public AppointmentView(Long id,
 			String clientName,
@@ -60,5 +61,13 @@ public class AppointmentView {
 
 	public AppointmentStatus getStatus() {
 		return status;
+	}
+
+	public boolean isCompletable() {
+		return completable;
+	}
+
+	public void setCompletable(boolean completable) {
+		this.completable = completable;
 	}
 }
