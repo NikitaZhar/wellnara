@@ -17,13 +17,22 @@ import life.wellnara.repository.OfferingRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import life.wellnara.service.AppointmentService;
+import life.wellnara.service.time.ApplicationTimeService;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -33,6 +42,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for appointment scheduling, free interval calculation
@@ -40,9 +51,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @SpringBootTest
 @Transactional
+@Import(AppointmentSchedulingFlowTest.FixedClockConfig.class)
 class AppointmentSchedulingFlowTest {
 
     private static final String PROVIDER_TIMEZONE = "Europe/Bratislava";
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    Instant.parse("2026-06-01T06:00:00Z"),
+                    ZoneOffset.UTC
+            );
+        }
+    }
 
     @Autowired
     private AppointmentService appointmentService;
@@ -64,7 +88,7 @@ class AppointmentSchedulingFlowTest {
 
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
-
+    
     /**
      * Verifies that an existing requested appointment splits provider availability
      * into free parts and removes the occupied interval.
@@ -72,8 +96,10 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should split free calendar terms by existing requested appointment")
     void shouldSplitFreeCalendarTermsByExistingRequestedAppointment() {
-        User provider = createUser("provider-split", UserRole.PROVIDER);
-        User client = createUser("client-split", UserRole.CLIENT);
+    	
+    	User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+
+        User client = createUser("client-cancelled", UserRole.CLIENT);
 
         Offering offering = createOffering(provider, "Split test", 60);
 
@@ -115,6 +141,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should build bookable times for one date after excluding existing appointments")
     void shouldBuildBookableTimesForOneDateAfterExcludingExistingAppointments() {
+    	
         User provider = createUser("provider-bookable", UserRole.PROVIDER);
         User clientOne = createUser("client-bookable-one", UserRole.CLIENT);
         User clientTwo = createUser("client-bookable-two", UserRole.CLIENT);
@@ -182,6 +209,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should not create bookable time when offering does not fit into short free interval")
     void shouldNotCreateBookableTimeWhenOfferingDoesNotFitIntoShortFreeInterval() {
+    	
         User provider = createUser("provider-short-term", UserRole.PROVIDER);
         User client = createUser("client-short-term", UserRole.CLIENT);
 
@@ -232,6 +260,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should reject appointment request when another client already requested overlapping time")
     void shouldRejectAppointmentRequestWhenAnotherClientAlreadyRequestedOverlappingTime() {
+    	
         User provider = createUser("provider-conflict", UserRole.PROVIDER);
         User firstClient = createUser("client-conflict-one", UserRole.CLIENT);
         User secondClient = createUser("client-conflict-two", UserRole.CLIENT);
@@ -274,7 +303,9 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should ignore cancelled appointments when calculating free calendar terms")
     void shouldIgnoreCancelledAppointmentsWhenCalculatingFreeCalendarTerms() {
-        User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+    	
+    	User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+
         User client = createUser("client-cancelled", UserRole.CLIENT);
 
         Offering offering = createOffering(provider, "Cancelled offering", 60);

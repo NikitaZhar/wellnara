@@ -169,11 +169,8 @@
 			<p th:text="${clientInviteError}"></p>
 		</div>
 
-		<div th:if="${clientInviteLink}">
-			<p>Client registration link:</p>
-			<p>
-				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
-			</p>
+		<div th:if="${clientInviteSuccessMessage}" style="color: green;">
+			<p th:text="${clientInviteSuccessMessage}"></p>
 		</div>
 
 		<div style="margin-top: 40px;">

@@ -1,7 +1,6 @@
 package life.wellnara;
 
 import jakarta.servlet.http.HttpSession;
-import life.wellnara.model.ProviderInvitation;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.ProviderInvitationRepository;
@@ -12,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,7 +23,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
-import static org.springframework.test.web.ModelAndViewAssert.assertViewName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -31,15 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration MVC tests for admin invitation flow and provider registration flow.
+ * Integration MVC tests for the admin invitation flow and provider registration flow.
  *
- * <p>These tests verify the real interaction between:
- * controllers, session state, redirects, template rendering and database state.
+ * <p>Email delivery is replaced by an inert {@link JavaMailSender} so these tests never reach a
+ * real SMTP provider. The construction and dispatch of invitation emails is verified separately in
+ * {@code life.wellnara.service.email.InvitationNotificationServiceTest}.
  *
  * <p>Covered scenarios:
  * <ul>
  *     <li>Admin invite with existing email returns validation error instead of HTTP 500.</li>
- *     <li>Successful invite shows registration link only once.</li>
+ *     <li>Successful invite shows a confirmation message only once.</li>
  *     <li>Provider registration with mismatched passwords returns user to registration page.</li>
  *     <li>Successful provider registration is followed by logout and normal login flow.</li>
  * </ul>
@@ -61,20 +62,9 @@ class ProviderAdminFlowMvcTest {
     @Autowired
     private ProviderInvitationService providerInvitationService;
 
-    /**
-     * Verifies that if admin tries to invite a provider using an email
-     * that already exists in the system, the application does not fail with HTTP 500.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>request returns HTTP 200,</li>
-     *     <li>admin page is rendered again,</li>
-     *     <li>validation message is added to the model,</li>
-     *     <li>users list remains available for rendering.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
+    @MockBean
+    private JavaMailSender mailSender;
+
     @Test
     @DisplayName("Should return admin page with error when invited email already exists")
     void shouldReturnAdminPageWithErrorWhenInvitedEmailAlreadyExists() throws Exception {
@@ -97,21 +87,9 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(content().string(containsString("Email already used")));
     }
 
-    /**
-     * Verifies one-time visibility of provider invitation link on admin page.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>after successful invite the controller redirects to /admin,</li>
-     *     <li>on first GET /admin the registration link is visible,</li>
-     *     <li>on second GET /admin with the same session the link is no longer visible.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
-    @DisplayName("Should show provider invite link only once after successful invitation")
-    void shouldShowProviderInviteLinkOnlyOnceAfterSuccessfulInvitation() throws Exception {
+    @DisplayName("Should show provider invitation confirmation only once after successful invitation")
+    void shouldShowProviderInvitationConfirmationOnlyOnceAfterSuccessfulInvitation() throws Exception {
         User admin = getAdminUser();
         MockHttpSession session = createSessionWithCurrentUser(admin);
 
@@ -123,28 +101,13 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Provider registration link:")))
-                .andExpect(content().string(containsString("http://localhost:8080/provider/register?token=")));
+                .andExpect(content().string(containsString("Provider invitation was sent to new-provider@example.com")));
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Provider registration link:"))));
+                .andExpect(content().string(not(containsString("Provider invitation was sent to"))));
     }
 
-    /**
-     * Verifies that provider registration does not create a user
-     * when password and confirmPassword are different.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>registration page is rendered again,</li>
-     *     <li>error message is shown,</li>
-     *     <li>token and email remain available in the model,</li>
-     *     <li>new provider user is not saved in the database.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return registration page with error when passwords do not match")
     void shouldReturnRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
@@ -165,21 +128,6 @@ class ProviderAdminFlowMvcTest {
         assertThat(invitationRepository.findByToken(token)).isPresent();
     }
 
-    /**
-     * Verifies complete successful provider registration flow,
-     * followed by logout and normal login with the same credentials.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>successful registration opens provider page immediately,</li>
-     *     <li>success message and provider email are shown right after registration,</li>
-     *     <li>logout invalidates current session and redirects to login page,</li>
-     *     <li>subsequent login with the same credentials redirects to /provider,</li>
-     *     <li>regular provider page after login does not show registration completion message.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should register provider successfully and allow logout then login")
     @DirtiesContext
@@ -232,22 +180,11 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(content().string(containsString(username)));
     }
 
-    /**
-     * Returns preloaded admin user from test database.
-     *
-     * @return admin user
-     */
     private User getAdminUser() {
         return userRepository.findByUsername("admin")
                 .orElseThrow(() -> new IllegalStateException("Admin user not found in test database"));
     }
 
-    /**
-     * Creates session containing authenticated current user.
-     *
-     * @param user authenticated user
-     * @return mock HTTP session with currentUser attribute
-     */
     private MockHttpSession createSessionWithCurrentUser(User user) {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("currentUser", user);

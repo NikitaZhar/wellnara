@@ -60,7 +60,7 @@ public class ProviderController {
         providerCalendarService.deleteExpiredAvailabilityOverrides(currentUser);
         appointmentService.deleteExpiredUnpaidAppointments();
 
-        moveSessionAttributeToModel(session, model, "clientInviteLink");
+        moveSessionAttributeToModel(session, model, "clientInviteSuccessMessage");
         moveSessionAttributeToModel(session, model, "clientInviteError");
 
         providerPageModelAssembler.populate(model, currentUser);

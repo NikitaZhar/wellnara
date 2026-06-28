@@ -23,12 +23,9 @@
     <p th:text="${inviteError}"></p>
 </div>
 
-<div th:if="${providerInviteLink}" style="margin-top: 20px;">
-    <p>Provider registration link:</p>
-    <p>
-        <a th:href="${providerInviteLink}"
-           th:text="${providerInviteLink}"></a>
-    </p>
+<div th:if="${providerInviteSuccessMessage}"
+     style="margin-top: 15px; color: green;">
+    <p th:text="${providerInviteSuccessMessage}"></p>
 </div>
 
 <div style="margin-top: 30px;">

@@ -25,13 +25,21 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
+import static java.time.DayOfWeek.MONDAY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for appointment request business logic.
+ *
+ * <p>All booking dates are derived from {@link #nextMonday()} rather than hardcoded calendar
+ * dates, so the suite never depends on the current date and cannot rot as time passes. The
+ * provider availability window (Monday 09:00–13:00) and the requested times mirror the original
+ * scenarios; only the anchoring date is now relative to the present.
  */
 @SpringBootTest
 @Transactional
@@ -57,6 +65,16 @@ class AppointmentServiceTest {
     @Autowired
     private AvailabilityRuleRepository availabilityRuleRepository;
 
+    /**
+     * Next Monday relative to today, always in the future, always a {@code MONDAY}.
+     * Used as the stable anchor for every booking date in this suite.
+     *
+     * @return the date of the upcoming Monday
+     */
+    private static LocalDate nextMonday() {
+        return LocalDate.now(ZoneOffset.UTC).with(TemporalAdjusters.next(MONDAY));
+    }
+
     @Test
     @DisplayName("Should create appointment when all conditions are valid")
     void shouldCreateAppointmentWhenAllConditionsAreValid() {
@@ -78,7 +96,7 @@ class AppointmentServiceTest {
                 client,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         assertThat(appointment).isNotNull();
@@ -101,7 +119,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Client is not linked to provider");
     }
@@ -122,7 +140,7 @@ class AppointmentServiceTest {
                         client,
                         providerOne.getId(),
                         foreignOffering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Offering not found for provider");
     }
@@ -137,7 +155,7 @@ class AppointmentServiceTest {
                         provider,
                         provider.getId(),
                         1L,
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Only client can request appointment");
     }
@@ -184,7 +202,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 12, 30)
+                        nextMonday().atTime(12, 30)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -211,7 +229,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 2, 8, 0)
+                        nextMonday().plusDays(1).atTime(8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -231,11 +249,11 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
-    
+
     @Test
     @DisplayName("Should reject appointment when time conflicts with existing appointment")
     void shouldRejectAppointmentWhenTimeConflictsWithExistingAppointment() {
@@ -259,7 +277,7 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         assertThatThrownBy(() ->
@@ -267,11 +285,11 @@ class AppointmentServiceTest {
                         secondClient,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 30)
+                        nextMonday().atTime(8, 30)
                 )
         ).hasMessageContaining("Time slot is already booked");
     }
-    
+
     @Test
     @DisplayName("Should allow appointment starting when existing appointment ends")
     void shouldAllowAppointmentStartingWhenExistingAppointmentEnds() {
@@ -295,18 +313,62 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         Appointment secondAppointment = appointmentService.requestAppointment(
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 9, 0)
+                nextMonday().atTime(9, 0)
         );
 
         assertThat(secondAppointment).isNotNull();
         assertThat(secondAppointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+    }
+
+    @Test
+    @DisplayName("Should exclude requested appointment time from bookable times")
+    void shouldExcludeRequestedAppointmentTimeFromBookableTimes() {
+        User provider = createProvider("provider-bookable");
+        User firstClient = createClient("client-bookable-one");
+        User secondClient = createClient("client-bookable-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        appointmentService.requestAppointment(
+                firstClient,
+                provider.getId(),
+                offering.getId(),
+                nextMonday().atTime(8, 30)
+        );
+
+        List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
+                provider,
+                offering,
+                nextMonday()
+        );
+
+        assertThat(bookableTimes)
+                .doesNotContain(LocalTime.of(10, 0))
+                .doesNotContain(LocalTime.of(10, 15))
+                .doesNotContain(LocalTime.of(10, 30))
+                .doesNotContain(LocalTime.of(10, 45))
+                .doesNotContain(LocalTime.of(11, 0))
+                .contains(LocalTime.of(9, 0))
+                .contains(LocalTime.of(9, 30))
+                .contains(LocalTime.of(11, 30))
+                .contains(LocalTime.of(12, 0));
     }
 
     private User createProvider(String usernamePrefix) {
@@ -355,11 +417,13 @@ class AppointmentServiceTest {
                                     AvailabilityDay day,
                                     LocalTime startTime,
                                     LocalTime endTime) {
+        LocalDate anchor = nextMonday();
+
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 6, 1),
-                        LocalDate.of(2026, 6, 30),
+                        anchor,
+                        anchor.plusDays(30),
                         PROVIDER_TIMEZONE
                 )
         );
@@ -372,49 +436,5 @@ class AppointmentServiceTest {
                         endTime
                 )
         );
-    }
-    
-    @Test
-    @DisplayName("Should exclude requested appointment time from bookable times")
-    void shouldExcludeRequestedAppointmentTimeFromBookableTimes() {
-        User provider = createProvider("provider-bookable");
-        User firstClient = createClient("client-bookable-one");
-        User secondClient = createClient("client-bookable-two");
-
-        linkClient(provider, firstClient);
-        linkClient(provider, secondClient);
-
-        Offering offering = createOffering(provider);
-
-        createAvailability(
-                provider,
-                AvailabilityDay.MONDAY,
-                LocalTime.of(9, 0),
-                LocalTime.of(13, 0)
-        );
-
-        appointmentService.requestAppointment(
-                firstClient,
-                provider.getId(),
-                offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 30)
-        );
-
-        List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
-                provider,
-                offering,
-                LocalDate.of(2026, 6, 1)
-        );
-
-        assertThat(bookableTimes)
-        .doesNotContain(LocalTime.of(10, 0))
-        .doesNotContain(LocalTime.of(10, 15))
-        .doesNotContain(LocalTime.of(10, 30))
-        .doesNotContain(LocalTime.of(10, 45))
-        .doesNotContain(LocalTime.of(11, 0))
-        .contains(LocalTime.of(9, 0))
-        .contains(LocalTime.of(9, 30))
-        .contains(LocalTime.of(11, 30))
-        .contains(LocalTime.of(12, 0));
     }
 }

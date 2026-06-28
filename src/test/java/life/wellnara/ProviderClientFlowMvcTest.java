@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +35,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration MVC tests for complete provider-client flow.
+ * Integration MVC tests for the complete provider-client flow.
+ *
+ * <p>Email delivery is replaced by an inert {@link JavaMailSender} so these tests never reach a
+ * real SMTP provider; they assert application flow and link visibility. The construction and
+ * dispatch of invitation emails is verified separately in
+ * {@code life.wellnara.service.email.InvitationNotificationServiceTest}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -52,9 +59,12 @@ class ProviderClientFlowMvcTest {
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
 
+    @MockBean
+    private JavaMailSender mailSender;
+
     @Test
-    @DisplayName("Should invite client successfully and show invite link only once")
-    void shouldInviteClientSuccessfullyAndShowInviteLinkOnlyOnce() throws Exception {
+    @DisplayName("Should invite client successfully and show confirmation only once")
+    void shouldInviteClientSuccessfullyAndShowConfirmationOnlyOnce() throws Exception {
         User provider = createProvider("provider-one", "provider-one@example.com", "123");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
@@ -66,12 +76,11 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Client registration link:")))
-                .andExpect(content().string(containsString("http://localhost:8080/client/register?token=")));
+                .andExpect(content().string(containsString("Приглашение отправлено на client-one@example.com")));
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Client registration link:"))));
+                .andExpect(content().string(not(containsString("Приглашение отправлено на"))));
 
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }
@@ -116,13 +125,13 @@ class ProviderClientFlowMvcTest {
                 .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
 
         MvcResult registrationResult = mockMvc.perform(post("/client/register")
-                        .param("token", invitation.getToken())
-                        .param("name", "client-three")
-                        .param("password", "pass123")
-                        .param("confirmPassword", "pass123"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wellnara Client")))
-                .andReturn();
+                .param("token", invitation.getToken())
+                .param("name", "client-three")
+                .param("password", "pass123")
+                .param("confirmPassword", "pass123"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/client"))
+        .andReturn();
 
         HttpSession clientSession = registrationResult.getRequest().getSession(false);
         assertThat(clientSession).isNotNull();
@@ -221,7 +230,7 @@ class ProviderClientFlowMvcTest {
 
         linkClient(provider, client);
 
-        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+        MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
         mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
                         .session(adminSession))
@@ -249,7 +258,7 @@ class ProviderClientFlowMvcTest {
 
         linkClient(provider, client);
 
-        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+        MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
         mockMvc.perform(post("/admin/users/{id}/delete", provider.getId())
                         .session(adminSession))
@@ -282,8 +291,9 @@ class ProviderClientFlowMvcTest {
     }
 
     private ClientInvitation createClientInvitation(User provider, String email) {
-        ClientInvitation invitation = new ClientInvitation(provider, email);
-        return clientInvitationRepository.save(invitation);
+        LocalDateTime now = LocalDateTime.now();
+        return clientInvitationRepository.save(
+                new ClientInvitation(provider, email, now, now.plusDays(7)));
     }
 
     private ProviderClientLink linkClient(User provider, User client) {
@@ -304,7 +314,7 @@ class ProviderClientFlowMvcTest {
                 .map(ClientInvitation::getToken)
                 .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
     }
-
+    
     private MockHttpSession loginAs(String username,
                                     String password,
                                     String expectedRedirectUrl) throws Exception {

@@ -9,5 +9,5 @@ public interface ProviderInvitationRepository extends JpaRepository<ProviderInvi
 
     Optional<ProviderInvitation> findByToken(String token);
 
-    boolean existsByEmail(String email);
+    Optional<ProviderInvitation> findByEmail(String email);
 }

@@ -7,11 +7,15 @@ import life.wellnara.model.UserRole;
 import life.wellnara.repository.ClientInvitationRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
+import life.wellnara.service.time.ApplicationTimeService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
- * Service for client invitation and registration flow.
+ * Service for the client invitation and registration flow.
  */
 @Service
 public class ClientInvitationService {
@@ -19,66 +23,75 @@ public class ClientInvitationService {
     private final ClientInvitationRepository clientInvitationRepository;
     private final ProviderClientLinkRepository providerClientLinkRepository;
     private final UserRepository userRepository;
+    private final ApplicationTimeService applicationTimeService;
+    private final long ttlDays;
 
     /**
-     * Creates client invitation service.
+     * Creates the client invitation service.
      *
-     * @param clientInvitationRepository repository for client invitations
+     * @param clientInvitationRepository   repository for client invitations
      * @param providerClientLinkRepository repository for provider-client links
-     * @param userRepository repository for users
+     * @param userRepository               repository for users
+     * @param applicationTimeService       source of current application time (UTC)
+     * @param ttlDays                      number of days an invitation stays valid
      */
     public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
                                    ProviderClientLinkRepository providerClientLinkRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   ApplicationTimeService applicationTimeService,
+                                   @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.clientInvitationRepository = clientInvitationRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
+        this.applicationTimeService = applicationTimeService;
+        this.ttlDays = ttlDays;
     }
 
     /**
-     * Creates client invitation for given provider and email.
+     * Creates a client invitation for the given provider and email.
+     * An existing expired invitation for the same email is replaced; an active one is rejected.
      *
      * @param provider inviting provider
-     * @param email invited client email
+     * @param email    invited client email
      * @return generated invitation token
      */
     @Transactional
     public String invite(User provider, String email) {
-        validateProvider(provider);
-        validateEmail(email);
+        requireProviderRole(provider);
+        requireEmailNotRegistered(email);
 
-        ClientInvitation invitation = new ClientInvitation(provider, email);
+        LocalDateTime now = applicationTimeService.currentUtcDateTime();
+        discardExistingExpiredOrReject(email, now);
+
+        ClientInvitation invitation =
+                new ClientInvitation(provider, email, now, now.plusDays(ttlDays));
         clientInvitationRepository.save(invitation);
 
         return invitation.getToken();
     }
 
     /**
-     * Returns invited client email by invitation token.
+     * Returns the invited client email by invitation token.
      *
      * @param token invitation token
-     * @return email from invitation
+     * @return email from the invitation
      */
     @Transactional(readOnly = true)
     public String getEmailByToken(String token) {
-        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
-
-        return invitation.getEmail();
+        return requireValidInvitation(token).getEmail();
     }
 
     /**
-     * Registers client by invitation token.
+     * Registers a client by invitation token.
      *
-     * @param token invitation token
-     * @param name client username
+     * @param token    invitation token
+     * @param name     client username
      * @param password client password
      * @return created client user
      */
     @Transactional
     public User register(String token, String name, String password) {
-        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+        ClientInvitation invitation = requireValidInvitation(token);
 
         User client = new User();
         client.setEmail(invitation.getEmail());
@@ -91,8 +104,7 @@ public class ClientInvitationService {
         ProviderClientLink providerClientLink = new ProviderClientLink(
                 invitation.getProvider(),
                 savedClient,
-                invitation.getInvitedAt()
-        );
+                invitation.getInvitedAt());
         providerClientLinkRepository.save(providerClientLink);
 
         clientInvitationRepository.delete(invitation);
@@ -100,29 +112,35 @@ public class ClientInvitationService {
         return savedClient;
     }
 
-    /**
-     * Validates inviting user role.
-     *
-     * @param provider inviting user
-     */
-    private void validateProvider(User provider) {
+    private void requireProviderRole(User provider) {
         if (provider.getRole() != UserRole.PROVIDER) {
             throw new IllegalArgumentException("Only provider can invite client");
         }
     }
 
-    /**
-     * Validates invited client email.
-     *
-     * @param email invited email
-     */
-    private void validateEmail(String email) {
+    private void requireEmailNotRegistered(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already used");
         }
+    }
 
-        if (clientInvitationRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Invitation already exists");
+    private void discardExistingExpiredOrReject(String email, LocalDateTime now) {
+        clientInvitationRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.isExpired(now)) {
+                throw new IllegalArgumentException("Invitation already exists");
+            }
+            clientInvitationRepository.delete(existing);
+        });
+    }
+
+    private ClientInvitation requireValidInvitation(String token) {
+        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        if (invitation.isExpired(applicationTimeService.currentUtcDateTime())) {
+            throw new IllegalArgumentException("Invitation has expired");
         }
+
+        return invitation;
     }
 }

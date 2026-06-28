@@ -432,12 +432,9 @@
     <p th:text="${inviteError}"></p>
 </div>
 
-<div th:if="${providerInviteLink}" style="margin-top: 20px;">
-    <p>Provider registration link:</p>
-    <p>
-        <a th:href="${providerInviteLink}"
-           th:text="${providerInviteLink}"></a>
-    </p>
+<div th:if="${providerInviteSuccessMessage}"
+     style="margin-top: 15px; color: green;">
+    <p th:text="${providerInviteSuccessMessage}"></p>
 </div>
 
 <div style="margin-top: 30px;">
@@ -653,11 +650,8 @@
 			<p th:text="${clientInviteError}"></p>
 		</div>
 
-		<div th:if="${clientInviteLink}">
-			<p>Client registration link:</p>
-			<p>
-				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
-			</p>
+		<div th:if="${clientInviteSuccessMessage}" style="color: green;">
+			<p th:text="${clientInviteSuccessMessage}"></p>
 		</div>
 
 		<div style="margin-top: 40px;">
@@ -1065,6 +1059,7 @@
 
 </body>
 </html>
+
 ===== ./target/classes/templates/client-register.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -1600,7 +1595,7 @@ class ProviderCalendarValidatorTest {
     @Test
     @DisplayName("Should reject end date before start date")
     void shouldRejectEndDateBeforeStartDate() {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Bratislava"));
+    	LocalDate today = currentDate;
 
         ProviderCalendarForm form = validForm();
         form.setPlanningFrom(today.plusDays(5));
@@ -1688,7 +1683,7 @@ class ProviderCalendarValidatorTest {
     }
 
     private ProviderCalendarForm validForm() {
-        LocalDate today = LocalDate.now(ZoneId.of("Europe/Bratislava"));
+    	LocalDate today = currentDate;
 
         ProviderCalendarForm form = new ProviderCalendarForm();
         form.setPlanningFrom(today.plusDays(1));
@@ -2058,6 +2053,70 @@ class AppointmentLifecycleMvcTest {
         assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
     }
 }
+===== ./src/test/java/life/wellnara/InvitationNotificationServiceTest.java =====
+package life.wellnara;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import life.wellnara.service.email.EmailService;
+import life.wellnara.service.email.InvitationNotificationService;
+
+import static org.mockito.ArgumentMatchers.any;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+/**
+ * Unit tests for {@link InvitationNotificationService}.
+ *
+ * <p>Verifies the product behavior that matters: an invitation email is dispatched to the
+ * correct recipient and its body carries a registration link containing the token.
+ * {@link EmailService} is a collaborator whose call is captured and asserted, so email
+ * content is checked without any SMTP dependency.
+ */
+class InvitationNotificationServiceTest {
+
+    private static final String BASE_URL = "https://app.wellnara.life";
+    private static final String TOKEN = "11111111-2222-3333-4444-555555555555";
+
+    @Test
+    @DisplayName("Should send provider invitation to the recipient with a registration link carrying the token")
+    void shouldSendProviderInvitationWithRegistrationLink() {
+        EmailService emailService = mock(EmailService.class);
+        InvitationNotificationService notificationService =
+                new InvitationNotificationService(emailService, BASE_URL);
+
+        notificationService.sendProviderInvitation("provider@example.com", TOKEN);
+
+        ArgumentCaptor<String> recipient = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendPlainTextEmail(recipient.capture(), any(), body.capture());
+
+        assertThat(recipient.getValue()).isEqualTo("provider@example.com");
+        assertThat(body.getValue()).contains(BASE_URL + "/provider/register?token=" + TOKEN);
+    }
+
+    @Test
+    @DisplayName("Should send client invitation to the recipient with a registration link carrying the token")
+    void shouldSendClientInvitationWithRegistrationLink() {
+        EmailService emailService = mock(EmailService.class);
+        InvitationNotificationService notificationService =
+                new InvitationNotificationService(emailService, BASE_URL);
+
+        notificationService.sendClientInvitation("client@example.com", TOKEN);
+
+        ArgumentCaptor<String> recipient = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendPlainTextEmail(recipient.capture(), any(), body.capture());
+
+        assertThat(recipient.getValue()).isEqualTo("client@example.com");
+        assertThat(body.getValue()).contains(BASE_URL + "/client/register?token=" + TOKEN);
+    }
+}
+
 ===== ./src/test/java/life/wellnara/ProviderClientFlowMvcTest.java =====
 package life.wellnara;
 
@@ -2074,6 +2133,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
@@ -2094,7 +2155,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration MVC tests for complete provider-client flow.
+ * Integration MVC tests for the complete provider-client flow.
+ *
+ * <p>Email delivery is replaced by an inert {@link JavaMailSender} so these tests never reach a
+ * real SMTP provider; they assert application flow and link visibility. The construction and
+ * dispatch of invitation emails is verified separately in
+ * {@code life.wellnara.service.email.InvitationNotificationServiceTest}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -2113,9 +2179,12 @@ class ProviderClientFlowMvcTest {
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
 
+    @MockBean
+    private JavaMailSender mailSender;
+
     @Test
-    @DisplayName("Should invite client successfully and show invite link only once")
-    void shouldInviteClientSuccessfullyAndShowInviteLinkOnlyOnce() throws Exception {
+    @DisplayName("Should invite client successfully and show confirmation only once")
+    void shouldInviteClientSuccessfullyAndShowConfirmationOnlyOnce() throws Exception {
         User provider = createProvider("provider-one", "provider-one@example.com", "123");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
@@ -2127,12 +2196,11 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Client registration link:")))
-                .andExpect(content().string(containsString("http://localhost:8080/client/register?token=")));
+                .andExpect(content().string(containsString("Приглашение отправлено на client-one@example.com")));
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Client registration link:"))));
+                .andExpect(content().string(not(containsString("Приглашение отправлено на"))));
 
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }
@@ -2343,8 +2411,9 @@ class ProviderClientFlowMvcTest {
     }
 
     private ClientInvitation createClientInvitation(User provider, String email) {
-        ClientInvitation invitation = new ClientInvitation(provider, email);
-        return clientInvitationRepository.save(invitation);
+        LocalDateTime now = LocalDateTime.now();
+        return clientInvitationRepository.save(
+                new ClientInvitation(provider, email, now, now.plusDays(7)));
     }
 
     private ProviderClientLink linkClient(User provider, User client) {
@@ -2379,6 +2448,7 @@ class ProviderClientFlowMvcTest {
         return (MockHttpSession) result.getRequest().getSession(false);
     }
 }
+
 ===== ./src/test/java/life/wellnara/AppointmentRepositoryTest.java =====
 package life.wellnara;
 
@@ -3062,7 +3132,6 @@ class ClientAppointmentMvcTest {
 package life.wellnara;
 
 import jakarta.servlet.http.HttpSession;
-import life.wellnara.model.ProviderInvitation;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.ProviderInvitationRepository;
@@ -3073,6 +3142,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
@@ -3083,7 +3154,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
-import static org.springframework.test.web.ModelAndViewAssert.assertViewName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -3092,15 +3162,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration MVC tests for admin invitation flow and provider registration flow.
+ * Integration MVC tests for the admin invitation flow and provider registration flow.
  *
- * <p>These tests verify the real interaction between:
- * controllers, session state, redirects, template rendering and database state.
+ * <p>Email delivery is replaced by an inert {@link JavaMailSender} so these tests never reach a
+ * real SMTP provider. The construction and dispatch of invitation emails is verified separately in
+ * {@code life.wellnara.service.email.InvitationNotificationServiceTest}.
  *
  * <p>Covered scenarios:
  * <ul>
  *     <li>Admin invite with existing email returns validation error instead of HTTP 500.</li>
- *     <li>Successful invite shows registration link only once.</li>
+ *     <li>Successful invite shows a confirmation message only once.</li>
  *     <li>Provider registration with mismatched passwords returns user to registration page.</li>
  *     <li>Successful provider registration is followed by logout and normal login flow.</li>
  * </ul>
@@ -3122,20 +3193,9 @@ class ProviderAdminFlowMvcTest {
     @Autowired
     private ProviderInvitationService providerInvitationService;
 
-    /**
-     * Verifies that if admin tries to invite a provider using an email
-     * that already exists in the system, the application does not fail with HTTP 500.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>request returns HTTP 200,</li>
-     *     <li>admin page is rendered again,</li>
-     *     <li>validation message is added to the model,</li>
-     *     <li>users list remains available for rendering.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
+    @MockBean
+    private JavaMailSender mailSender;
+
     @Test
     @DisplayName("Should return admin page with error when invited email already exists")
     void shouldReturnAdminPageWithErrorWhenInvitedEmailAlreadyExists() throws Exception {
@@ -3158,21 +3218,9 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(content().string(containsString("Email already used")));
     }
 
-    /**
-     * Verifies one-time visibility of provider invitation link on admin page.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>after successful invite the controller redirects to /admin,</li>
-     *     <li>on first GET /admin the registration link is visible,</li>
-     *     <li>on second GET /admin with the same session the link is no longer visible.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
-    @DisplayName("Should show provider invite link only once after successful invitation")
-    void shouldShowProviderInviteLinkOnlyOnceAfterSuccessfulInvitation() throws Exception {
+    @DisplayName("Should show provider invitation confirmation only once after successful invitation")
+    void shouldShowProviderInvitationConfirmationOnlyOnceAfterSuccessfulInvitation() throws Exception {
         User admin = getAdminUser();
         MockHttpSession session = createSessionWithCurrentUser(admin);
 
@@ -3184,28 +3232,13 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Provider registration link:")))
-                .andExpect(content().string(containsString("http://localhost:8080/provider/register?token=")));
+                .andExpect(content().string(containsString("Provider invitation was sent to new-provider@example.com")));
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Provider registration link:"))));
+                .andExpect(content().string(not(containsString("Provider invitation was sent to"))));
     }
 
-    /**
-     * Verifies that provider registration does not create a user
-     * when password and confirmPassword are different.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>registration page is rendered again,</li>
-     *     <li>error message is shown,</li>
-     *     <li>token and email remain available in the model,</li>
-     *     <li>new provider user is not saved in the database.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should return registration page with error when passwords do not match")
     void shouldReturnRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
@@ -3226,21 +3259,6 @@ class ProviderAdminFlowMvcTest {
         assertThat(invitationRepository.findByToken(token)).isPresent();
     }
 
-    /**
-     * Verifies complete successful provider registration flow,
-     * followed by logout and normal login with the same credentials.
-     *
-     * <p>Expected behavior:
-     * <ul>
-     *     <li>successful registration opens provider page immediately,</li>
-     *     <li>success message and provider email are shown right after registration,</li>
-     *     <li>logout invalidates current session and redirects to login page,</li>
-     *     <li>subsequent login with the same credentials redirects to /provider,</li>
-     *     <li>regular provider page after login does not show registration completion message.</li>
-     * </ul>
-     *
-     * @throws Exception if MockMvc request fails
-     */
     @Test
     @DisplayName("Should register provider successfully and allow logout then login")
     @DirtiesContext
@@ -3293,28 +3311,18 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(content().string(containsString(username)));
     }
 
-    /**
-     * Returns preloaded admin user from test database.
-     *
-     * @return admin user
-     */
     private User getAdminUser() {
         return userRepository.findByUsername("admin")
                 .orElseThrow(() -> new IllegalStateException("Admin user not found in test database"));
     }
 
-    /**
-     * Creates session containing authenticated current user.
-     *
-     * @param user authenticated user
-     * @return mock HTTP session with currentUser attribute
-     */
     private MockHttpSession createSessionWithCurrentUser(User user) {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("currentUser", user);
         return session;
     }
 }
+
 ===== ./src/test/java/life/wellnara/ProviderCalendarMvcTest.java =====
 package life.wellnara;
 
@@ -4097,13 +4105,21 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
+import static java.time.DayOfWeek.MONDAY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for appointment request business logic.
+ *
+ * <p>All booking dates are derived from {@link #nextMonday()} rather than hardcoded calendar
+ * dates, so the suite never depends on the current date and cannot rot as time passes. The
+ * provider availability window (Monday 09:00–13:00) and the requested times mirror the original
+ * scenarios; only the anchoring date is now relative to the present.
  */
 @SpringBootTest
 @Transactional
@@ -4129,6 +4145,16 @@ class AppointmentServiceTest {
     @Autowired
     private AvailabilityRuleRepository availabilityRuleRepository;
 
+    /**
+     * Next Monday relative to today, always in the future, always a {@code MONDAY}.
+     * Used as the stable anchor for every booking date in this suite.
+     *
+     * @return the date of the upcoming Monday
+     */
+    private static LocalDate nextMonday() {
+        return LocalDate.now(ZoneOffset.UTC).with(TemporalAdjusters.next(MONDAY));
+    }
+
     @Test
     @DisplayName("Should create appointment when all conditions are valid")
     void shouldCreateAppointmentWhenAllConditionsAreValid() {
@@ -4150,7 +4176,7 @@ class AppointmentServiceTest {
                 client,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         assertThat(appointment).isNotNull();
@@ -4173,7 +4199,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Client is not linked to provider");
     }
@@ -4194,7 +4220,7 @@ class AppointmentServiceTest {
                         client,
                         providerOne.getId(),
                         foreignOffering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Offering not found for provider");
     }
@@ -4209,7 +4235,7 @@ class AppointmentServiceTest {
                         provider,
                         provider.getId(),
                         1L,
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Only client can request appointment");
     }
@@ -4256,7 +4282,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 12, 30)
+                        nextMonday().atTime(12, 30)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -4283,7 +4309,7 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 2, 8, 0)
+                        nextMonday().plusDays(1).atTime(8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
@@ -4303,11 +4329,11 @@ class AppointmentServiceTest {
                         client,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 0)
+                        nextMonday().atTime(8, 0)
                 )
         ).hasMessageContaining("Requested time is not available");
     }
-    
+
     @Test
     @DisplayName("Should reject appointment when time conflicts with existing appointment")
     void shouldRejectAppointmentWhenTimeConflictsWithExistingAppointment() {
@@ -4331,7 +4357,7 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         assertThatThrownBy(() ->
@@ -4339,11 +4365,11 @@ class AppointmentServiceTest {
                         secondClient,
                         provider.getId(),
                         offering.getId(),
-                        LocalDateTime.of(2026, 6, 1, 8, 30)
+                        nextMonday().atTime(8, 30)
                 )
         ).hasMessageContaining("Time slot is already booked");
     }
-    
+
     @Test
     @DisplayName("Should allow appointment starting when existing appointment ends")
     void shouldAllowAppointmentStartingWhenExistingAppointmentEnds() {
@@ -4367,18 +4393,62 @@ class AppointmentServiceTest {
                 firstClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 0)
+                nextMonday().atTime(8, 0)
         );
 
         Appointment secondAppointment = appointmentService.requestAppointment(
                 secondClient,
                 provider.getId(),
                 offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 9, 0)
+                nextMonday().atTime(9, 0)
         );
 
         assertThat(secondAppointment).isNotNull();
         assertThat(secondAppointment.getStatus()).isEqualTo(AppointmentStatus.REQUESTED);
+    }
+
+    @Test
+    @DisplayName("Should exclude requested appointment time from bookable times")
+    void shouldExcludeRequestedAppointmentTimeFromBookableTimes() {
+        User provider = createProvider("provider-bookable");
+        User firstClient = createClient("client-bookable-one");
+        User secondClient = createClient("client-bookable-two");
+
+        linkClient(provider, firstClient);
+        linkClient(provider, secondClient);
+
+        Offering offering = createOffering(provider);
+
+        createAvailability(
+                provider,
+                AvailabilityDay.MONDAY,
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+        );
+
+        appointmentService.requestAppointment(
+                firstClient,
+                provider.getId(),
+                offering.getId(),
+                nextMonday().atTime(8, 30)
+        );
+
+        List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
+                provider,
+                offering,
+                nextMonday()
+        );
+
+        assertThat(bookableTimes)
+                .doesNotContain(LocalTime.of(10, 0))
+                .doesNotContain(LocalTime.of(10, 15))
+                .doesNotContain(LocalTime.of(10, 30))
+                .doesNotContain(LocalTime.of(10, 45))
+                .doesNotContain(LocalTime.of(11, 0))
+                .contains(LocalTime.of(9, 0))
+                .contains(LocalTime.of(9, 30))
+                .contains(LocalTime.of(11, 30))
+                .contains(LocalTime.of(12, 0));
     }
 
     private User createProvider(String usernamePrefix) {
@@ -4427,11 +4497,13 @@ class AppointmentServiceTest {
                                     AvailabilityDay day,
                                     LocalTime startTime,
                                     LocalTime endTime) {
+        LocalDate anchor = nextMonday();
+
         AvailabilityPeriod period = availabilityPeriodRepository.save(
                 new AvailabilityPeriod(
                         provider,
-                        LocalDate.of(2026, 6, 1),
-                        LocalDate.of(2026, 6, 30),
+                        anchor,
+                        anchor.plusDays(30),
                         PROVIDER_TIMEZONE
                 )
         );
@@ -4445,51 +4517,8 @@ class AppointmentServiceTest {
                 )
         );
     }
-    
-    @Test
-    @DisplayName("Should exclude requested appointment time from bookable times")
-    void shouldExcludeRequestedAppointmentTimeFromBookableTimes() {
-        User provider = createProvider("provider-bookable");
-        User firstClient = createClient("client-bookable-one");
-        User secondClient = createClient("client-bookable-two");
-
-        linkClient(provider, firstClient);
-        linkClient(provider, secondClient);
-
-        Offering offering = createOffering(provider);
-
-        createAvailability(
-                provider,
-                AvailabilityDay.MONDAY,
-                LocalTime.of(9, 0),
-                LocalTime.of(13, 0)
-        );
-
-        appointmentService.requestAppointment(
-                firstClient,
-                provider.getId(),
-                offering.getId(),
-                LocalDateTime.of(2026, 6, 1, 8, 30)
-        );
-
-        List<LocalTime> bookableTimes = appointmentService.getBookableTimes(
-                provider,
-                offering,
-                LocalDate.of(2026, 6, 1)
-        );
-
-        assertThat(bookableTimes)
-        .doesNotContain(LocalTime.of(10, 0))
-        .doesNotContain(LocalTime.of(10, 15))
-        .doesNotContain(LocalTime.of(10, 30))
-        .doesNotContain(LocalTime.of(10, 45))
-        .doesNotContain(LocalTime.of(11, 0))
-        .contains(LocalTime.of(9, 0))
-        .contains(LocalTime.of(9, 30))
-        .contains(LocalTime.of(11, 30))
-        .contains(LocalTime.of(12, 0));
-    }
 }
+
 ===== ./src/test/java/life/wellnara/AppointmentSchedulingFlowTest.java =====
 package life.wellnara;
 
@@ -5345,12 +5374,9 @@ class AppointmentSchedulingFlowTest {
     <p th:text="${inviteError}"></p>
 </div>
 
-<div th:if="${providerInviteLink}" style="margin-top: 20px;">
-    <p>Provider registration link:</p>
-    <p>
-        <a th:href="${providerInviteLink}"
-           th:text="${providerInviteLink}"></a>
-    </p>
+<div th:if="${providerInviteSuccessMessage}"
+     style="margin-top: 15px; color: green;">
+    <p th:text="${providerInviteSuccessMessage}"></p>
 </div>
 
 <div style="margin-top: 30px;">
@@ -5566,11 +5592,8 @@ class AppointmentSchedulingFlowTest {
 			<p th:text="${clientInviteError}"></p>
 		</div>
 
-		<div th:if="${clientInviteLink}">
-			<p>Client registration link:</p>
-			<p>
-				<a th:href="${clientInviteLink}" th:text="${clientInviteLink}"></a>
-			</p>
+		<div th:if="${clientInviteSuccessMessage}" style="color: green;">
+			<p th:text="${clientInviteSuccessMessage}"></p>
 		</div>
 
 		<div style="margin-top: 40px;">
@@ -5978,6 +6001,7 @@ class AppointmentSchedulingFlowTest {
 
 </body>
 </html>
+
 ===== ./src/main/resources/templates/client-register.html =====
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
@@ -6608,8 +6632,9 @@ public interface ProviderInvitationRepository extends JpaRepository<ProviderInvi
 
     Optional<ProviderInvitation> findByToken(String token);
 
-    boolean existsByEmail(String email);
+    Optional<ProviderInvitation> findByEmail(String email);
 }
+
 ===== ./src/main/java/life/wellnara/repository/ClientInvitationRepository.java =====
 package life.wellnara.repository;
 
@@ -6624,7 +6649,7 @@ import java.util.Optional;
 public interface ClientInvitationRepository extends JpaRepository<ClientInvitation, Long> {
 
     /**
-     * Finds client invitation by token.
+     * Finds a client invitation by token.
      *
      * @param token invitation token
      * @return found invitation or empty result
@@ -6632,13 +6657,22 @@ public interface ClientInvitationRepository extends JpaRepository<ClientInvitati
     Optional<ClientInvitation> findByToken(String token);
 
     /**
-     * Checks whether invitation for email already exists.
+     * Finds a client invitation by invited email.
      *
      * @param email invited email
-     * @return true if invitation exists
+     * @return found invitation or empty result
+     */
+    Optional<ClientInvitation> findByEmail(String email);
+
+    /**
+     * Checks whether an invitation for the given email exists.
+     *
+     * @param email invited email
+     * @return true if an invitation exists
      */
     boolean existsByEmail(String email);
 }
+
 ===== ./src/main/java/life/wellnara/repository/UserRepository.java =====
 package life.wellnara.repository;
 
@@ -6786,7 +6820,6 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.SessionUserService;
-
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -6799,65 +6832,66 @@ import org.springframework.web.bind.annotation.PostMapping;
 @Controller
 public class AdminController {
 
-	private final AdminUserService adminUserService;
-	private final SessionUserService sessionUserService;
+    private final AdminUserService adminUserService;
+    private final SessionUserService sessionUserService;
 
-	/**
-	 * Creates admin controller.
-	 *
-	 * @param adminUserService service for admin user operations
-	 */
-	public AdminController(AdminUserService adminUserService,
-			SessionUserService sessionUserService) {
-		this.adminUserService = adminUserService;
-		this.sessionUserService = sessionUserService;
-	}
+    /**
+     * Creates admin controller.
+     *
+     * @param adminUserService service for admin user operations
+     * @param sessionUserService service for authenticated session user access
+     */
+    public AdminController(AdminUserService adminUserService,
+                           SessionUserService sessionUserService) {
+        this.adminUserService = adminUserService;
+        this.sessionUserService = sessionUserService;
+    }
 
-	/**
-	 * Shows admin page for authenticated admin user.
-	 *
-	 * @param session current HTTP session
-	 * @param model MVC model
-	 * @return admin page view name or redirect to login page
-	 */
-	@GetMapping("/admin")
-	public String showPage(HttpSession session, Model model) {
-		User currentUser = sessionUserService.requireAdmin(session);
+    /**
+     * Shows admin page for authenticated admin user.
+     *
+     * @param session current HTTP session
+     * @param model MVC model
+     * @return admin page view name or redirect to login page
+     */
+    @GetMapping("/admin")
+    public String showPage(HttpSession session, Model model) {
+        User currentUser = sessionUserService.requireAdmin(session);
 
-		if (currentUser == null) {
-		    return "redirect:/auth/login";
-		}
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
 
-		Object providerInviteLink = session.getAttribute("providerInviteLink");
-		if (providerInviteLink != null) {
-			model.addAttribute("providerInviteLink", providerInviteLink);
-			session.removeAttribute("providerInviteLink");
-		}
+        Object providerInviteSuccessMessage = session.getAttribute("providerInviteSuccessMessage");
+        if (providerInviteSuccessMessage != null) {
+            model.addAttribute("providerInviteSuccessMessage", providerInviteSuccessMessage);
+            session.removeAttribute("providerInviteSuccessMessage");
+        }
 
-		model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
+        model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
 
-		return "admin";
-	}
+        return "admin";
+    }
 
-	/**
-	 * Deletes non-admin user by id.
-	 *
-	 * @param id user identifier
-	 * @param session current HTTP session
-	 * @return redirect to admin page or login page
-	 */
-	@PostMapping("/admin/users/{id}/delete")
-	public String deleteUser(@PathVariable Long id, HttpSession session) {
-		User currentUser = sessionUserService.requireAdmin(session);
+    /**
+     * Deletes non-admin user by id.
+     *
+     * @param id user identifier
+     * @param session current HTTP session
+     * @return redirect to admin page or login page
+     */
+    @PostMapping("/admin/users/{id}/delete")
+    public String deleteUser(@PathVariable Long id, HttpSession session) {
+        User currentUser = sessionUserService.requireAdmin(session);
 
-		if (currentUser == null) {
-		    return "redirect:/auth/login";
-		}
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
 
-		adminUserService.deleteNonAdminUser(id);
+        adminUserService.deleteNonAdminUser(id);
 
-		return "redirect:/admin";
-	}
+        return "redirect:/admin";
+    }
 }
 ===== ./src/main/java/life/wellnara/controller/ClientController.java =====
 package life.wellnara.controller;
@@ -7711,64 +7745,65 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.ClientInvitationService;
 import life.wellnara.service.SessionUserService;
-
+import life.wellnara.service.email.InvitationNotificationService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Controller for client invitation from provider page.
+ * Controller for client invitation from the provider page.
  */
 @Controller
 public class ClientInvitationController {
 
-	private final ClientInvitationService clientInvitationService;
-	private final SessionUserService sessionUserService;
+    private final ClientInvitationService clientInvitationService;
+    private final SessionUserService sessionUserService;
+    private final InvitationNotificationService invitationNotificationService;
 
-	/**
-	 * Creates client invitation controller.
-	 *
-	 * @param clientInvitationService service for client invitations
-	 * @param sessionUserService service for authenticated session user access
-	 */
-	public ClientInvitationController(ClientInvitationService clientInvitationService,
-			SessionUserService sessionUserService) {
-		this.clientInvitationService = clientInvitationService;
-		this.sessionUserService = sessionUserService;
-	}
+    /**
+     * Creates the client invitation controller.
+     *
+     * @param clientInvitationService       client invitation flow
+     * @param sessionUserService            authenticated session user access
+     * @param invitationNotificationService sends invitation emails
+     */
+    public ClientInvitationController(ClientInvitationService clientInvitationService,
+                                      SessionUserService sessionUserService,
+                                      InvitationNotificationService invitationNotificationService) {
+        this.clientInvitationService = clientInvitationService;
+        this.sessionUserService = sessionUserService;
+        this.invitationNotificationService = invitationNotificationService;
+    }
 
-	/**
-	 * Creates client invitation and stores registration link in session.
-	 *
-	 * @param email invited client email
-	 * @param session current HTTP session
-	 * @param model MVC model
-	 * @return redirect to provider page or provider page with validation error
-	 */
-	@PostMapping("/provider/invite-client")
-	public String inviteClient(@RequestParam String email,
-			HttpSession session) {
-		User currentUser = sessionUserService.requireProvider(session);
+    /**
+     * Creates a client invitation and sends the registration link by email.
+     *
+     * @param email   invited client email
+     * @param session current HTTP session
+     * @return redirect to the provider page
+     */
+    @PostMapping("/provider/invite-client")
+    public String inviteClient(@RequestParam String email, HttpSession session) {
+        User currentUser = sessionUserService.requireProvider(session);
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
 
-		if (currentUser == null) {
-			return "redirect:/auth/login";
-		}
+        try {
+            String token = clientInvitationService.invite(currentUser, email);
+            invitationNotificationService.sendClientInvitation(email, token);
 
-		try {
-			String token = clientInvitationService.invite(currentUser, email);
-			String link = "http://localhost:8080/client/register?token=" + token;
+            session.setAttribute("clientInviteSuccessMessage", "Приглашение отправлено на " + email);
+            session.removeAttribute("clientInviteError");
+        } catch (IllegalArgumentException exception) {
+            session.setAttribute("clientInviteError", exception.getMessage());
+            session.removeAttribute("clientInviteSuccessMessage");
+        }
 
-			session.setAttribute("clientInviteLink", link);
-			session.removeAttribute("clientInviteError");
-
-		} catch (IllegalArgumentException exception) {
-			session.setAttribute("clientInviteError", exception.getMessage());
-			session.removeAttribute("clientInviteLink");
-		}
-
-		return "redirect:/provider";
-	}    
+        return "redirect:/provider";
+    }
 }
+
 ===== ./src/main/java/life/wellnara/controller/OfferingController.java =====
 package life.wellnara.controller;
 
@@ -7907,71 +7942,73 @@ import life.wellnara.model.User;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.ProviderInvitationService;
 import life.wellnara.service.SessionUserService;
-
+import life.wellnara.service.email.InvitationNotificationService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Controller for provider invitation from admin page.
+ * Controller for provider invitation from the admin page.
  */
 @Controller
 public class ProviderInvitationController {
 
-	private final ProviderInvitationService service;
-	private final AdminUserService adminUserService;
-	private final SessionUserService sessionUserService;
+    private final ProviderInvitationService providerInvitationService;
+    private final AdminUserService adminUserService;
+    private final SessionUserService sessionUserService;
+    private final InvitationNotificationService invitationNotificationService;
 
-	/**
-	 * Creates provider invitation controller.
-	 *
-	 * @param service provider invitation service
-	 * @param adminUserService service for admin user operations
-	 * @param sessionUserService service for authenticated session user access
-	 */
-	public ProviderInvitationController(ProviderInvitationService service,
-			AdminUserService adminUserService,
-			SessionUserService sessionUserService) {
-		this.service = service;
-		this.adminUserService = adminUserService;
-		this.sessionUserService = sessionUserService;
-	}
+    /**
+     * Creates the provider invitation controller.
+     *
+     * @param providerInvitationService     provider invitation flow
+     * @param adminUserService              admin user operations
+     * @param sessionUserService            authenticated session user access
+     * @param invitationNotificationService sends invitation emails
+     */
+    public ProviderInvitationController(ProviderInvitationService providerInvitationService,
+                                        AdminUserService adminUserService,
+                                        SessionUserService sessionUserService,
+                                        InvitationNotificationService invitationNotificationService) {
+        this.providerInvitationService = providerInvitationService;
+        this.adminUserService = adminUserService;
+        this.sessionUserService = sessionUserService;
+        this.invitationNotificationService = invitationNotificationService;
+    }
 
-	/**
-	 * Creates provider invitation and stores registration link in session.
-	 *
-	 * @param email invited provider email
-	 * @param session current HTTP session
-	 * @param model MVC model
-	 * @return redirect to admin page or admin page with validation error
-	 */
-	@PostMapping("/admin/invite")
-	public String invite(@RequestParam String email,
-			HttpSession session,
-			Model model) {
-		User currentUser = sessionUserService.requireAdmin(session);
+    /**
+     * Creates a provider invitation and sends the registration link by email.
+     *
+     * @param email   invited provider email
+     * @param session current HTTP session
+     * @param model   MVC model
+     * @return redirect to the admin page, or the admin page with a validation error
+     */
+    @PostMapping("/admin/invite")
+    public String invite(@RequestParam String email,
+                         HttpSession session,
+                         Model model) {
+        User currentUser = sessionUserService.requireAdmin(session);
+        if (currentUser == null) {
+            return "redirect:/auth/login";
+        }
 
-		if (currentUser == null) {
-		    return "redirect:/auth/login";
-		}
+        try {
+            String token = providerInvitationService.invite(email);
+            invitationNotificationService.sendProviderInvitation(email, token);
 
-		try {
-			String token = service.invite(email);
-			String registrationLink = "http://localhost:8080/provider/register?token=" + token;
-
-			session.setAttribute("providerInviteLink", registrationLink);
-
-			return "redirect:/admin";
-		} catch (IllegalArgumentException exception) {
-			session.removeAttribute("providerInviteLink");
-
-			model.addAttribute("inviteError", exception.getMessage());
-			model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
-			return "admin";
-		}
-	}
+            session.setAttribute("providerInviteSuccessMessage", "Provider invitation was sent to " + email);
+            return "redirect:/admin";
+        } catch (IllegalArgumentException exception) {
+            session.removeAttribute("providerInviteSuccessMessage");
+            model.addAttribute("inviteError", exception.getMessage());
+            model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
+            return "admin";
+        }
+    }
 }
+
 ===== ./src/main/java/life/wellnara/controller/ProviderPageModelAssembler.java =====
 package life.wellnara.controller;
 
@@ -8218,7 +8255,7 @@ public class ProviderController {
         providerCalendarService.deleteExpiredAvailabilityOverrides(currentUser);
         appointmentService.deleteExpiredUnpaidAppointments();
 
-        moveSessionAttributeToModel(session, model, "clientInviteLink");
+        moveSessionAttributeToModel(session, model, "clientInviteSuccessMessage");
         moveSessionAttributeToModel(session, model, "clientInviteError");
 
         providerPageModelAssembler.populate(model, currentUser);
@@ -8237,11 +8274,18 @@ public class ProviderController {
         }
     }
 }
+
 ===== ./src/main/java/life/wellnara/model/ProviderInvitation.java =====
 package life.wellnara.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -8262,12 +8306,29 @@ public class ProviderInvitation {
     @Column(nullable = false, unique = true, updatable = false)
     private String token;
 
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime expiresAt;
+
+    /**
+     * Required by JPA.
+     */
     protected ProviderInvitation() {
     }
 
-    public ProviderInvitation(String email) {
+    /**
+     * Creates a provider invitation.
+     *
+     * @param email     invited provider email
+     * @param expiresAt moment after which the invitation is no longer valid (UTC)
+     */
+    public ProviderInvitation(String email, LocalDateTime expiresAt) {
         this.email = email;
         this.token = UUID.randomUUID().toString();
+        this.expiresAt = expiresAt;
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public String getEmail() {
@@ -8277,7 +8338,22 @@ public class ProviderInvitation {
     public String getToken() {
         return token;
     }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    /**
+     * Tells whether this invitation has expired at the given moment.
+     *
+     * @param now current moment (UTC)
+     * @return true if the invitation is no longer valid
+     */
+    public boolean isExpired(LocalDateTime now) {
+        return !now.isBefore(expiresAt);
+    }
 }
+
 ===== ./src/main/java/life/wellnara/model/UserRole.java =====
 package life.wellnara.model;
 
@@ -8924,7 +9000,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Invitation for client registration from provider.
+ * Invitation for client registration from a provider.
  * Removed after successful registration.
  */
 @Entity
@@ -8948,6 +9024,9 @@ public class ClientInvitation {
     @Column(nullable = false, updatable = false)
     private LocalDateTime invitedAt;
 
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime expiresAt;
+
     /**
      * Required by JPA.
      */
@@ -8955,16 +9034,19 @@ public class ClientInvitation {
     }
 
     /**
-     * Creates client invitation.
+     * Creates a client invitation.
      *
-     * @param provider provider who invites client
-     * @param email invited client email
+     * @param provider  provider who invites the client
+     * @param email     invited client email
+     * @param invitedAt moment the invitation was issued (UTC)
+     * @param expiresAt moment after which the invitation is no longer valid (UTC)
      */
-    public ClientInvitation(User provider, String email) {
+    public ClientInvitation(User provider, String email, LocalDateTime invitedAt, LocalDateTime expiresAt) {
         this.provider = provider;
         this.email = email;
         this.token = UUID.randomUUID().toString();
-        this.invitedAt = LocalDateTime.now();
+        this.invitedAt = invitedAt;
+        this.expiresAt = expiresAt;
     }
 
     public Long getId() {
@@ -8986,7 +9068,22 @@ public class ClientInvitation {
     public LocalDateTime getInvitedAt() {
         return invitedAt;
     }
+
+    public LocalDateTime getExpiresAt() {
+        return expiresAt;
+    }
+
+    /**
+     * Tells whether this invitation has expired at the given moment.
+     *
+     * @param now current moment (UTC)
+     * @return true if the invitation is no longer valid
+     */
+    public boolean isExpired(LocalDateTime now) {
+        return !now.isBefore(expiresAt);
+    }
 }
+
 ===== ./src/main/java/life/wellnara/model/AvailabilityOverrideType.java =====
 package life.wellnara.model;
 
@@ -9667,78 +9764,84 @@ import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.ProviderInvitationRepository;
 import life.wellnara.repository.UserRepository;
+import life.wellnara.service.time.ApplicationTimeService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
- * Service for provider invitation and registration flow.
+ * Service for the provider invitation and registration flow.
  */
 @Service
 public class ProviderInvitationService {
 
     private final ProviderInvitationRepository invitationRepository;
     private final UserRepository userRepository;
+    private final ApplicationTimeService applicationTimeService;
+    private final long ttlDays;
 
     /**
-     * Creates provider invitation service.
+     * Creates the provider invitation service.
      *
-     * @param invitationRepository repository for provider invitations
-     * @param userRepository repository for users
+     * @param invitationRepository   repository for provider invitations
+     * @param userRepository         repository for users
+     * @param applicationTimeService source of current application time (UTC)
+     * @param ttlDays                number of days an invitation stays valid
      */
     public ProviderInvitationService(ProviderInvitationRepository invitationRepository,
-                                     UserRepository userRepository) {
+                                     UserRepository userRepository,
+                                     ApplicationTimeService applicationTimeService,
+                                     @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
+        this.applicationTimeService = applicationTimeService;
+        this.ttlDays = ttlDays;
     }
 
     /**
-     * Creates provider invitation for given email.
+     * Creates a provider invitation for the given email.
+     * An existing expired invitation for the same email is replaced; an active one is rejected.
      *
      * @param email invited provider email
      * @return generated invitation token
      */
     @Transactional
     public String invite(String email) {
-        if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email already used");
-        }
+        requireEmailNotRegistered(email);
 
-        if (invitationRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Invitation already exists");
-        }
+        LocalDateTime now = applicationTimeService.currentUtcDateTime();
+        discardExistingExpiredOrReject(email, now);
 
-        ProviderInvitation invitation = new ProviderInvitation(email);
+        ProviderInvitation invitation = new ProviderInvitation(email, now.plusDays(ttlDays));
         invitationRepository.save(invitation);
 
         return invitation.getToken();
     }
 
     /**
-     * Returns invited provider email by invitation token.
+     * Returns the invited provider email by invitation token.
      *
      * @param token invitation token
-     * @return email from invitation
+     * @return email from the invitation
      */
     @Transactional(readOnly = true)
     public String getEmailByToken(String token) {
-        ProviderInvitation invitation = invitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
-
-        return invitation.getEmail();
+        return requireValidInvitation(token).getEmail();
     }
 
     /**
-     * Registers provider by invitation token.
+     * Registers a provider by invitation token.
      *
-     * @param token invitation token
-     * @param name provider username
+     * @param token    invitation token
+     * @param name     provider username
      * @param password provider password
      * @return created provider user
      */
     @Transactional
     public User register(String token, String name, String password) {
-        ProviderInvitation invitation = invitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+        ProviderInvitation invitation = requireValidInvitation(token);
 
         User user = new User();
         user.setEmail(invitation.getEmail());
@@ -9751,7 +9854,34 @@ public class ProviderInvitationService {
 
         return savedUser;
     }
+
+    private void requireEmailNotRegistered(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already used");
+        }
+    }
+
+    private void discardExistingExpiredOrReject(String email, LocalDateTime now) {
+        invitationRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.isExpired(now)) {
+                throw new IllegalArgumentException("Invitation already exists");
+            }
+            invitationRepository.delete(existing);
+        });
+    }
+
+    private ProviderInvitation requireValidInvitation(String token) {
+        ProviderInvitation invitation = invitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        if (invitation.isExpired(applicationTimeService.currentUtcDateTime())) {
+            throw new IllegalArgumentException("Invitation has expired");
+        }
+
+        return invitation;
+    }
 }
+
 ===== ./src/main/java/life/wellnara/service/ProviderCalendarValidator.java =====
 package life.wellnara.service;
 
@@ -11860,11 +11990,15 @@ import life.wellnara.model.UserRole;
 import life.wellnara.repository.ClientInvitationRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
+import life.wellnara.service.time.ApplicationTimeService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
- * Service for client invitation and registration flow.
+ * Service for the client invitation and registration flow.
  */
 @Service
 public class ClientInvitationService {
@@ -11872,66 +12006,75 @@ public class ClientInvitationService {
     private final ClientInvitationRepository clientInvitationRepository;
     private final ProviderClientLinkRepository providerClientLinkRepository;
     private final UserRepository userRepository;
+    private final ApplicationTimeService applicationTimeService;
+    private final long ttlDays;
 
     /**
-     * Creates client invitation service.
+     * Creates the client invitation service.
      *
-     * @param clientInvitationRepository repository for client invitations
+     * @param clientInvitationRepository   repository for client invitations
      * @param providerClientLinkRepository repository for provider-client links
-     * @param userRepository repository for users
+     * @param userRepository               repository for users
+     * @param applicationTimeService       source of current application time (UTC)
+     * @param ttlDays                      number of days an invitation stays valid
      */
     public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
                                    ProviderClientLinkRepository providerClientLinkRepository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   ApplicationTimeService applicationTimeService,
+                                   @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.clientInvitationRepository = clientInvitationRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
+        this.applicationTimeService = applicationTimeService;
+        this.ttlDays = ttlDays;
     }
 
     /**
-     * Creates client invitation for given provider and email.
+     * Creates a client invitation for the given provider and email.
+     * An existing expired invitation for the same email is replaced; an active one is rejected.
      *
      * @param provider inviting provider
-     * @param email invited client email
+     * @param email    invited client email
      * @return generated invitation token
      */
     @Transactional
     public String invite(User provider, String email) {
-        validateProvider(provider);
-        validateEmail(email);
+        requireProviderRole(provider);
+        requireEmailNotRegistered(email);
 
-        ClientInvitation invitation = new ClientInvitation(provider, email);
+        LocalDateTime now = applicationTimeService.currentUtcDateTime();
+        discardExistingExpiredOrReject(email, now);
+
+        ClientInvitation invitation =
+                new ClientInvitation(provider, email, now, now.plusDays(ttlDays));
         clientInvitationRepository.save(invitation);
 
         return invitation.getToken();
     }
 
     /**
-     * Returns invited client email by invitation token.
+     * Returns the invited client email by invitation token.
      *
      * @param token invitation token
-     * @return email from invitation
+     * @return email from the invitation
      */
     @Transactional(readOnly = true)
     public String getEmailByToken(String token) {
-        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
-
-        return invitation.getEmail();
+        return requireValidInvitation(token).getEmail();
     }
 
     /**
-     * Registers client by invitation token.
+     * Registers a client by invitation token.
      *
-     * @param token invitation token
-     * @param name client username
+     * @param token    invitation token
+     * @param name     client username
      * @param password client password
      * @return created client user
      */
     @Transactional
     public User register(String token, String name, String password) {
-        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+        ClientInvitation invitation = requireValidInvitation(token);
 
         User client = new User();
         client.setEmail(invitation.getEmail());
@@ -11944,8 +12087,7 @@ public class ClientInvitationService {
         ProviderClientLink providerClientLink = new ProviderClientLink(
                 invitation.getProvider(),
                 savedClient,
-                invitation.getInvitedAt()
-        );
+                invitation.getInvitedAt());
         providerClientLinkRepository.save(providerClientLink);
 
         clientInvitationRepository.delete(invitation);
@@ -11953,31 +12095,186 @@ public class ClientInvitationService {
         return savedClient;
     }
 
-    /**
-     * Validates inviting user role.
-     *
-     * @param provider inviting user
-     */
-    private void validateProvider(User provider) {
+    private void requireProviderRole(User provider) {
         if (provider.getRole() != UserRole.PROVIDER) {
             throw new IllegalArgumentException("Only provider can invite client");
         }
     }
 
-    /**
-     * Validates invited client email.
-     *
-     * @param email invited email
-     */
-    private void validateEmail(String email) {
+    private void requireEmailNotRegistered(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already used");
         }
-
-        if (clientInvitationRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Invitation already exists");
-        }
     }
+
+    private void discardExistingExpiredOrReject(String email, LocalDateTime now) {
+        clientInvitationRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.isExpired(now)) {
+                throw new IllegalArgumentException("Invitation already exists");
+            }
+            clientInvitationRepository.delete(existing);
+        });
+    }
+
+    private ClientInvitation requireValidInvitation(String token) {
+        ClientInvitation invitation = clientInvitationRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+
+        if (invitation.isExpired(applicationTimeService.currentUtcDateTime())) {
+            throw new IllegalArgumentException("Invitation has expired");
+        }
+
+        return invitation;
+    }
+}
+
+===== ./src/main/java/life/wellnara/service/email/SmtpEmailService.java =====
+package life.wellnara.service.email;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+
+/**
+ * Sends emails through the configured SMTP provider.
+ */
+@Service
+public class SmtpEmailService implements EmailService {
+
+    private final JavaMailSender mailSender;
+    private final String senderAddress;
+
+    /**
+     * Creates SMTP email service.
+     *
+     * @param mailSender Spring mail sender
+     * @param senderAddress configured sender email address
+     */
+    public SmtpEmailService(JavaMailSender mailSender,
+                            @Value("${wellnara.mail.from}") String senderAddress) {
+        this.mailSender = mailSender;
+        this.senderAddress = senderAddress;
+    }
+
+    /**
+     * Sends a plain text email.
+     *
+     * @param recipient recipient email address
+     * @param subject email subject
+     * @param body email body
+     */
+    @Override
+    public void sendPlainTextEmail(String recipient, String subject, String body) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(senderAddress);
+        message.setTo(recipient);
+        message.setSubject(subject);
+        message.setText(body);
+
+        mailSender.send(message);
+    }
+}
+===== ./src/main/java/life/wellnara/service/email/InvitationNotificationService.java =====
+package life.wellnara.service.email;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+/**
+ * Builds and sends registration invitation emails.
+ * <p>
+ * Owns the invitation message: it turns a registration token into a registration link
+ * and a localized email body, then delegates delivery to {@link EmailService}.
+ * Controllers orchestrate the flow but no longer construct email content themselves.
+ */
+@Service
+public class InvitationNotificationService {
+
+    private final EmailService emailService;
+    private final String publicBaseUrl;
+
+    /**
+     * Creates the invitation notification service.
+     *
+     * @param emailService  low-level email delivery
+     * @param publicBaseUrl public application base URL used to build registration links
+     */
+    public InvitationNotificationService(EmailService emailService,
+                                         @Value("${wellnara.public-base-url}") String publicBaseUrl) {
+        this.emailService = emailService;
+        this.publicBaseUrl = publicBaseUrl;
+    }
+
+    /**
+     * Sends a provider registration invitation.
+     *
+     * @param recipientEmail invited provider email
+     * @param token          registration token
+     */
+    public void sendProviderInvitation(String recipientEmail, String token) {
+        String registrationLink = publicBaseUrl + "/provider/register?token=" + token;
+        emailService.sendPlainTextEmail(
+                recipientEmail,
+                "Wellnara provider invitation",
+                buildProviderBody(registrationLink));
+    }
+
+    /**
+     * Sends a client registration invitation.
+     *
+     * @param recipientEmail invited client email
+     * @param token          registration token
+     */
+    public void sendClientInvitation(String recipientEmail, String token) {
+        String registrationLink = publicBaseUrl + "/client/register?token=" + token;
+        emailService.sendPlainTextEmail(
+                recipientEmail,
+                "Wellnara — приглашение для регистрации",
+                buildClientBody(registrationLink));
+    }
+
+    private String buildProviderBody(String registrationLink) {
+        return """
+                You have been invited to register as a provider on Wellnara.
+
+                Please use the following link to complete your registration:
+
+                %s
+
+                If you did not expect this invitation, you can ignore this email.
+                """.formatted(registrationLink);
+    }
+
+    private String buildClientBody(String registrationLink) {
+        return """
+                Вас пригласили зарегистрироваться на платформе Wellnara.
+
+                Для завершения регистрации перейдите по ссылке:
+
+                %s
+
+                Если вы не ожидали это приглашение — просто проигнорируйте письмо.
+                """.formatted(registrationLink);
+    }
+}
+
+===== ./src/main/java/life/wellnara/service/email/EmailService.java =====
+package life.wellnara.service.email;
+
+/**
+ * Sends application emails.
+ */
+public interface EmailService {
+
+    /**
+     * Sends plain text email.
+     *
+     * @param recipient recipient email address
+     * @param subject email subject
+     * @param body email body
+     */
+    void sendPlainTextEmail(String recipient, String subject, String body);
 }
 ===== ./src/main/java/life/wellnara/exception/CalendarValidationException.java =====
 package life.wellnara.exception;
