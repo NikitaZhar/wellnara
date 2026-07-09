@@ -31,10 +31,11 @@ public class AppointmentViewMapper {
      * Builds an {@link AppointmentView} for the given display timezone.
      *
      * @param appointment appointment to project
+     * @param clientName  resolved client display name
      * @param displayZone timezone of the user who will see this view
      * @return populated view model
      */
-	public AppointmentView toView(Appointment appointment, ZoneId displayZone) {
+	public AppointmentView toView(Appointment appointment, String clientName, ZoneId displayZone) {
 	    LocalDateTime local = appointment.getStartDateTimeUtc()
 	            .atZone(ZoneOffset.UTC)
 	            .withZoneSameInstant(displayZone)
@@ -42,7 +43,7 @@ public class AppointmentViewMapper {
 
 	    AppointmentView view = new AppointmentView(
 	            appointment.getId(),
-	            appointment.getClient().getUsername(),
+	            clientName,
 	            appointment.getOffering().getName(),
 	            local.toLocalDate(),
 	            local.toLocalTime(),

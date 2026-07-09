@@ -20,6 +20,7 @@ public class ProviderInvitationService {
 
     private final ProviderInvitationRepository invitationRepository;
     private final UserRepository userRepository;
+    private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
     private final long ttlDays;
 
@@ -28,15 +29,18 @@ public class ProviderInvitationService {
      *
      * @param invitationRepository   repository for provider invitations
      * @param userRepository         repository for users
+     * @param userProfileService     service for user personal data
      * @param applicationTimeService source of current application time (UTC)
      * @param ttlDays                number of days an invitation stays valid
      */
     public ProviderInvitationService(ProviderInvitationRepository invitationRepository,
                                      UserRepository userRepository,
+                                     UserProfileService userProfileService,
                                      ApplicationTimeService applicationTimeService,
                                      @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
+        this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
     }
@@ -75,13 +79,21 @@ public class ProviderInvitationService {
     /**
      * Registers a provider by invitation token.
      *
-     * @param token    invitation token
-     * @param name     provider username
-     * @param password provider password
+     * @param token     invitation token
+     * @param name      provider login nickname
+     * @param password  provider password
+     * @param firstName provider first name
+     * @param lastName  provider last name
+     * @param phone     provider phone number, optional (may be null or blank)
      * @return created provider user
      */
     @Transactional
-    public User register(String token, String name, String password) {
+    public User register(String token,
+                         String name,
+                         String password,
+                         String firstName,
+                         String lastName,
+                         String phone) {
         ProviderInvitation invitation = requireValidInvitation(token);
 
         User user = new User();
@@ -91,6 +103,7 @@ public class ProviderInvitationService {
         user.setRole(UserRole.PROVIDER);
 
         User savedUser = userRepository.save(user);
+        userProfileService.createProfile(savedUser, firstName, lastName, phone);
         invitationRepository.delete(invitation);
 
         return savedUser;
@@ -122,3 +135,4 @@ public class ProviderInvitationService {
         return invitation;
     }
 }
+

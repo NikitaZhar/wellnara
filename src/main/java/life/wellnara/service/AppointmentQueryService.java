@@ -4,6 +4,7 @@ import life.wellnara.dto.AppointmentView;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.User;
+import life.wellnara.model.UserProfile;
 import life.wellnara.repository.AppointmentRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 
@@ -12,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Provides read-only access to appointment data for UI rendering.
@@ -22,6 +25,9 @@ import java.util.List;
  *   <li>convert results to {@link AppointmentView} via {@link AppointmentViewMapper}.</li>
  * </ul>
  *
+ * <p>Client display names are resolved with a single batched profile lookup per call,
+ * avoiding one query per appointment.
+ *
  * <p>All methods are read-only transactions. No state mutations.
  * For slot availability use {@link AppointmentAvailabilityService}.
  */
@@ -31,20 +37,24 @@ public class AppointmentQueryService {
 	private final AppointmentRepository appointmentRepository;
 	private final ApplicationTimeService applicationTimeService;
 	private final AppointmentViewMapper viewMapper;
+	private final UserProfileService userProfileService;
 
 	/**
 	 * Creates appointment query service.
 	 *
 	 * @param appointmentRepository   repository for appointments
-	 * @param providerCalendarService service for provider calendar operations
+	 * @param applicationTimeService  service for application time calculations
 	 * @param viewMapper              mapper for Appointment → AppointmentView conversion
+	 * @param userProfileService      service for resolving client display names
 	 */
 	public AppointmentQueryService(AppointmentRepository appointmentRepository,
 			ApplicationTimeService applicationTimeService,
-			AppointmentViewMapper viewMapper) {
+			AppointmentViewMapper viewMapper,
+			UserProfileService userProfileService) {
 		this.appointmentRepository = appointmentRepository;
 		this.applicationTimeService = applicationTimeService;
 		this.viewMapper = viewMapper;
+		this.userProfileService = userProfileService;
 	}
 
 	/**
@@ -77,23 +87,22 @@ public class AppointmentQueryService {
 	 */
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getAppointmentViewsOfClient(User client) {
-	    return appointmentRepository
-	            .findAllByClientAndStatusInOrderByStartDateTimeUtcAsc(
-	                    client,
-	                    List.of(
-	                            AppointmentStatus.REQUESTED,
-	                            AppointmentStatus.PAYMENT_REQUESTED,
-	                            AppointmentStatus.REJECTED,
-	                            AppointmentStatus.CANCELLED_BY_PROVIDER,
-	                            AppointmentStatus.COMPLETED
-	                    )
-	            )
-	            .stream()
-	            .map(appointment -> viewMapper.toView(
-	                    appointment,
-	                    applicationTimeService.resolveProviderCalendarZone(appointment.getProvider())
-	            ))
-	            .toList();
+		List<Appointment> appointments = appointmentRepository
+				.findAllByClientAndStatusInOrderByStartDateTimeUtcAsc(
+						client,
+						List.of(
+								AppointmentStatus.REQUESTED,
+								AppointmentStatus.PAYMENT_REQUESTED,
+								AppointmentStatus.REJECTED,
+								AppointmentStatus.CANCELLED_BY_PROVIDER,
+								AppointmentStatus.COMPLETED
+						)
+				);
+
+		return toViews(
+				appointments,
+				appointment -> applicationTimeService.resolveProviderCalendarZone(appointment.getProvider())
+		);
 	}
 
 	/**
@@ -106,14 +115,13 @@ public class AppointmentQueryService {
 	public List<AppointmentView> getAppointmentViewsOfProvider(User provider) {
 		ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(provider);
 
-		return appointmentRepository
+		List<Appointment> appointments = appointmentRepository
 				.findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
 						provider,
 						AppointmentStatus.REQUESTED
-						)
-				.stream()
-				.map(appointment -> viewMapper.toView(appointment, providerZone))
-				.toList();
+				);
+
+		return toViews(appointments, appointment -> providerZone);
 	}
 
 	/**
@@ -126,17 +134,16 @@ public class AppointmentQueryService {
 	public List<AppointmentView> getConfirmedAppointmentViewsOfProvider(User provider) {
 		ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(provider);
 
-		return appointmentRepository
+		List<Appointment> appointments = appointmentRepository
 				.findAllByProviderAndStatusInOrderByStartDateTimeUtcAsc(
 						provider,
 						List.of(
 								AppointmentStatus.CONFIRMED,
 								AppointmentStatus.CANCELLED_BY_CLIENT
-								)
 						)
-				.stream()
-				.map(appointment -> viewMapper.toView(appointment, providerZone))
-				.toList();
+				);
+
+		return toViews(appointments, appointment -> providerZone);
 	}
 
 	/**
@@ -147,17 +154,16 @@ public class AppointmentQueryService {
 	 */
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
-		return appointmentRepository
-		        .findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
-		                client,
-		                AppointmentStatus.CONFIRMED
-		        )
-		        .stream()
-		        .map(appointment -> viewMapper.toView(
-		                appointment,
-		                applicationTimeService.resolveProviderCalendarZone(appointment.getProvider())
-		        ))
-		        .toList();
+		List<Appointment> appointments = appointmentRepository
+				.findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
+						client,
+						AppointmentStatus.CONFIRMED
+				);
+
+		return toViews(
+				appointments,
+				appointment -> applicationTimeService.resolveProviderCalendarZone(appointment.getProvider())
+		);
 	}
 
 	/**
@@ -170,13 +176,41 @@ public class AppointmentQueryService {
 	public List<AppointmentView> getAppointmentNotificationViewsOfProvider(User provider) {
 		ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(provider);
 
-		return appointmentRepository
+		List<Appointment> appointments = appointmentRepository
 				.findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
 						provider,
 						AppointmentStatus.CANCELLED_BY_CLIENT
-						)
-				.stream()
-				.map(appointment -> viewMapper.toView(appointment, providerZone))
+				);
+
+		return toViews(appointments, appointment -> providerZone);
+	}
+
+	/**
+	 * Converts appointments to views, resolving each client's display name from a single
+	 * batched profile lookup.
+	 *
+	 * @param appointments  appointments to project
+	 * @param displayZoneOf resolver of the display timezone for a given appointment
+	 * @return appointment views in input order
+	 */
+	private List<AppointmentView> toViews(List<Appointment> appointments,
+			Function<Appointment, ZoneId> displayZoneOf) {
+		List<User> clients = appointments.stream()
+				.map(Appointment::getClient)
+				.distinct()
+				.toList();
+
+		Map<Long, UserProfile> profilesByUserId = userProfileService.loadProfilesByUserId(clients);
+
+		return appointments.stream()
+				.map(appointment -> {
+					User client = appointment.getClient();
+					String clientName = userProfileService.displayNameOf(
+							client,
+							profilesByUserId.get(client.getId())
+					);
+					return viewMapper.toView(appointment, clientName, displayZoneOf.apply(appointment));
+				})
 				.toList();
 	}
 }

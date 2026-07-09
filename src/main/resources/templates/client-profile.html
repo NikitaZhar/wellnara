@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Wellnara Client Profile</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
+</head>
+
+<body>
+
+	<div class="page-header">
+		<h1>Wellnara: Profile</h1>
+
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
+
+	<div class="tabs">
+		<a th:href="@{/client}" class="tab-button"
+			style="display: inline-block; text-decoration: none;">&larr; Back</a>
+	</div>
+
+	<div class="client-section">
+
+		<h2>Profile</h2>
+
+		<div th:if="${param.updated != null}" style="color: green;">
+			<p>Profile updated.</p>
+		</div>
+
+		<div th:if="${profileError}" style="color: red;">
+			<p th:text="${profileError}"></p>
+		</div>
+
+		<p>
+			Login: <strong th:text="${username}"></strong>
+		</p>
+		<p>
+			Email: <strong th:text="${email}"></strong>
+		</p>
+
+		<form th:action="@{/client/profile}" method="post">
+			<div class="form-row">
+				<label for="firstName">Имя:</label>
+				<input id="firstName" type="text" name="firstName"
+					th:value="${firstName}" required>
+
+				<label for="lastName">Фамилия:</label>
+				<input id="lastName" type="text" name="lastName"
+					th:value="${lastName}" required>
+
+				<label for="phone">Телефон (необязательно):</label>
+				<input id="phone" type="tel" name="phone" th:value="${phone}"
+					autocomplete="tel" placeholder="+421904746337"
+					pattern="\+[1-9]\d{1,14}"
+					title="Международный формат, например +421904746337">
+
+				<button class="primary-button" type="submit">Save</button>
+			</div>
+		</form>
+
+	</div>
+
+</body>
+</html>

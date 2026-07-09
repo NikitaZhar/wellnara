@@ -23,6 +23,7 @@ public class ClientInvitationService {
     private final ClientInvitationRepository clientInvitationRepository;
     private final ProviderClientLinkRepository providerClientLinkRepository;
     private final UserRepository userRepository;
+    private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
     private final long ttlDays;
 
@@ -32,17 +33,20 @@ public class ClientInvitationService {
      * @param clientInvitationRepository   repository for client invitations
      * @param providerClientLinkRepository repository for provider-client links
      * @param userRepository               repository for users
+     * @param userProfileService           service for user personal data
      * @param applicationTimeService       source of current application time (UTC)
      * @param ttlDays                      number of days an invitation stays valid
      */
     public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
                                    ProviderClientLinkRepository providerClientLinkRepository,
                                    UserRepository userRepository,
+                                   UserProfileService userProfileService,
                                    ApplicationTimeService applicationTimeService,
                                    @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.clientInvitationRepository = clientInvitationRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
+        this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
     }
@@ -84,13 +88,21 @@ public class ClientInvitationService {
     /**
      * Registers a client by invitation token.
      *
-     * @param token    invitation token
-     * @param name     client username
-     * @param password client password
+     * @param token     invitation token
+     * @param name      client login nickname
+     * @param password  client password
+     * @param firstName client first name
+     * @param lastName  client last name
+     * @param phone     client phone number, optional (may be null or blank)
      * @return created client user
      */
     @Transactional
-    public User register(String token, String name, String password) {
+    public User register(String token,
+                         String name,
+                         String password,
+                         String firstName,
+                         String lastName,
+                         String phone) {
         ClientInvitation invitation = requireValidInvitation(token);
 
         User client = new User();
@@ -100,6 +112,7 @@ public class ClientInvitationService {
         client.setRole(UserRole.CLIENT);
 
         User savedClient = userRepository.save(client);
+        userProfileService.createProfile(savedClient, firstName, lastName, phone);
 
         ProviderClientLink providerClientLink = new ProviderClientLink(
                 invitation.getProvider(),
@@ -144,3 +157,4 @@ public class ClientInvitationService {
         return invitation;
     }
 }
+

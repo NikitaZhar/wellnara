@@ -117,7 +117,9 @@ class ProviderAdminFlowMvcTest {
                         .param("token", token)
                         .param("name", "provider-mismatch")
                         .param("password", "secret123")
-                        .param("confirmPassword", "different123"))
+                        .param("confirmPassword", "different123")
+                        .param("firstName", "Pro")
+                        .param("lastName", "Vider"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("token"))
                 .andExpect(model().attributeExists("email"))
@@ -142,7 +144,9 @@ class ProviderAdminFlowMvcTest {
                         .param("token", token)
                         .param("name", username)
                         .param("password", password)
-                        .param("confirmPassword", password))
+                        .param("confirmPassword", password)
+                        .param("firstName", "Successful")
+                        .param("lastName", "Provider"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider"))
                 .andReturn();
@@ -158,7 +162,7 @@ class ProviderAdminFlowMvcTest {
         mockMvc.perform(get("/provider").session((MockHttpSession) registrationSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Wellnara: Provider")))
-                .andExpect(content().string(containsString(username)));
+                .andExpect(content().string(containsString("Successful Provider")));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) registrationSession))
                 .andExpect(status().is3xxRedirection())
@@ -177,7 +181,7 @@ class ProviderAdminFlowMvcTest {
         mockMvc.perform(get("/provider").session((MockHttpSession) loginSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Wellnara: Provider")))
-                .andExpect(content().string(containsString(username)));
+                .andExpect(content().string(containsString("Successful Provider")));
     }
 
     private User getAdminUser() {
@@ -191,3 +195,4 @@ class ProviderAdminFlowMvcTest {
         return session;
     }
 }
+

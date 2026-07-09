@@ -68,6 +68,9 @@ public class ClientRegistrationController {
 			@RequestParam String name,
 			@RequestParam String password,
 			@RequestParam String confirmPassword,
+			@RequestParam String firstName,
+			@RequestParam String lastName,
+			@RequestParam(required = false) String phone,
 			HttpSession session,
 			Model model) {
 		String email;
@@ -82,20 +85,33 @@ public class ClientRegistrationController {
 		if (!password.equals(confirmPassword)) {
 			model.addAttribute("token", token);
 			model.addAttribute("email", email);
+			addProfileAttributes(model, name, firstName, lastName, phone);
 			model.addAttribute("error", "Passwords do not match");
 			return "client-register";
 		}
 
 		try {
-			User registeredUser = clientInvitationService.register(token, name, password);
+			User registeredUser = clientInvitationService.register(token, name, password, firstName, lastName, phone);
 			sessionUserService.login(session, registeredUser);
 
 			return "redirect:/client";
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("token", token);
 			model.addAttribute("email", email);
+			addProfileAttributes(model, name, firstName, lastName, phone);
 			model.addAttribute("error", exception.getMessage());
 			return "client-register";
 		}
+	}
+
+	private void addProfileAttributes(Model model,
+			String name,
+			String firstName,
+			String lastName,
+			String phone) {
+		model.addAttribute("name", name);
+		model.addAttribute("firstName", firstName);
+		model.addAttribute("lastName", lastName);
+		model.addAttribute("phone", phone);
 	}
 }

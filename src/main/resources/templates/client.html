@@ -23,6 +23,8 @@
 
         if (section === 'calendar') {
             showClientSection('client-calendar-section');
+        } else if (section === 'profile') {
+            showClientSection('client-profile-section');
         } else {
             showClientSection('client-main-section');
         }
@@ -47,6 +49,9 @@
 		<button id="tab-client-calendar-section" class="tab-button"
 			type="button" onclick="showClientSection('client-calendar-section')">My
 			Calendar</button>
+
+		<button id="tab-client-profile-section" class="tab-button" type="button"
+			onclick="showClientSection('client-profile-section')">Profile</button>
 	</div>
 
 	<div id="client-main-section" class="client-section"
@@ -191,6 +196,48 @@
 				</tbody>
 			</table>
 		</div>
+
+	</div>
+
+	<div id="client-profile-section" class="client-section"
+		style="display: none;">
+
+		<h2>Profile</h2>
+
+		<div th:if="${param.profileUpdated != null}" style="color: green;">
+			<p>Profile updated.</p>
+		</div>
+
+		<div th:if="${profileError}" style="color: red;">
+			<p th:text="${profileError}"></p>
+		</div>
+
+		<p>
+			Login: <strong th:text="${clientLogin}"></strong>
+		</p>
+		<p>
+			Email: <strong th:text="${clientEmail}"></strong>
+		</p>
+
+		<form th:action="@{/client/profile}" method="post">
+			<div class="form-row">
+				<label for="firstName">Имя:</label>
+				<input id="firstName" type="text" name="firstName"
+					th:value="${profileFirstName}" required>
+
+				<label for="lastName">Фамилия:</label>
+				<input id="lastName" type="text" name="lastName"
+					th:value="${profileLastName}" required>
+
+				<label for="phone">Телефон (необязательно):</label>
+				<input id="phone" type="tel" name="phone" th:value="${profilePhone}"
+					autocomplete="tel" placeholder="+421904746337"
+					pattern="\+[1-9]\d{1,14}"
+					title="Международный формат, например +421904746337">
+
+				<button class="primary-button" type="submit">Save</button>
+			</div>
+		</form>
 
 	</div>
 

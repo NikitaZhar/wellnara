@@ -4,10 +4,12 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
+import life.wellnara.model.UserProfile;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.SessionUserService;
+import life.wellnara.service.UserProfileService;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -32,6 +34,7 @@ public class ClientController {
 	private final AppointmentService appointmentService;
 	private final ProviderCalendarService providerCalendarService;
 	private final SessionUserService sessionUserService;
+	private final UserProfileService userProfileService;
 
 	/**
 	 * Creates client controller.
@@ -40,15 +43,18 @@ public class ClientController {
 	 * @param appointmentService service for appointment requests
 	 * @param providerCalendarService service for provider calendar operations
 	 * @param sessionUserService service for authenticated session user access
+	 * @param userProfileService service for user personal data
 	 */
 	public ClientController(ClientOfferingService clientOfferingService,
 	        AppointmentService appointmentService,
 	        ProviderCalendarService providerCalendarService,
-	        SessionUserService sessionUserService) {
+	        SessionUserService sessionUserService,
+	        UserProfileService userProfileService) {
 	    this.clientOfferingService = clientOfferingService;
 	    this.appointmentService = appointmentService;
 	    this.providerCalendarService = providerCalendarService;
 	    this.sessionUserService = sessionUserService;
+	    this.userProfileService = userProfileService;
 	}
 
 	/**
@@ -132,6 +138,48 @@ public class ClientController {
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
 	    model.addAttribute("confirmedAppointments",
 	            appointmentService.getConfirmedAppointmentViewsOfClient(client));
+
+	    UserProfile profile = userProfileService.findProfile(client).orElse(null);
+	    model.addAttribute("clientLogin", client.getUsername());
+	    model.addAttribute("clientEmail", client.getEmail());
+	    model.addAttribute("profileFirstName", profile != null ? profile.getFirstName() : "");
+	    model.addAttribute("profileLastName", profile != null ? profile.getLastName() : "");
+	    model.addAttribute("profilePhone", profile != null ? profile.getPhone() : "");
+	}
+
+	/**
+	 * Updates the client profile.
+	 *
+	 * @param firstName new first name
+	 * @param lastName  new last name
+	 * @param phone     new phone number, optional
+	 * @param session   current HTTP session
+	 * @param model     MVC model
+	 * @return redirect to the client profile tab, or the client page with an error
+	 */
+	@PostMapping("/client/profile")
+	public String updateClientProfile(@RequestParam String firstName,
+	                                  @RequestParam String lastName,
+	                                  @RequestParam(required = false) String phone,
+	                                  HttpSession session,
+	                                  Model model) {
+		User currentUser = sessionUserService.requireClient(session);
+
+	    if (currentUser == null) {
+	        return "redirect:/auth/login";
+	    }
+
+	    try {
+	        userProfileService.updateProfile(currentUser, firstName, lastName, phone);
+	        return "redirect:/client?section=profile&profileUpdated";
+	    } catch (IllegalArgumentException exception) {
+	        populateClientPageModel(model, currentUser);
+	        model.addAttribute("profileFirstName", firstName);
+	        model.addAttribute("profileLastName", lastName);
+	        model.addAttribute("profilePhone", phone);
+	        model.addAttribute("profileError", exception.getMessage());
+	        return "client";
+	    }
 	}
 	
 	@GetMapping("/client/offerings/{offeringId}")

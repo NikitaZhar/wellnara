@@ -95,7 +95,9 @@ class ProviderClientFlowMvcTest {
                         .param("token", invitation.getToken())
                         .param("name", "client-two")
                         .param("password", "secret123")
-                        .param("confirmPassword", "different123"))
+                        .param("confirmPassword", "different123")
+                        .param("firstName", "Client")
+                        .param("lastName", "Two"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("token"))
                 .andExpect(model().attributeExists("email"))
@@ -128,7 +130,9 @@ class ProviderClientFlowMvcTest {
                 .param("token", invitation.getToken())
                 .param("name", "client-three")
                 .param("password", "pass123")
-                .param("confirmPassword", "pass123"))
+                .param("confirmPassword", "pass123")
+                .param("firstName", "Client")
+                .param("lastName", "Three"))
         .andExpect(status().is3xxRedirection())
         .andExpect(redirectedUrl("/client"))
         .andReturn();
@@ -153,7 +157,7 @@ class ProviderClientFlowMvcTest {
         mockMvc.perform(get("/provider").session(providerSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("My clients")))
-                .andExpect(content().string(containsString("client-three")))
+                .andExpect(content().string(containsString("Client Three")))
                 .andExpect(content().string(containsString("client-three@example.com")));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) clientSession))
@@ -328,3 +332,4 @@ class ProviderClientFlowMvcTest {
         return (MockHttpSession) result.getRequest().getSession(false);
     }
 }
+

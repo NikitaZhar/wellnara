@@ -68,6 +68,9 @@ public class ProviderRegistrationController {
                            @RequestParam String name,
                            @RequestParam String password,
                            @RequestParam String confirmPassword,
+                           @RequestParam String firstName,
+                           @RequestParam String lastName,
+                           @RequestParam(required = false) String phone,
                            HttpSession session,
                            Model model) {
         String email;
@@ -82,19 +85,32 @@ public class ProviderRegistrationController {
         if (!password.equals(confirmPassword)) {
             model.addAttribute("token", token);
             model.addAttribute("email", email);
+            addProfileAttributes(model, name, firstName, lastName, phone);
             model.addAttribute("error", "Passwords do not match");
             return "provider-register";
         }
 
         try {
-            User registeredUser = service.register(token, name, password);
+            User registeredUser = service.register(token, name, password, firstName, lastName, phone);
             sessionUserService.login(session, registeredUser);
             return "redirect:/provider";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("token", token);
             model.addAttribute("email", email);
+            addProfileAttributes(model, name, firstName, lastName, phone);
             model.addAttribute("error", exception.getMessage());
             return "provider-register";
         }
+    }
+
+    private void addProfileAttributes(Model model,
+                                      String name,
+                                      String firstName,
+                                      String lastName,
+                                      String phone) {
+        model.addAttribute("name", name);
+        model.addAttribute("firstName", firstName);
+        model.addAttribute("lastName", lastName);
+        model.addAttribute("phone", phone);
     }
 }

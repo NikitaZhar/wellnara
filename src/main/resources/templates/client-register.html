@@ -20,8 +20,26 @@
     </div>
 
     <div>
-        <label for="name">Имя:</label>
-        <input id="name" type="text" name="name" required>
+        <label for="name">Логин:</label>
+        <input id="name" type="text" name="name" th:value="${name}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="firstName">Имя:</label>
+        <input id="firstName" type="text" name="firstName" th:value="${firstName}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="lastName">Фамилия:</label>
+        <input id="lastName" type="text" name="lastName" th:value="${lastName}" required>
+    </div>
+
+    <div style="margin-top: 10px;">
+        <label for="phone">Телефон (необязательно):</label>
+        <input id="phone" type="tel" name="phone" th:value="${phone}"
+               autocomplete="tel" placeholder="+421904746337"
+               pattern="\+[1-9]\d{1,14}"
+               title="Международный формат, например +421904746337">
     </div>
 
     <div style="margin-top: 10px;">

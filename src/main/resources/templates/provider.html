@@ -61,6 +61,8 @@
             showSection('provider-calendar-section');
         } else if (section === 'calendar') {
             showSection('calendar-section');
+        } else if (section === 'profile') {
+            showSection('profile-section');
         } else {
             showSection('clients-section');
         }
@@ -130,12 +132,6 @@
 		<p th:text="${successMessage}"></p>
 	</div>
 
-	<div th:if="${providerEmail}">
-		<p>
-			Your email: <strong th:text="${providerEmail}"></strong>
-		</p>
-	</div>
-
 	<div class="tabs">
 		<button id="tab-clients-section" class="tab-button" type="button"
 			onclick="showSection('clients-section')">Clients</button>
@@ -149,6 +145,9 @@
 
 		<button id="tab-calendar-section" class="tab-button" type="button"
 			onclick="showSection('calendar-section')">Availability</button>
+
+		<button id="tab-profile-section" class="tab-button" type="button"
+			onclick="showSection('profile-section')">Profile</button>
 	</div>
 
 	<div id="clients-section" class="provider-section"
@@ -183,23 +182,23 @@
 			<table th:if="${not #lists.isEmpty(clients)}">
 				<thead>
 					<tr>
-						<th>ID</th>
-						<th>Username</th>
+						<th>Name</th>
 						<th>Email</th>
+						<th>Phone</th>
 						<th>Invited at</th>
 						<th>Action</th>
 					</tr>
 				</thead>
 
 				<tbody>
-					<tr th:each="clientLink : ${clients}">
-						<td th:text="${clientLink.client.id}"></td>
-						<td th:text="${clientLink.client.username}"></td>
-						<td th:text="${clientLink.client.email}"></td>
-						<td th:text="${clientLink.invitedAt}"></td>
+					<tr th:each="clientRow : ${clients}">
+						<td th:text="${clientRow.displayName}"></td>
+						<td th:text="${clientRow.email}"></td>
+						<td th:text="${clientRow.phone}"></td>
+						<td th:text="${clientRow.invitedAt}"></td>
 						<td>
 							<form
-								th:action="@{/provider/clients/{clientId}/delete(clientId=${clientLink.client.id})}"
+								th:action="@{/provider/clients/{clientId}/delete(clientId=${clientRow.clientId})}"
 								method="post"
 								onsubmit="return confirm('Are you sure you want to delete this client?');">
 								<button type="submit">Delete</button>
@@ -576,5 +575,46 @@
 		</form>
 	</div>
 
+	<div id="profile-section" class="provider-section" style="display: none;">
+
+		<h2>Profile</h2>
+
+		<div th:if="${param.profileUpdated != null}" style="color: green;">
+			<p>Profile updated.</p>
+		</div>
+
+		<div th:if="${profileError}" style="color: red;">
+			<p th:text="${profileError}"></p>
+		</div>
+
+		<p>
+			Login: <strong th:text="${providerLogin}"></strong>
+		</p>
+		<p>
+			Email: <strong th:text="${providerEmail}"></strong>
+		</p>
+
+		<form th:action="@{/provider/profile}" method="post">
+			<div class="form-row">
+				<label for="firstName">Имя:</label>
+				<input id="firstName" type="text" name="firstName"
+					th:value="${profileFirstName}" required>
+
+				<label for="lastName">Фамилия:</label>
+				<input id="lastName" type="text" name="lastName"
+					th:value="${profileLastName}" required>
+
+				<label for="phone">Телефон (необязательно):</label>
+				<input id="phone" type="tel" name="phone" th:value="${profilePhone}"
+					autocomplete="tel" placeholder="+421904746337"
+					pattern="\+[1-9]\d{1,14}"
+					title="Международный формат, например +421904746337">
+
+				<button class="primary-button" type="submit">Save</button>
+			</div>
+		</form>
+	</div>
+
 </body>
 </html>
+

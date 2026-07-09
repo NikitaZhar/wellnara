@@ -1728,13 +1728,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -1749,6 +1756,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(AppointmentLifecycleMvcTest.FixedClockConfig.class)
 class AppointmentLifecycleMvcTest {
 
     @Autowired
@@ -2052,6 +2060,19 @@ class AppointmentLifecycleMvcTest {
 
         assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
     }
+    
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    Instant.parse("2026-06-01T06:00:00Z"),
+                    ZoneOffset.UTC
+            );
+        }
+    }
 }
 ===== ./src/test/java/life/wellnara/InvitationNotificationServiceTest.java =====
 package life.wellnara;
@@ -2245,13 +2266,13 @@ class ProviderClientFlowMvcTest {
                 .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
 
         MvcResult registrationResult = mockMvc.perform(post("/client/register")
-                        .param("token", invitation.getToken())
-                        .param("name", "client-three")
-                        .param("password", "pass123")
-                        .param("confirmPassword", "pass123"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wellnara Client")))
-                .andReturn();
+                .param("token", invitation.getToken())
+                .param("name", "client-three")
+                .param("password", "pass123")
+                .param("confirmPassword", "pass123"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/client"))
+        .andReturn();
 
         HttpSession clientSession = registrationResult.getRequest().getSession(false);
         assertThat(clientSession).isNotNull();
@@ -2350,7 +2371,7 @@ class ProviderClientFlowMvcTest {
 
         linkClient(provider, client);
 
-        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+        MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
         mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
                         .session(adminSession))
@@ -2378,7 +2399,7 @@ class ProviderClientFlowMvcTest {
 
         linkClient(provider, client);
 
-        MockHttpSession adminSession = loginAs("admin", "123", "/admin");
+        MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
         mockMvc.perform(post("/admin/users/{id}/delete", provider.getId())
                         .session(adminSession))
@@ -2434,7 +2455,7 @@ class ProviderClientFlowMvcTest {
                 .map(ClientInvitation::getToken)
                 .orElseThrow(() -> new IllegalStateException("Invitation token not found"));
     }
-
+    
     private MockHttpSession loginAs(String username,
                                     String password,
                                     String expectedRedirectUrl) throws Exception {
@@ -2839,13 +2860,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -2861,6 +2889,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(ClientAppointmentMvcTest.FixedClockConfig.class)
 class ClientAppointmentMvcTest {
 
     @Autowired
@@ -3127,6 +3156,19 @@ class ClientAppointmentMvcTest {
         session.setAttribute("currentUser", user);
         return session;
     }
+    
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    Instant.parse("2026-06-01T06:00:00Z"),
+                    ZoneOffset.UTC
+            );
+        }
+    }
 }
 ===== ./src/test/java/life/wellnara/ProviderAdminFlowMvcTest.java =====
 package life.wellnara;
@@ -3338,11 +3380,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -3361,6 +3410,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(ProviderCalendarMvcTest.FixedClockConfig.class)
 class ProviderCalendarMvcTest {
 
     @Autowired
@@ -3720,6 +3770,19 @@ class ProviderCalendarMvcTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("currentUser", user);
         return session;
+    }
+    
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    Instant.parse("2026-06-01T06:00:00Z"),
+                    ZoneOffset.UTC
+            );
+        }
     }
 }
 ===== ./src/test/java/life/wellnara/AvailabilityOverrideApplierTest.java =====
@@ -4539,13 +4602,22 @@ import life.wellnara.repository.OfferingRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import life.wellnara.service.AppointmentService;
+import life.wellnara.service.time.ApplicationTimeService;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -4555,6 +4627,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for appointment scheduling, free interval calculation
@@ -4562,9 +4636,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @SpringBootTest
 @Transactional
+@Import(AppointmentSchedulingFlowTest.FixedClockConfig.class)
 class AppointmentSchedulingFlowTest {
 
     private static final String PROVIDER_TIMEZONE = "Europe/Bratislava";
+    @TestConfiguration
+    static class FixedClockConfig {
+
+        @Bean
+        @Primary
+        Clock fixedClock() {
+            return Clock.fixed(
+                    Instant.parse("2026-06-01T06:00:00Z"),
+                    ZoneOffset.UTC
+            );
+        }
+    }
 
     @Autowired
     private AppointmentService appointmentService;
@@ -4586,7 +4673,7 @@ class AppointmentSchedulingFlowTest {
 
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
-
+    
     /**
      * Verifies that an existing requested appointment splits provider availability
      * into free parts and removes the occupied interval.
@@ -4594,8 +4681,10 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should split free calendar terms by existing requested appointment")
     void shouldSplitFreeCalendarTermsByExistingRequestedAppointment() {
-        User provider = createUser("provider-split", UserRole.PROVIDER);
-        User client = createUser("client-split", UserRole.CLIENT);
+    	
+    	User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+
+        User client = createUser("client-cancelled", UserRole.CLIENT);
 
         Offering offering = createOffering(provider, "Split test", 60);
 
@@ -4637,6 +4726,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should build bookable times for one date after excluding existing appointments")
     void shouldBuildBookableTimesForOneDateAfterExcludingExistingAppointments() {
+    	
         User provider = createUser("provider-bookable", UserRole.PROVIDER);
         User clientOne = createUser("client-bookable-one", UserRole.CLIENT);
         User clientTwo = createUser("client-bookable-two", UserRole.CLIENT);
@@ -4704,6 +4794,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should not create bookable time when offering does not fit into short free interval")
     void shouldNotCreateBookableTimeWhenOfferingDoesNotFitIntoShortFreeInterval() {
+    	
         User provider = createUser("provider-short-term", UserRole.PROVIDER);
         User client = createUser("client-short-term", UserRole.CLIENT);
 
@@ -4754,6 +4845,7 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should reject appointment request when another client already requested overlapping time")
     void shouldRejectAppointmentRequestWhenAnotherClientAlreadyRequestedOverlappingTime() {
+    	
         User provider = createUser("provider-conflict", UserRole.PROVIDER);
         User firstClient = createUser("client-conflict-one", UserRole.CLIENT);
         User secondClient = createUser("client-conflict-two", UserRole.CLIENT);
@@ -4796,7 +4888,9 @@ class AppointmentSchedulingFlowTest {
     @Test
     @DisplayName("Should ignore cancelled appointments when calculating free calendar terms")
     void shouldIgnoreCancelledAppointmentsWhenCalculatingFreeCalendarTerms() {
-        User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+    	
+    	User provider = createUser("provider-cancelled", UserRole.PROVIDER);
+
         User client = createUser("client-cancelled", UserRole.CLIENT);
 
         Offering offering = createOffering(provider, "Cancelled offering", 60);

@@ -4,6 +4,7 @@ import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserProfileRepository;
 import life.wellnara.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,17 +20,21 @@ public class ProviderClientService {
 
     private final ProviderClientLinkRepository providerClientLinkRepository;
     private final UserRepository userRepository;
+    private final UserProfileRepository userProfileRepository;
 
     /**
      * Creates provider client service.
      *
      * @param providerClientLinkRepository repository for provider-client links
      * @param userRepository repository for users
+     * @param userProfileRepository repository for user profiles
      */
     public ProviderClientService(ProviderClientLinkRepository providerClientLinkRepository,
-                                 UserRepository userRepository) {
+                                 UserRepository userRepository,
+                                 UserProfileRepository userProfileRepository) {
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
+        this.userProfileRepository = userProfileRepository;
     }
 
     /**
@@ -64,6 +69,7 @@ public class ProviderClientService {
         ProviderClientLink link = linkOpt.get();
 
         providerClientLinkRepository.delete(link);
+        userProfileRepository.deleteByUser(link.getClient());
         userRepository.delete(link.getClient());
     }
 
