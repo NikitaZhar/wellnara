@@ -2,70 +2,76 @@ package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.model.UserProfile;
+import life.wellnara.service.AuthService;
 import life.wellnara.service.SessionUserService;
 import life.wellnara.service.UserProfileService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Controller for editing personal data (profile) of provider and client users.
+ * Controller for editing personal data (profile) of provider users.
+ *
+ * <p>The provider profile is edited inline in the provider page (see
+ * {@code /provider}, profile section); this controller only handles the
+ * form submission and redirects back to that page.
  */
 @Controller
 public class ProfileController {
 
     private static final String LOGIN_REDIRECT = "redirect:/auth/login";
+    private static final String PROVIDER_VIEW = "provider";
 
     private final UserProfileService userProfileService;
+    private final AuthService authService;
     private final SessionUserService sessionUserService;
+    private final ProviderPageModelAssembler providerPageModelAssembler;
 
     /**
      * Creates profile controller.
      *
-     * @param userProfileService service for user personal data
-     * @param sessionUserService service for authenticated session user access
+     * @param userProfileService        service for user personal data
+     * @param authService                service for password verification and change
+     * @param sessionUserService         service for authenticated session user access
+     * @param providerPageModelAssembler assembler for provider page model, used to
+     *                                   re-render the provider page when the update fails
      */
     public ProfileController(UserProfileService userProfileService,
-                             SessionUserService sessionUserService) {
+                             AuthService authService,
+                             SessionUserService sessionUserService,
+                             ProviderPageModelAssembler providerPageModelAssembler) {
         this.userProfileService = userProfileService;
+        this.authService = authService;
         this.sessionUserService = sessionUserService;
+        this.providerPageModelAssembler = providerPageModelAssembler;
     }
 
     /**
-     * Shows the provider profile edit page.
+     * Updates the provider profile and, optionally, the provider password.
      *
-     * @param session current HTTP session
-     * @param model   MVC model
-     * @return provider profile page or redirect to login page
-     */
-    @GetMapping("/provider/profile")
-    public String showProviderProfile(HttpSession session, Model model) {
-        User currentUser = sessionUserService.requireProvider(session);
-        if (currentUser == null) {
-            return LOGIN_REDIRECT;
-        }
-
-        populateProfileModel(model, currentUser);
-        return "provider-profile";
-    }
-
-    /**
-     * Updates the provider profile.
+     * <p>When any of the password fields is filled in, the current password is
+     * verified and the new password confirmed <em>before</em> anything is saved,
+     * so a wrong current password never leaves the name/phone update applied
+     * without the password change (or vice versa).
      *
-     * @param firstName new first name
-     * @param lastName  new last name
-     * @param phone     new phone number, optional
-     * @param session   current HTTP session
-     * @param model     MVC model
-     * @return redirect to provider profile page or page with error
+     * @param firstName          new first name
+     * @param lastName           new last name
+     * @param phone              new phone number, optional
+     * @param currentPassword    current password, required only when changing the password
+     * @param newPassword        new password, required only when changing the password
+     * @param confirmNewPassword repeated new password, required only when changing the password
+     * @param session            current HTTP session
+     * @param model              MVC model
+     * @return redirect to the provider profile section, or the provider page with an error
      */
     @PostMapping("/provider/profile")
     public String updateProviderProfile(@RequestParam String firstName,
                                         @RequestParam String lastName,
                                         @RequestParam(required = false) String phone,
+                                        @RequestParam(required = false) String currentPassword,
+                                        @RequestParam(required = false) String newPassword,
+                                        @RequestParam(required = false) String confirmNewPassword,
                                         HttpSession session,
                                         Model model) {
         User currentUser = sessionUserService.requireProvider(session);
@@ -74,79 +80,36 @@ public class ProfileController {
         }
 
         try {
+            boolean passwordChangeRequested =
+                    hasText(currentPassword) || hasText(newPassword) || hasText(confirmNewPassword);
+
+            if (passwordChangeRequested) {
+                if (!authService.verifyPassword(currentUser, currentPassword)) {
+                    throw new IllegalArgumentException("Current password is incorrect");
+                }
+                if (!newPassword.equals(confirmNewPassword)) {
+                    throw new IllegalArgumentException("New passwords do not match");
+                }
+            }
+
             userProfileService.updateProfile(currentUser, firstName, lastName, phone);
-            return "redirect:/provider/profile?updated";
+
+            if (passwordChangeRequested) {
+                authService.changePassword(currentUser, newPassword);
+            }
+
+            return "redirect:/provider?section=profile&profileUpdated";
         } catch (IllegalArgumentException exception) {
-            model.addAttribute("username", currentUser.getUsername());
-            model.addAttribute("email", currentUser.getEmail());
-            model.addAttribute("firstName", firstName);
-            model.addAttribute("lastName", lastName);
-            model.addAttribute("phone", phone);
+            providerPageModelAssembler.populate(model, currentUser);
+            model.addAttribute("profileFirstName", firstName);
+            model.addAttribute("profileLastName", lastName);
+            model.addAttribute("profilePhone", phone);
             model.addAttribute("profileError", exception.getMessage());
-            return "provider-profile";
+            return PROVIDER_VIEW;
         }
     }
 
-    /**
-     * Shows the client profile edit page.
-     *
-     * @param session current HTTP session
-     * @param model   MVC model
-     * @return client profile page or redirect to login page
-     */
-//    @GetMapping("/client/profile")
-//    public String showClientProfile(HttpSession session, Model model) {
-//        User currentUser = sessionUserService.requireClient(session);
-//        if (currentUser == null) {
-//            return LOGIN_REDIRECT;
-//        }
-//
-//        populateProfileModel(model, currentUser);
-//        return "client-profile";
-//    }
-
-    /**
-     * Updates the client profile.
-     *
-     * @param firstName new first name
-     * @param lastName  new last name
-     * @param phone     new phone number, optional
-     * @param session   current HTTP session
-     * @param model     MVC model
-     * @return redirect to client profile page or page with error
-     */
-//    @PostMapping("/client/profile")
-//    public String updateClientProfile(@RequestParam String firstName,
-//                                      @RequestParam String lastName,
-//                                      @RequestParam(required = false) String phone,
-//                                      HttpSession session,
-//                                      Model model) {
-//        User currentUser = sessionUserService.requireClient(session);
-//        if (currentUser == null) {
-//            return LOGIN_REDIRECT;
-//        }
-//
-//        try {
-//            userProfileService.updateProfile(currentUser, firstName, lastName, phone);
-//            return "redirect:/client/profile?updated";
-//        } catch (IllegalArgumentException exception) {
-//            model.addAttribute("username", currentUser.getUsername());
-//            model.addAttribute("email", currentUser.getEmail());
-//            model.addAttribute("firstName", firstName);
-//            model.addAttribute("lastName", lastName);
-//            model.addAttribute("phone", phone);
-//            model.addAttribute("profileError", exception.getMessage());
-//            return "client-profile";
-//        }
-//    }
-
-    private void populateProfileModel(Model model, User user) {
-        UserProfile profile = userProfileService.getProfile(user);
-
-        model.addAttribute("username", user.getUsername());
-        model.addAttribute("email", user.getEmail());
-        model.addAttribute("firstName", profile.getFirstName());
-        model.addAttribute("lastName", profile.getLastName());
-        model.addAttribute("phone", profile.getPhone());
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

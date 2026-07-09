@@ -609,7 +609,25 @@
 					autocomplete="tel" placeholder="+421904746337"
 					pattern="\+[1-9]\d{1,14}"
 					title="Международный формат, например +421904746337">
+			</div>
 
+			<div class="form-row">
+				<p>Чтобы сменить пароль, заполните три поля ниже. Если пароль менять не нужно, оставьте их пустыми.</p>
+
+				<label for="currentPassword">Текущий пароль:</label>
+				<input id="currentPassword" type="password" name="currentPassword"
+					autocomplete="current-password">
+
+				<label for="newPassword">Новый пароль:</label>
+				<input id="newPassword" type="password" name="newPassword"
+					autocomplete="new-password">
+
+				<label for="confirmNewPassword">Повторите новый пароль:</label>
+				<input id="confirmNewPassword" type="password" name="confirmNewPassword"
+					autocomplete="new-password">
+			</div>
+
+			<div class="form-row">
 				<button class="primary-button" type="submit">Save</button>
 			</div>
 		</form>
