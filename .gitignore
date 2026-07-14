@@ -34,3 +34,11 @@ build/
 
 ### Initial values ###
 .env
+
+### macOS ###
+.DS_Store
+**/.DS_Store
+
+### служебный дамп ###
+all-files.txt
+
