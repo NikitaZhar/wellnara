@@ -2,6 +2,7 @@ package life.wellnara.service;
 
 import life.wellnara.model.User;
 import life.wellnara.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,14 +15,17 @@ import java.util.Optional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Creates authentication service.
      *
-     * @param userRepository repository for user access
+     * @param userRepository  repository for user access
+     * @param passwordEncoder encoder for hashing and matching passwords
      */
-    public AuthService(UserRepository userRepository) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -33,7 +37,7 @@ public class AuthService {
      */
     public Optional<User> authenticate(String username, String password) {
         return userRepository.findByUsername(username)
-                .filter(user -> user.getPassword().equals(password));
+                .filter(user -> passwordEncoder.matches(password, user.getPassword()));
     }
 
     /**
@@ -47,7 +51,7 @@ public class AuthService {
      * @return true if the password matches
      */
     public boolean verifyPassword(User user, String password) {
-        return password != null && user.getPassword().equals(password);
+        return password != null && passwordEncoder.matches(password, user.getPassword());
     }
 
     /**
@@ -66,7 +70,7 @@ public class AuthService {
             throw new IllegalArgumentException("New password is required");
         }
 
-        user.setPassword(newPassword);
+        user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
     }
 }

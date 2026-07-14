@@ -11,7 +11,7 @@ import life.wellnara.service.time.ApplicationTimeService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 
 /**
@@ -25,6 +25,7 @@ public class ClientInvitationService {
     private final UserRepository userRepository;
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
+    private final PasswordEncoder passwordEncoder;
     private final long ttlDays;
 
     /**
@@ -32,6 +33,7 @@ public class ClientInvitationService {
      *
      * @param clientInvitationRepository   repository for client invitations
      * @param providerClientLinkRepository repository for provider-client links
+     * @param passwordEncoder 			   encoder for hashing passwords
      * @param userRepository               repository for users
      * @param userProfileService           service for user personal data
      * @param applicationTimeService       source of current application time (UTC)
@@ -39,6 +41,7 @@ public class ClientInvitationService {
      */
     public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
                                    ProviderClientLinkRepository providerClientLinkRepository,
+                                   PasswordEncoder passwordEncoder,
                                    UserRepository userRepository,
                                    UserProfileService userProfileService,
                                    ApplicationTimeService applicationTimeService,
@@ -46,6 +49,7 @@ public class ClientInvitationService {
         this.clientInvitationRepository = clientInvitationRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
@@ -108,7 +112,7 @@ public class ClientInvitationService {
         User client = new User();
         client.setEmail(invitation.getEmail());
         client.setUsername(name);
-        client.setPassword(password);
+        client.setPassword(passwordEncoder.encode(password));
         client.setRole(UserRole.CLIENT);
 
         User savedClient = userRepository.save(client);

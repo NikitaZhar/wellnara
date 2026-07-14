@@ -9,7 +9,7 @@ import life.wellnara.service.time.ApplicationTimeService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 
 /**
@@ -22,6 +22,7 @@ public class ProviderInvitationService {
     private final UserRepository userRepository;
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
+    private final PasswordEncoder passwordEncoder;
     private final long ttlDays;
 
     /**
@@ -35,11 +36,13 @@ public class ProviderInvitationService {
      */
     public ProviderInvitationService(ProviderInvitationRepository invitationRepository,
                                      UserRepository userRepository,
+                                     PasswordEncoder passwordEncoder,
                                      UserProfileService userProfileService,
                                      ApplicationTimeService applicationTimeService,
                                      @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
@@ -99,7 +102,7 @@ public class ProviderInvitationService {
         User user = new User();
         user.setEmail(invitation.getEmail());
         user.setUsername(name);
-        user.setPassword(password);
+        user.setPassword(passwordEncoder.encode(password));
         user.setRole(UserRole.PROVIDER);
 
         User savedUser = userRepository.save(user);
