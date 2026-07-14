@@ -138,7 +138,7 @@ public class ClientController {
 	 * @param client authenticated client
 	 */
 	private void populateClientPageModel(Model model, User client) {
-	    model.addAttribute("clientName", client.getUsername());
+	    model.addAttribute("clientName", userProfileService.resolveDisplayName(client));
 	    model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
 	    model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
 	    model.addAttribute("confirmedAppointments",
@@ -234,7 +234,7 @@ public class ClientController {
 
 	    List<CalendarTerm> calendarTerms = appointmentService.getFreeCalendarTerms(provider);
 
-	    model.addAttribute("clientName", currentUser.getUsername());
+	    model.addAttribute("clientName", userProfileService.resolveDisplayName(currentUser));
 	    model.addAttribute("offering", offering);
 	    model.addAttribute("calendarTerms", calendarTerms);
 	    model.addAttribute("bookableDateOptions",
