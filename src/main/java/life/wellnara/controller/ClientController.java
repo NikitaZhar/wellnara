@@ -1,6 +1,5 @@
 package life.wellnara.controller;
 
-import jakarta.servlet.http.HttpSession;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
@@ -9,8 +8,8 @@ import life.wellnara.service.AppointmentService;
 import life.wellnara.service.AuthService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
-import life.wellnara.service.SessionUserService;
 import life.wellnara.service.UserProfileService;
+import life.wellnara.web.CurrentUser;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -34,7 +33,6 @@ public class ClientController {
 	private final ClientOfferingService clientOfferingService;
 	private final AppointmentService appointmentService;
 	private final ProviderCalendarService providerCalendarService;
-	private final SessionUserService sessionUserService;
 	private final UserProfileService userProfileService;
 	private final AuthService authService;
 
@@ -44,20 +42,17 @@ public class ClientController {
 	 * @param clientOfferingService service for client access to provider offerings
 	 * @param appointmentService service for appointment requests
 	 * @param providerCalendarService service for provider calendar operations
-	 * @param sessionUserService service for authenticated session user access
 	 * @param userProfileService service for user personal data
 	 * @param authService service for password verification and change
 	 */
 	public ClientController(ClientOfferingService clientOfferingService,
 	        AppointmentService appointmentService,
 	        ProviderCalendarService providerCalendarService,
-	        SessionUserService sessionUserService,
 	        UserProfileService userProfileService,
 	        AuthService authService) {
 	    this.clientOfferingService = clientOfferingService;
 	    this.appointmentService = appointmentService;
 	    this.providerCalendarService = providerCalendarService;
-	    this.sessionUserService = sessionUserService;
 	    this.userProfileService = userProfileService;
 	    this.authService = authService;
 	}
@@ -65,18 +60,12 @@ public class ClientController {
 	/**
 	 * Shows client page for authenticated client user.
 	 *
-	 * @param session current HTTP session
+	 * @param currentUser authenticated client
 	 * @param model MVC model
-	 * @return client page view name or redirect to login page
+	 * @return client page view name
 	 */
 	@GetMapping("/client")
-	public String showPage(HttpSession session, Model model) {
-		User currentUser = sessionUserService.requireClient(session);
-
-		if (currentUser == null) {
-			return "redirect:/auth/login";
-		}
-
+	public String showPage(@CurrentUser User currentUser, Model model) {
 		populateClientPageModel(model, currentUser);
 
 		return "client";
@@ -87,8 +76,9 @@ public class ClientController {
 	 *
 	 * @param providerId provider identifier
 	 * @param offeringId offering identifier
-	 * @param startDateTimeUtc requested start date and time in UTC
-	 * @param session current HTTP session
+	 * @param selectedDate requested date in provider timezone
+	 * @param selectedTime requested time in provider timezone
+	 * @param currentUser authenticated client
 	 * @param model MVC model
 	 * @return redirect to client page on success or client page with error
 	 */
@@ -97,14 +87,8 @@ public class ClientController {
 	                                 @RequestParam Long offeringId,
 	                                 @RequestParam LocalDate selectedDate,
 	                                 @RequestParam LocalTime selectedTime,
-	                                 HttpSession session,
+	                                 @CurrentUser User currentUser,
 	                                 Model model) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
 	    try {
 	    	User provider = clientOfferingService.getProviderOfClient(currentUser);
 	    	ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
@@ -166,7 +150,7 @@ public class ClientController {
 	 * @param currentPassword    current password, required only when changing the password
 	 * @param newPassword        new password, required only when changing the password
 	 * @param confirmNewPassword repeated new password, required only when changing the password
-	 * @param session            current HTTP session
+	 * @param currentUser        authenticated client
 	 * @param model              MVC model
 	 * @return redirect to the client profile tab, or the client page with an error
 	 */
@@ -177,14 +161,8 @@ public class ClientController {
 	                                  @RequestParam(required = false) String currentPassword,
 	                                  @RequestParam(required = false) String newPassword,
 	                                  @RequestParam(required = false) String confirmNewPassword,
-	                                  HttpSession session,
+	                                  @CurrentUser User currentUser,
 	                                  Model model) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
 	    try {
 	        boolean passwordChangeRequested =
 	                hasText(currentPassword) || hasText(newPassword) || hasText(confirmNewPassword);
@@ -218,17 +196,19 @@ public class ClientController {
 	private boolean hasText(String value) {
 	    return value != null && !value.isBlank();
 	}
-	
+
+	/**
+	 * Shows a single offering with its bookable calendar terms.
+	 *
+	 * @param offeringId offering identifier
+	 * @param currentUser authenticated client
+	 * @param model MVC model
+	 * @return client offering view name
+	 */
 	@GetMapping("/client/offerings/{offeringId}")
 	public String showOffering(@PathVariable Long offeringId,
-	                           HttpSession session,
+	                           @CurrentUser User currentUser,
 	                           Model model) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
 	    Offering offering = clientOfferingService.getOfferingOfClientProvider(currentUser, offeringId);
 	    User provider = offering.getProvider();
 
@@ -242,78 +222,62 @@ public class ClientController {
 
 	    return "client-offering";
 	}
-	
+
 	/**
 	 * Acknowledges rejected appointment and removes it from client's list.
 	 *
 	 * @param appointmentId appointment identifier
-	 * @param session current HTTP session
+	 * @param currentUser authenticated client
 	 * @return redirect to client page
 	 */
 	@PostMapping("/client/appointments/{appointmentId}/acknowledge")
 	public String acknowledgeRejectedAppointment(@PathVariable Long appointmentId,
-	                                             HttpSession session) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
+	                                             @CurrentUser User currentUser) {
 	    appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
 
 	    return "redirect:/client?section=calendar";
 	}
-	
+
 	/**
 	 * Performs fake payment for appointment and confirms it.
 	 *
 	 * @param appointmentId appointment identifier
-	 * @param session current HTTP session
+	 * @param currentUser authenticated client
 	 * @return redirect to client page
 	 */
 	@PostMapping("/client/appointments/{appointmentId}/pay")
 	public String payForAppointment(@PathVariable Long appointmentId,
-	                                HttpSession session) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
+	                                @CurrentUser User currentUser) {
 	    appointmentService.payForAppointment(currentUser, appointmentId);
 
 	    return "redirect:/client?section=calendar";
 	}
-	
+
+	/**
+	 * Cancels pending (not yet confirmed) appointment by client.
+	 *
+	 * @param appointmentId appointment identifier
+	 * @param currentUser authenticated client
+	 * @return redirect to client calendar
+	 */
 	@PostMapping("/client/appointments/{appointmentId}/cancel-request")
 	public String cancelPendingAppointment(@PathVariable Long appointmentId,
-	                                       HttpSession session) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
+	                                       @CurrentUser User currentUser) {
 	    appointmentService.cancelPendingAppointmentByClient(currentUser, appointmentId);
 
 	    return "redirect:/client?section=calendar";
-	}	
+	}
+
 	/**
 	 * Cancels confirmed appointment by client.
 	 *
 	 * @param appointmentId appointment identifier
-	 * @param session current HTTP session
+	 * @param currentUser authenticated client
 	 * @return redirect to client calendar
 	 */
 	@PostMapping("/client/appointments/{appointmentId}/cancel")
 	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
-	                                         HttpSession session) {
-		User currentUser = sessionUserService.requireClient(session);
-
-	    if (currentUser == null) {
-	        return "redirect:/auth/login";
-	    }
-
+	                                         @CurrentUser User currentUser) {
 	    appointmentService.cancelConfirmedAppointmentByClient(currentUser, appointmentId);
 
 	    return "redirect:/client?section=calendar";

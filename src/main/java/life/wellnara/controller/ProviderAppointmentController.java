@@ -1,9 +1,8 @@
 package life.wellnara.controller;
 
-import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
-import life.wellnara.service.SessionUserService;
+import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,26 +15,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class ProviderAppointmentController {
 
-    private static final String LOGIN_REDIRECT = "redirect:/auth/login";
     private static final String PROVIDER_VIEW = "provider";
     private static final String PROVIDER_CALENDAR_REDIRECT = "redirect:/provider?section=provider-calendar";
 
     private final AppointmentService appointmentService;
-    private final SessionUserService sessionUserService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
 
     /**
      * Creates provider appointment controller.
      *
      * @param appointmentService service for appointment operations
-     * @param sessionUserService service for authenticated session user access
      * @param providerPageModelAssembler assembler for provider page model
      */
     public ProviderAppointmentController(AppointmentService appointmentService,
-                                         SessionUserService sessionUserService,
                                          ProviderPageModelAssembler providerPageModelAssembler) {
         this.appointmentService = appointmentService;
-        this.sessionUserService = sessionUserService;
         this.providerPageModelAssembler = providerPageModelAssembler;
     }
 
@@ -43,16 +37,16 @@ public class ProviderAppointmentController {
      * Accepts appointment request and asks client for payment.
      *
      * @param appointmentId appointment identifier
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/request-payment")
     public String requestPaymentForAppointment(@PathVariable Long appointmentId,
-                                               HttpSession session,
+                                               @CurrentUser User currentUser,
                                                Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.requestPaymentForAppointment(provider, appointmentId)
         );
@@ -63,17 +57,17 @@ public class ProviderAppointmentController {
      *
      * @param appointmentId appointment identifier
      * @param rejectionReason reason shown to client
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/reject")
     public String rejectAppointment(@PathVariable Long appointmentId,
                                     @RequestParam String rejectionReason,
-                                    HttpSession session,
+                                    @CurrentUser User currentUser,
                                     Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.rejectAppointment(
                         provider,
@@ -88,17 +82,17 @@ public class ProviderAppointmentController {
      *
      * @param appointmentId appointment identifier
      * @param providerMessage message shown to client
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/reschedule")
     public String rescheduleConfirmedAppointment(@PathVariable Long appointmentId,
                                                  @RequestParam String providerMessage,
-                                                 HttpSession session,
+                                                 @CurrentUser User currentUser,
                                                  Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.rescheduleConfirmedAppointment(
                         provider,
@@ -112,16 +106,16 @@ public class ProviderAppointmentController {
      * Cancels confirmed appointment by provider.
      *
      * @param appointmentId appointment identifier
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/cancel")
     public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
-                                             HttpSession session,
+                                             @CurrentUser User currentUser,
                                              Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.cancelConfirmedAppointment(provider, appointmentId)
         );
@@ -131,16 +125,16 @@ public class ProviderAppointmentController {
      * Completes confirmed appointment.
      *
      * @param appointmentId appointment identifier
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/complete")
     public String completeConfirmedAppointment(@PathVariable Long appointmentId,
-                                               HttpSession session,
+                                               @CurrentUser User currentUser,
                                                Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.completeConfirmedAppointment(provider, appointmentId)
         );
@@ -150,16 +144,16 @@ public class ProviderAppointmentController {
      * Acknowledges provider appointment notification and removes it.
      *
      * @param appointmentId appointment identifier
-     * @param session current HTTP session
+     * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/acknowledge")
     public String acknowledgeAppointmentNotification(@PathVariable Long appointmentId,
-                                                     HttpSession session,
+                                                     @CurrentUser User currentUser,
                                                      Model model) {
         return executeAppointmentAction(
-                session,
+                currentUser,
                 model,
                 provider -> appointmentService.acknowledgeProviderAppointmentNotification(
                         provider,
@@ -168,15 +162,9 @@ public class ProviderAppointmentController {
         );
     }
 
-    private String executeAppointmentAction(HttpSession session,
+    private String executeAppointmentAction(User currentUser,
                                             Model model,
                                             ProviderAppointmentAction action) {
-        User currentUser = sessionUserService.requireProvider(session);
-
-        if (currentUser == null) {
-            return LOGIN_REDIRECT;
-        }
-
         try {
             action.execute(currentUser);
             return PROVIDER_CALENDAR_REDIRECT;

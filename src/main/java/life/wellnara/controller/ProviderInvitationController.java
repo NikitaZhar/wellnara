@@ -1,10 +1,8 @@
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
-import life.wellnara.model.User;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.ProviderInvitationService;
-import life.wellnara.service.SessionUserService;
 import life.wellnara.service.email.InvitationNotificationService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -13,13 +11,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Controller for provider invitation from the admin page.
+ *
+ * <p>Access is restricted to the {@code ADMIN} role by the security filter
+ * chain.
  */
 @Controller
 public class ProviderInvitationController {
 
     private final ProviderInvitationService providerInvitationService;
     private final AdminUserService adminUserService;
-    private final SessionUserService sessionUserService;
     private final InvitationNotificationService invitationNotificationService;
 
     /**
@@ -27,16 +27,13 @@ public class ProviderInvitationController {
      *
      * @param providerInvitationService     provider invitation flow
      * @param adminUserService              admin user operations
-     * @param sessionUserService            authenticated session user access
      * @param invitationNotificationService sends invitation emails
      */
     public ProviderInvitationController(ProviderInvitationService providerInvitationService,
                                         AdminUserService adminUserService,
-                                        SessionUserService sessionUserService,
                                         InvitationNotificationService invitationNotificationService) {
         this.providerInvitationService = providerInvitationService;
         this.adminUserService = adminUserService;
-        this.sessionUserService = sessionUserService;
         this.invitationNotificationService = invitationNotificationService;
     }
 
@@ -52,11 +49,6 @@ public class ProviderInvitationController {
     public String invite(@RequestParam String email,
                          HttpSession session,
                          Model model) {
-        User currentUser = sessionUserService.requireAdmin(session);
-        if (currentUser == null) {
-            return "redirect:/auth/login";
-        }
-
         try {
             String token = providerInvitationService.invite(email);
             invitationNotificationService.sendProviderInvitation(email, token);

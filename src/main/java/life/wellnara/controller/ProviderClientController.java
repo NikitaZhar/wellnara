@@ -1,10 +1,8 @@
 package life.wellnara.controller;
 
-import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.ProviderClientService;
-import life.wellnara.service.SessionUserService;
-
+import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,35 +14,25 @@ import org.springframework.web.bind.annotation.PostMapping;
 public class ProviderClientController {
 
 	private final ProviderClientService providerClientService;
-	private final SessionUserService sessionUserService;
 
 	/**
 	 * Creates provider client controller.
 	 *
 	 * @param providerClientService service for provider client operations
-	 * @param sessionUserService service for authenticated session user access
 	 */
-	public ProviderClientController(ProviderClientService providerClientService,
-			SessionUserService sessionUserService) {
+	public ProviderClientController(ProviderClientService providerClientService) {
 		this.providerClientService = providerClientService;
-		this.sessionUserService = sessionUserService;
 	}
 
 	/**
 	 * Deletes client of current provider.
 	 *
 	 * @param clientId client identifier
-	 * @param session current HTTP session
-	 * @return redirect to provider page or login page
+	 * @param currentUser authenticated provider
+	 * @return redirect to provider page
 	 */
 	@PostMapping("/provider/clients/{clientId}/delete")
-	public String deleteClient(@PathVariable Long clientId, HttpSession session) {
-		User currentUser = sessionUserService.requireProvider(session);
-
-		if (currentUser == null) {
-		    return "redirect:/auth/login";
-		}
-
+	public String deleteClient(@PathVariable Long clientId, @CurrentUser User currentUser) {
 		providerClientService.deleteClient(currentUser, clientId);
 
 		return "redirect:/provider";
