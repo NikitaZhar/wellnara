@@ -38,6 +38,7 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -84,7 +85,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId()).with(csrf())
                         .session(providerSession)
                         .param("rejectionReason", "Requested time is not suitable"))
                 .andExpect(status().is3xxRedirection())
@@ -112,7 +113,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession clientSession = createSessionWithCurrentUser(client);
 
-        mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId())
+        mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/client?section=calendar"));
@@ -137,7 +138,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider?section=provider-calendar"));
@@ -149,7 +150,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
 
-        mockMvc.perform(post("/client/appointments")
+        mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(secondClientSession)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
@@ -241,7 +242,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession clientSession = createSessionWithCurrentUser(client);
 
-        mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId())
+        mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/client?section=calendar"));
@@ -266,7 +267,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession clientSession = createSessionWithCurrentUser(client);
 
-        mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId())
+        mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/client?section=calendar"));
@@ -291,7 +292,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider?section=provider-calendar"));
@@ -316,7 +317,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
                         .session(providerSession)
                         .param("providerMessage", "Please choose another available time"))
                 .andExpect(status().is3xxRedirection())
@@ -345,7 +346,7 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider?section=provider-calendar"));

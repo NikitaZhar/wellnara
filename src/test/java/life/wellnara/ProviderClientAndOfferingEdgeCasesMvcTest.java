@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -79,7 +80,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 
 		MockHttpSession adminSession = createSessionWithCurrentUser(admin);
 
-		mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
+		mockMvc.perform(post("/admin/users/{id}/delete", client.getId()).with(csrf())
 				.session(adminSession))
 		.andExpect(status().is3xxRedirection())
 		.andExpect(redirectedUrl("/admin"));
@@ -112,7 +113,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 
 		MockHttpSession providerTwoSession = createSessionWithCurrentUser(providerTwo);
 
-		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId())
+		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId()).with(csrf())
 				.session(providerTwoSession))
 				.andExpect(status().is3xxRedirection())
 				.andExpect(redirectedUrl("/provider"));
@@ -132,7 +133,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 		User provider = createProvider("provider-offering-save", "provider-offering-save@example.com", "123");
 		MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-		mockMvc.perform(post("/provider/offerings")
+		mockMvc.perform(post("/provider/offerings").with(csrf())
 				.session(providerSession)
 				.param("name", "Consultation")
 				.param("description", "First consultation")

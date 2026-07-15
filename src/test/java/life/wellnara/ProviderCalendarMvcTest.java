@@ -29,6 +29,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -69,7 +70,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-valid", "calendar-valid@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -108,7 +109,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-midnight", "calendar-midnight@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -136,7 +137,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-equal", "calendar-equal@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -161,7 +162,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-reversed", "calendar-reversed@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -186,7 +187,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-start-only", "calendar-start-only@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -210,7 +211,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-end-only", "calendar-end-only@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -233,7 +234,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-no-start", "calendar-no-start@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")
@@ -256,7 +257,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-no-end", "calendar-no-end@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("providerTimezone", "Europe/Bratislava")
@@ -279,7 +280,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-bad-period", "calendar-bad-period@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-30")
                         .param("planningTo", "2026-06-01")
@@ -303,7 +304,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-no-timezone", "calendar-no-timezone@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -326,7 +327,7 @@ class ProviderCalendarMvcTest {
         User provider = createProvider("calendar-provider-keep-old", "calendar-keep-old@example.com");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -335,7 +336,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().is3xxRedirection());
 
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
@@ -366,7 +367,7 @@ class ProviderCalendarMvcTest {
     @Test
     @DisplayName("Should redirect unauthenticated user to login when saving calendar")
     void shouldRedirectUnauthenticatedUserToLoginWhenSavingCalendar() throws Exception {
-        mockMvc.perform(post("/provider/calendar")
+        mockMvc.perform(post("/provider/calendar").with(csrf())
                         .param("planningFrom", "2026-06-01")
                         .param("planningTo", "2026-06-30")
                         .param("providerTimezone", "Europe/Bratislava")

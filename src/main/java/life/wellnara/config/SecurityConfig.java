@@ -8,6 +8,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 public class SecurityConfig {
@@ -35,7 +36,15 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            SessionUserService sessionUserService) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // включается в шаге 1.3
+            // CSRF включён (по умолчанию). Токен в POST-формы Thymeleaf
+            // Spring Security подставляет автоматически через th:action.
+            .csrf(withDefaults())
+            .headers(headers -> headers
+                .contentTypeOptions(withDefaults())                 // X-Content-Type-Options: nosniff
+                .frameOptions(frameOptions -> frameOptions.deny())  // X-Frame-Options: DENY
+                .httpStrictTransportSecurity(hsts -> hsts           // HSTS (отдаётся по HTTPS)
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31_536_000)))
             .authorizeHttpRequests(auth -> auth
                 // Публичные маршруты — до правил по ролям, т.к. регистрация
                 // живёт под /client и /provider.

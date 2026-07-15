@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -78,7 +79,7 @@ class ProviderAdminFlowMvcTest {
         existingProvider.setRole(UserRole.PROVIDER);
         userRepository.save(existingProvider);
 
-        mockMvc.perform(post("/admin/invite")
+        mockMvc.perform(post("/admin/invite").with(csrf())
                         .session(session)
                         .param("email", "provider-existing@example.com"))
                 .andExpect(status().isOk())
@@ -93,7 +94,7 @@ class ProviderAdminFlowMvcTest {
         User admin = getAdminUser();
         MockHttpSession session = createSessionWithCurrentUser(admin);
 
-        mockMvc.perform(post("/admin/invite")
+        mockMvc.perform(post("/admin/invite").with(csrf())
                         .session(session)
                         .param("email", "new-provider@example.com"))
                 .andExpect(status().is3xxRedirection())
@@ -113,7 +114,7 @@ class ProviderAdminFlowMvcTest {
     void shouldReturnRegistrationPageWithErrorWhenPasswordsDoNotMatch() throws Exception {
         String token = providerInvitationService.invite("mismatch@example.com");
 
-        mockMvc.perform(post("/provider/register")
+        mockMvc.perform(post("/provider/register").with(csrf())
                         .param("token", token)
                         .param("name", "provider-mismatch")
                         .param("password", "secret123")
@@ -140,7 +141,7 @@ class ProviderAdminFlowMvcTest {
 
         String token = providerInvitationService.invite(email);
 
-        var registrationResult = mockMvc.perform(post("/provider/register")
+        var registrationResult = mockMvc.perform(post("/provider/register").with(csrf())
                         .param("token", token)
                         .param("name", username)
                         .param("password", password)
@@ -168,7 +169,7 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/auth/login"));
 
-        var loginResult = mockMvc.perform(post("/auth/login")
+        var loginResult = mockMvc.perform(post("/auth/login").with(csrf())
                         .param("username", username)
                         .param("password", password))
                 .andExpect(status().is3xxRedirection())

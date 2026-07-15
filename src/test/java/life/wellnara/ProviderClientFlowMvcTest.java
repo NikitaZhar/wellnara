@@ -29,6 +29,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -68,7 +69,7 @@ class ProviderClientFlowMvcTest {
         User provider = createProvider("provider-one", "provider-one@example.com", "123");
         MockHttpSession session = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/invite-client")
+        mockMvc.perform(post("/provider/invite-client").with(csrf())
                         .session(session)
                         .param("email", "client-one@example.com"))
                 .andExpect(status().is3xxRedirection())
@@ -91,7 +92,7 @@ class ProviderClientFlowMvcTest {
         User provider = createProvider("provider-two", "provider-two@example.com", "123");
         ClientInvitation invitation = createClientInvitation(provider, "client-two@example.com");
 
-        mockMvc.perform(post("/client/register")
+        mockMvc.perform(post("/client/register").with(csrf())
                         .param("token", invitation.getToken())
                         .param("name", "client-two")
                         .param("password", "secret123")
@@ -116,7 +117,7 @@ class ProviderClientFlowMvcTest {
         User provider = createProvider("provider-three", "provider-three@example.com", "123");
         MockHttpSession providerSession = createSessionWithCurrentUser(provider);
 
-        mockMvc.perform(post("/provider/invite-client")
+        mockMvc.perform(post("/provider/invite-client").with(csrf())
                         .session(providerSession)
                         .param("email", "client-three@example.com"))
                 .andExpect(status().is3xxRedirection())
@@ -126,7 +127,7 @@ class ProviderClientFlowMvcTest {
                         extractTokenFromInvitationEmail("client-three@example.com"))
                 .orElseThrow(() -> new IllegalStateException("Client invitation not found"));
 
-        MvcResult registrationResult = mockMvc.perform(post("/client/register")
+        MvcResult registrationResult = mockMvc.perform(post("/client/register").with(csrf())
                 .param("token", invitation.getToken())
                 .param("name", "client-three")
                 .param("password", "pass123")
@@ -164,7 +165,7 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/auth/login"));
 
-        MvcResult loginResult = mockMvc.perform(post("/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/auth/login").with(csrf())
                         .param("username", "client-three")
                         .param("password", "pass123"))
                 .andExpect(status().is3xxRedirection())
@@ -178,7 +179,7 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Wellnara Client")));
 
-        mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId())
+        mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider"));
@@ -201,7 +202,7 @@ class ProviderClientFlowMvcTest {
 
         assertThat(existingClient.getRole()).isEqualTo(UserRole.CLIENT);
 
-        var result = mockMvc.perform(post("/provider/invite-client")
+        var result = mockMvc.perform(post("/provider/invite-client").with(csrf())
                         .session(providerSession)
                         .param("email", "existing-client@example.com"))
                 .andExpect(status().is3xxRedirection())
@@ -236,7 +237,7 @@ class ProviderClientFlowMvcTest {
 
         MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
-        mockMvc.perform(post("/admin/users/{id}/delete", client.getId())
+        mockMvc.perform(post("/admin/users/{id}/delete", client.getId()).with(csrf())
                         .session(adminSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin"));
@@ -264,7 +265,7 @@ class ProviderClientFlowMvcTest {
 
         MockHttpSession adminSession = loginAs("admin", "#admin@", "/admin");
 
-        mockMvc.perform(post("/admin/users/{id}/delete", provider.getId())
+        mockMvc.perform(post("/admin/users/{id}/delete", provider.getId()).with(csrf())
                         .session(adminSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin"));
@@ -322,7 +323,7 @@ class ProviderClientFlowMvcTest {
     private MockHttpSession loginAs(String username,
                                     String password,
                                     String expectedRedirectUrl) throws Exception {
-        MvcResult result = mockMvc.perform(post("/auth/login")
+        MvcResult result = mockMvc.perform(post("/auth/login").with(csrf())
                         .param("username", username)
                         .param("password", password))
                 .andExpect(status().is3xxRedirection())

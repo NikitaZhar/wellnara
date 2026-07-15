@@ -38,6 +38,7 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -92,7 +93,7 @@ class ClientAppointmentMvcTest {
 
         MockHttpSession session = createSessionWithCurrentUser(client);
 
-        mockMvc.perform(post("/client/appointments")
+        mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(session)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
@@ -140,7 +141,7 @@ class ClientAppointmentMvcTest {
 
         MockHttpSession session = createSessionWithCurrentUser(client);
 
-        mockMvc.perform(post("/client/appointments")
+        mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(session)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
@@ -182,7 +183,7 @@ class ClientAppointmentMvcTest {
 
         MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
 
-        mockMvc.perform(post("/client/appointments")
+        mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(secondClientSession)
                         .param("providerId", provider.getId().toString())
                         .param("offeringId", offering.getId().toString())
@@ -204,7 +205,7 @@ class ClientAppointmentMvcTest {
     @Test
     @DisplayName("Should redirect unauthenticated user to login when requesting appointment")
     void shouldRedirectUnauthenticatedUserToLoginWhenRequestingAppointment() throws Exception {
-        mockMvc.perform(post("/client/appointments")
+        mockMvc.perform(post("/client/appointments").with(csrf())
                         .param("providerId", "1")
                         .param("offeringId", "1")
                         .param("selectedDate", "2026-05-04")
