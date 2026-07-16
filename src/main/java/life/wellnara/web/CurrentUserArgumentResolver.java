@@ -1,29 +1,44 @@
 package life.wellnara.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
-import life.wellnara.service.SessionUserService;
+import life.wellnara.repository.UserRepository;
+import life.wellnara.security.AuthenticatedUser;
 import org.springframework.core.MethodParameter;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
- * Resolves {@link CurrentUser}-annotated controller arguments to the
- * authenticated {@link User} stored in the HTTP session.
+ * Resolves {@link CurrentUser}-annotated controller arguments to a freshly
+ * loaded {@link User} entity.
  *
- * <p>Removes the repeated "load current user and redirect if null" boilerplate
- * from controllers: unauthenticated requests are already redirected by the
- * security filter chain, so by the time a handler runs the user is present.
+ * <p>Since step 1.4 the session no longer holds the {@code User} entity — only a
+ * lightweight {@link AuthenticatedUser} principal lives in the security context.
+ * This resolver reads that principal and re-loads the entity by id, so:
+ * <ul>
+ *   <li>controllers and services keep working with a real, managed {@code User};</li>
+ *   <li>the entity is always current instead of a stale session snapshot.</li>
+ * </ul>
+ *
+ * <p>Authorization is enforced upstream by the security filter chain, so a
+ * handler is only reached when authenticated; a missing principal or a
+ * vanished user therefore signals a server-side inconsistency and fails fast.
  */
 public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private final SessionUserService sessionUserService;
+    private final UserRepository userRepository;
+    private final SecurityContextHolderStrategy securityContextHolderStrategy =
+            SecurityContextHolder.getContextHolderStrategy();
 
-    public CurrentUserArgumentResolver(SessionUserService sessionUserService) {
-        this.sessionUserService = sessionUserService;
+    /**
+     * @param userRepository repository used to load the authenticated user
+     */
+    public CurrentUserArgumentResolver(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -37,16 +52,23 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
                                   ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
-        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
-        HttpSession session = request != null ? request.getSession(false) : null;
-        User currentUser = session != null ? sessionUserService.getCurrentUser(session) : null;
+        AuthenticatedUser principal = currentPrincipal();
 
-        if (currentUser == null) {
+        return userRepository.findById(principal.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Authenticated principal " + principal.getId()
+                                + " has no matching user; security context and database are out of sync"));
+    }
+
+    private AuthenticatedUser currentPrincipal() {
+        Authentication authentication = securityContextHolderStrategy.getContext().getAuthentication();
+
+        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser principal)) {
             throw new IllegalStateException(
-                    "No authenticated user in session for a @CurrentUser parameter; "
+                    "No authenticated principal for a @CurrentUser parameter; "
                             + "the security filter chain must guarantee authentication here");
         }
 
-        return currentUser;
+        return principal;
     }
 }

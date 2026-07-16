@@ -1,6 +1,6 @@
 package life.wellnara.config;
 
-import life.wellnara.service.SessionUserService;
+import life.wellnara.repository.UserRepository;
 import life.wellnara.web.CurrentUserArgumentResolver;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -14,14 +14,14 @@ import java.util.List;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    private final SessionUserService sessionUserService;
+    private final UserRepository userRepository;
 
-    public WebMvcConfig(SessionUserService sessionUserService) {
-        this.sessionUserService = sessionUserService;
+    public WebMvcConfig(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(new CurrentUserArgumentResolver(sessionUserService));
+        resolvers.add(new CurrentUserArgumentResolver(userRepository));
     }
 }

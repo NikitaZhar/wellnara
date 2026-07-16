@@ -17,6 +17,7 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,7 +25,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -91,7 +92,7 @@ class ClientAppointmentMvcTest {
 
         createAvailability(provider);
 
-        MockHttpSession session = createSessionWithCurrentUser(client);
+        MockHttpSession session = authenticatedSession(client);
 
         mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(session)
@@ -139,7 +140,7 @@ class ClientAppointmentMvcTest {
 
         createAvailability(provider);
 
-        MockHttpSession session = createSessionWithCurrentUser(client);
+        MockHttpSession session = authenticatedSession(client);
 
         mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(session)
@@ -181,7 +182,7 @@ class ClientAppointmentMvcTest {
                 LocalDateTime.of(2026, 5, 4, 8, 0)
         ));
 
-        MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
+        MockHttpSession secondClientSession = authenticatedSession(secondClient);
 
         mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(secondClientSession)
@@ -312,11 +313,6 @@ class ClientAppointmentMvcTest {
      * @param user authenticated user
      * @return mock HTTP session
      */
-    private MockHttpSession createSessionWithCurrentUser(User user) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute("currentUser", user);
-        return session;
-    }
     
     @TestConfiguration
     static class FixedClockConfig {

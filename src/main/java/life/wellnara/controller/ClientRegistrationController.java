@@ -1,9 +1,10 @@
 package life.wellnara.controller;
 
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import life.wellnara.model.User;
+import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.ClientInvitationService;
-import life.wellnara.service.SessionUserService;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,18 +19,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class ClientRegistrationController {
 
 	private final ClientInvitationService clientInvitationService;
-	private final SessionUserService sessionUserService;
+	private final SecuritySessionService securitySessionService;
 
 	/**
 	 * Creates client registration controller.
 	 *
 	 * @param clientInvitationService service for client invitation flow
-	 * @param sessionUserService service for authenticated session user access
+	 * @param securitySessionService  service that establishes the security context
 	 */
 	public ClientRegistrationController(ClientInvitationService clientInvitationService,
-			SessionUserService sessionUserService) {
+			SecuritySessionService securitySessionService) {
 		this.clientInvitationService = clientInvitationService;
-		this.sessionUserService = sessionUserService;
+		this.securitySessionService = securitySessionService;
 	}
 
 	/**
@@ -55,12 +56,13 @@ public class ClientRegistrationController {
 	/**
 	 * Registers client by invitation token.
 	 *
-	 * @param token invitation token
-	 * @param name client name
-	 * @param password client password
+	 * @param token           invitation token
+	 * @param name            client name
+	 * @param password        client password
 	 * @param confirmPassword repeated client password
-	 * @param session current HTTP session
-	 * @param model MVC model
+	 * @param request         current request
+	 * @param response        current response
+	 * @param model           MVC model
 	 * @return client page on success or registration page on validation error
 	 */
 	@PostMapping("/client/register")
@@ -71,7 +73,8 @@ public class ClientRegistrationController {
 			@RequestParam String firstName,
 			@RequestParam String lastName,
 			@RequestParam(required = false) String phone,
-			HttpSession session,
+			HttpServletRequest request,
+			HttpServletResponse response,
 			Model model) {
 		String email;
 
@@ -92,7 +95,7 @@ public class ClientRegistrationController {
 
 		try {
 			User registeredUser = clientInvitationService.register(token, name, password, firstName, lastName, phone);
-			sessionUserService.login(session, registeredUser);
+			securitySessionService.establish(registeredUser, request, response);
 
 			return "redirect:/client";
 		} catch (IllegalArgumentException exception) {

@@ -9,6 +9,7 @@ import life.wellnara.repository.AvailabilityRuleRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,7 +17,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,7 +69,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should save valid provider calendar into database")
     void shouldSaveValidProviderCalendarIntoDatabase() throws Exception {
         User provider = createProvider("calendar-provider-valid", "calendar-valid@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -107,7 +108,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should treat midnight to midnight as empty weekday")
     void shouldTreatMidnightToMidnightAsEmptyWeekday() throws Exception {
         User provider = createProvider("calendar-provider-midnight", "calendar-midnight@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -135,7 +136,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject equal non-midnight time range")
     void shouldRejectEqualNonMidnightTimeRange() throws Exception {
         User provider = createProvider("calendar-provider-equal", "calendar-equal@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -160,7 +161,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject end time before start time")
     void shouldRejectEndTimeBeforeStartTime() throws Exception {
         User provider = createProvider("calendar-provider-reversed", "calendar-reversed@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -185,7 +186,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject weekday with start time only")
     void shouldRejectWeekdayWithStartTimeOnly() throws Exception {
         User provider = createProvider("calendar-provider-start-only", "calendar-start-only@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -209,7 +210,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject weekday with end time only")
     void shouldRejectWeekdayWithEndTimeOnly() throws Exception {
         User provider = createProvider("calendar-provider-end-only", "calendar-end-only@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -232,7 +233,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject calendar without start date")
     void shouldRejectCalendarWithoutStartDate() throws Exception {
         User provider = createProvider("calendar-provider-no-start", "calendar-no-start@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -255,7 +256,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject calendar without end date")
     void shouldRejectCalendarWithoutEndDate() throws Exception {
         User provider = createProvider("calendar-provider-no-end", "calendar-no-end@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -278,7 +279,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject planning period when end date is before start date")
     void shouldRejectPlanningPeriodWhenEndDateIsBeforeStartDate() throws Exception {
         User provider = createProvider("calendar-provider-bad-period", "calendar-bad-period@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -302,7 +303,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should reject calendar without provider timezone")
     void shouldRejectCalendarWithoutProviderTimezone() throws Exception {
         User provider = createProvider("calendar-provider-no-timezone", "calendar-no-timezone@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -325,7 +326,7 @@ class ProviderCalendarMvcTest {
     @DisplayName("Should keep previous valid calendar when new submission is invalid")
     void shouldKeepPreviousValidCalendarWhenNewSubmissionIsInvalid() throws Exception {
         User provider = createProvider("calendar-provider-keep-old", "calendar-keep-old@example.com");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/calendar").with(csrf())
                         .session(session)
@@ -399,11 +400,6 @@ class ProviderCalendarMvcTest {
      * @param user authenticated user
      * @return mock HTTP session with currentUser attribute
      */
-    private MockHttpSession createSessionWithCurrentUser(User user) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute("currentUser", user);
-        return session;
-    }
     
     @TestConfiguration
     static class FixedClockConfig {

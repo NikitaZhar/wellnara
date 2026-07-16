@@ -9,10 +9,10 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -78,7 +79,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 		ProviderClientLink link = new ProviderClientLink(provider, client, LocalDateTime.now());
 		providerClientLinkRepository.save(link);
 
-		MockHttpSession adminSession = createSessionWithCurrentUser(admin);
+		MockHttpSession adminSession = authenticatedSession(admin);
 
 		mockMvc.perform(post("/admin/users/{id}/delete", client.getId()).with(csrf())
 				.session(adminSession))
@@ -111,7 +112,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 		ProviderClientLink link = new ProviderClientLink(providerOne, client, LocalDateTime.now());
 		providerClientLinkRepository.save(link);
 
-		MockHttpSession providerTwoSession = createSessionWithCurrentUser(providerTwo);
+		MockHttpSession providerTwoSession = authenticatedSession(providerTwo);
 
 		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId()).with(csrf())
 				.session(providerTwoSession))
@@ -131,7 +132,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 	@DisplayName("Should save offering for current provider")
 	void shouldSaveOfferingForCurrentProvider() throws Exception {
 		User provider = createProvider("provider-offering-save", "provider-offering-save@example.com", "123");
-		MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+		MockHttpSession providerSession = authenticatedSession(provider);
 
 		mockMvc.perform(post("/provider/offerings").with(csrf())
 				.session(providerSession)
@@ -180,7 +181,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 				90
 				));
 
-		MockHttpSession providerOneSession = createSessionWithCurrentUser(providerOne);
+		MockHttpSession providerOneSession = authenticatedSession(providerOne);
 
 		mockMvc.perform(get("/provider").session(providerOneSession))
 		.andExpect(status().isOk())
@@ -238,9 +239,4 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 	 * @param user authenticated user
 	 * @return mock HTTP session with currentUser attribute
 	 */
-	private MockHttpSession createSessionWithCurrentUser(User user) {
-		MockHttpSession session = new MockHttpSession();
-		session.setAttribute("currentUser", user);
-		return session;
-	}
 }

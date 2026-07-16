@@ -1,10 +1,12 @@
 package life.wellnara.controller;
 
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.AuthService;
-import life.wellnara.service.SessionUserService;
+import life.wellnara.service.LoginAttemptService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,19 +21,27 @@ import java.util.Optional;
 @Controller
 public class AuthController {
 
+    private static final String INVALID_CREDENTIALS_MESSAGE = "Неверный логин или пароль";
+    private static final String LOCKED_OUT_MESSAGE =
+            "Слишком много неудачных попыток входа. Повторите попытку позже.";
+
     private final AuthService authService;
-    private final SessionUserService sessionUserService;
+    private final SecuritySessionService securitySessionService;
+    private final LoginAttemptService loginAttemptService;
 
     /**
      * Creates auth controller.
      *
-     * @param authService authentication service
-     * @param sessionUserService service for session user access
+     * @param authService            authentication service
+     * @param securitySessionService service that establishes/clears the security context
+     * @param loginAttemptService    guard against login brute-forcing
      */
     public AuthController(AuthService authService,
-                          SessionUserService sessionUserService) {
+                          SecuritySessionService securitySessionService,
+                          LoginAttemptService loginAttemptService) {
         this.authService = authService;
-        this.sessionUserService = sessionUserService;
+        this.securitySessionService = securitySessionService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     /**
@@ -49,51 +59,67 @@ public class AuthController {
      *
      * @param username entered username
      * @param password entered password
-     * @param session current session
-     * @param model MVC model
+     * @param request  current request
+     * @param response current response
+     * @param model    MVC model
      * @return redirect to role page or login page on error
      */
     @PostMapping("/auth/login")
     public String login(@RequestParam String username,
                         @RequestParam String password,
-                        HttpSession session,
+                        HttpServletRequest request,
+                        HttpServletResponse response,
                         Model model) {
-        Optional<User> authenticatedUser = authService.authenticate(username, password);
-
-        if (authenticatedUser.isEmpty()) {
-            model.addAttribute("error", "Неверный логин или пароль");
+        if (loginAttemptService.isBlocked(username)) {
+            model.addAttribute("error", LOCKED_OUT_MESSAGE);
             return "login";
         }
 
+        Optional<User> authenticatedUser = authService.authenticate(username, password);
+
+        if (authenticatedUser.isEmpty()) {
+            loginAttemptService.recordFailure(username);
+            model.addAttribute("error", INVALID_CREDENTIALS_MESSAGE);
+            return "login";
+        }
+
+        loginAttemptService.reset(username);
+
         User user = authenticatedUser.get();
-        sessionUserService.login(session, user);
+        String target = homeRouteForRole(user.getRole());
 
-        if (user.getRole() == UserRole.ADMIN) {
-            return "redirect:/admin";
+        if (target == null) {
+            model.addAttribute("error", "Неизвестная роль пользователя");
+            return "login";
         }
 
-        if (user.getRole() == UserRole.PROVIDER) {
-            return "redirect:/provider";
-        }
-
-        if (user.getRole() == UserRole.CLIENT) {
-            return "redirect:/client";
-        }
-
-        sessionUserService.logout(session);
-        model.addAttribute("error", "Неизвестная роль пользователя");
-        return "login";
+        securitySessionService.establish(user, request, response);
+        return target;
     }
 
     /**
      * Logs out current user.
      *
-     * @param session current session
+     * @param request  current request
+     * @param response current response
      * @return redirect to login page
      */
     @GetMapping("/auth/logout")
-    public String logout(HttpSession session) {
-        sessionUserService.logout(session);
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        securitySessionService.clear(request, response);
         return "redirect:/auth/login";
+    }
+
+    private String homeRouteForRole(UserRole role) {
+        if (role == UserRole.ADMIN) {
+            return "redirect:/admin";
+        }
+        if (role == UserRole.PROVIDER) {
+            return "redirect:/provider";
+        }
+        if (role == UserRole.CLIENT) {
+            return "redirect:/client";
+        }
+        return null;
     }
 }

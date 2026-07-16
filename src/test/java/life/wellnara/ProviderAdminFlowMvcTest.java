@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -70,7 +71,7 @@ class ProviderAdminFlowMvcTest {
     @DisplayName("Should return admin page with error when invited email already exists")
     void shouldReturnAdminPageWithErrorWhenInvitedEmailAlreadyExists() throws Exception {
         User admin = getAdminUser();
-        MockHttpSession session = createSessionWithCurrentUser(admin);
+        MockHttpSession session = authenticatedSession(admin);
 
         User existingProvider = new User();
         existingProvider.setUsername("existing-provider");
@@ -92,7 +93,7 @@ class ProviderAdminFlowMvcTest {
     @DisplayName("Should show provider invitation confirmation only once after successful invitation")
     void shouldShowProviderInvitationConfirmationOnlyOnceAfterSuccessfulInvitation() throws Exception {
         User admin = getAdminUser();
-        MockHttpSession session = createSessionWithCurrentUser(admin);
+        MockHttpSession session = authenticatedSession(admin);
 
         mockMvc.perform(post("/admin/invite").with(csrf())
                         .session(session)
@@ -190,10 +191,5 @@ class ProviderAdminFlowMvcTest {
                 .orElseThrow(() -> new IllegalStateException("Admin user not found in test database"));
     }
 
-    private MockHttpSession createSessionWithCurrentUser(User user) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute("currentUser", user);
-        return session;
-    }
 }
 

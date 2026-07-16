@@ -17,6 +17,7 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,7 +25,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -83,7 +84,7 @@ class AppointmentLifecycleMvcTest {
         Offering offering = createOffering(provider);
         Appointment appointment = createAppointment(provider, client, offering);
 
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId()).with(csrf())
                         .session(providerSession)
@@ -111,7 +112,7 @@ class AppointmentLifecycleMvcTest {
         appointment.reject("Not available");
         appointmentRepository.save(appointment);
 
-        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+        MockHttpSession clientSession = authenticatedSession(client);
 
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(clientSession))
@@ -136,7 +137,7 @@ class AppointmentLifecycleMvcTest {
 
         Appointment appointment = createAppointment(provider, firstClient, offering);
 
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId()).with(csrf())
                         .session(providerSession))
@@ -148,7 +149,7 @@ class AppointmentLifecycleMvcTest {
 
         assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.PAYMENT_REQUESTED);
 
-        MockHttpSession secondClientSession = createSessionWithCurrentUser(secondClient);
+        MockHttpSession secondClientSession = authenticatedSession(secondClient);
 
         mockMvc.perform(post("/client/appointments").with(csrf())
                         .session(secondClientSession)
@@ -222,11 +223,6 @@ class AppointmentLifecycleMvcTest {
         );
     }
 
-    private MockHttpSession createSessionWithCurrentUser(User user) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute("currentUser", user);
-        return session;
-    }
     
     @Test
     @DisplayName("Should confirm appointment after fake client payment")
@@ -240,7 +236,7 @@ class AppointmentLifecycleMvcTest {
         appointment.requestPayment();
         appointmentRepository.save(appointment);
 
-        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+        MockHttpSession clientSession = authenticatedSession(client);
 
         mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId()).with(csrf())
                         .session(clientSession))
@@ -265,7 +261,7 @@ class AppointmentLifecycleMvcTest {
         appointment.confirm();
         appointmentRepository.save(appointment);
 
-        MockHttpSession clientSession = createSessionWithCurrentUser(client);
+        MockHttpSession clientSession = authenticatedSession(client);
 
         mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(clientSession))
@@ -290,7 +286,7 @@ class AppointmentLifecycleMvcTest {
         appointment.confirm();
         appointmentRepository.save(appointment);
 
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(providerSession))
@@ -315,7 +311,7 @@ class AppointmentLifecycleMvcTest {
         appointment.confirm();
         appointmentRepository.save(appointment);
 
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
                         .session(providerSession)
@@ -344,7 +340,7 @@ class AppointmentLifecycleMvcTest {
         appointment.cancelByClient();
         appointmentRepository.save(appointment);
 
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(providerSession))

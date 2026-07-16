@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -67,7 +68,7 @@ class ProviderClientFlowMvcTest {
     @DisplayName("Should invite client successfully and show confirmation only once")
     void shouldInviteClientSuccessfullyAndShowConfirmationOnlyOnce() throws Exception {
         User provider = createProvider("provider-one", "provider-one@example.com", "123");
-        MockHttpSession session = createSessionWithCurrentUser(provider);
+        MockHttpSession session = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/invite-client").with(csrf())
                         .session(session)
@@ -115,7 +116,7 @@ class ProviderClientFlowMvcTest {
     @DirtiesContext
     void shouldCompleteFullProviderClientFlowSuccessfully() throws Exception {
         User provider = createProvider("provider-three", "provider-three@example.com", "123");
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         mockMvc.perform(post("/provider/invite-client").with(csrf())
                         .session(providerSession)
@@ -196,7 +197,7 @@ class ProviderClientFlowMvcTest {
     @DisplayName("Should return provider page with error when client email already exists")
     void shouldReturnProviderPageWithErrorWhenClientEmailAlreadyExists() throws Exception {
         User provider = createProvider("provider-four", "provider-four@example.com", "123");
-        MockHttpSession providerSession = createSessionWithCurrentUser(provider);
+        MockHttpSession providerSession = authenticatedSession(provider);
 
         User existingClient = createClient("existing-client", "existing-client@example.com", "123");
 
@@ -306,11 +307,6 @@ class ProviderClientFlowMvcTest {
         return providerClientLinkRepository.save(link);
     }
 
-    private MockHttpSession createSessionWithCurrentUser(User user) {
-        MockHttpSession session = new MockHttpSession();
-        session.setAttribute("currentUser", user);
-        return session;
-    }
 
     private String extractTokenFromInvitationEmail(String email) {
         return clientInvitationRepository.findAll().stream()
