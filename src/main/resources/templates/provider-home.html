@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Wellnara — Home</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
+<style>
+    .home-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+    }
+    .home-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 16px 18px;
+        background: #fff;
+    }
+    .home-card h3 {
+        margin: 0 0 10px;
+    }
+    .home-card .metric {
+        font-size: 28px;
+        font-weight: 600;
+    }
+    .home-card ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+    }
+    .home-card li {
+        margin-bottom: 4px;
+    }
+    .home-card a.card-link {
+        display: inline-block;
+        margin-top: 10px;
+    }
+    .home-card.disabled {
+        opacity: 0.55;
+    }
+    .empty {
+        color: #777;
+    }
+    .home-nav {
+        margin-top: 8px;
+    }
+    .home-nav a {
+        margin-right: 14px;
+    }
+</style>
+</head>
+
+<body>
+
+    <div class="page-header">
+        <h1>Wellnara: Home — <span th:text="${providerName}"></span></h1>
+        <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+    </div>
+
+    <div class="home-nav">
+        <a th:href="@{/provider(section='clients')}">Clients</a>
+        <a th:href="@{/provider(section='offerings')}">Offerings</a>
+        <a th:href="@{/provider(section='provider-calendar')}">My Calendar</a>
+        <a th:href="@{/provider(section='calendar')}">Availability</a>
+        <a th:href="@{/provider(section='profile')}">Profile</a>
+    </div>
+
+    <div class="home-grid">
+
+        <!-- Appointment requests awaiting the provider's response -->
+        <div class="home-card">
+            <h3>Appointment requests</h3>
+            <div class="metric" th:text="${pendingRequestCount}">0</div>
+
+            <ul th:if="${not #lists.isEmpty(pendingRequests)}">
+                <li th:each="req : ${pendingRequests}">
+                    <span th:text="${req.clientName}"></span> —
+                    <span th:text="${req.offeringName}"></span>,
+                    <span th:text="${req.localDate}"></span>
+                    <span th:text="${req.localTime}"></span>
+                </li>
+            </ul>
+            <p class="empty" th:if="${#lists.isEmpty(pendingRequests)}">No pending requests.</p>
+
+            <a class="card-link" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
+        </div>
+
+        <!-- Upcoming confirmed appointments -->
+        <div class="home-card">
+            <h3>Upcoming appointments</h3>
+
+            <ul th:if="${not #lists.isEmpty(upcomingAppointments)}">
+                <li th:each="appointment : ${upcomingAppointments}">
+                    <span th:text="${appointment.clientName}"></span> —
+                    <span th:text="${appointment.offeringName}"></span>,
+                    <span th:text="${appointment.localDate}"></span>
+                    <span th:text="${appointment.localTime}"></span>
+                </li>
+            </ul>
+            <p class="empty" th:if="${#lists.isEmpty(upcomingAppointments)}">No upcoming appointments.</p>
+
+            <a class="card-link" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
+        </div>
+
+        <!-- Offerings summary -->
+        <div class="home-card">
+            <h3>My offerings</h3>
+            <div class="metric" th:text="${activeOfferingCount}">0</div>
+            <p>active offering(s)</p>
+            <a class="card-link" th:href="@{/provider(section='offerings')}">Manage offerings →</a>
+        </div>
+
+        <!-- Clients summary -->
+        <div class="home-card">
+            <h3>My clients</h3>
+            <div class="metric" th:text="${clientCount}">0</div>
+            <p>client(s)</p>
+            <a class="card-link" th:href="@{/provider(section='clients')}">Manage clients →</a>
+        </div>
+
+        <!-- Wallet placeholder: filled in phase 3 (financial module) -->
+        <div class="home-card disabled">
+            <h3>Wallet</h3>
+            <p class="empty">Coming soon.</p>
+        </div>
+
+    </div>
+
+</body>
+</html>

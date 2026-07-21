@@ -150,7 +150,7 @@ class ProviderAdminFlowMvcTest {
                         .param("firstName", "Successful")
                         .param("lastName", "Provider"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"))
+                .andExpect(redirectedUrl("/home"))
                 .andReturn();
 
         HttpSession registrationSession = registrationResult.getRequest().getSession(false);
@@ -174,7 +174,7 @@ class ProviderAdminFlowMvcTest {
                         .param("username", username)
                         .param("password", password))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"))
+                .andExpect(redirectedUrl("/home"))
                 .andReturn();
 
         HttpSession loginSession = loginResult.getRequest().getSession(false);

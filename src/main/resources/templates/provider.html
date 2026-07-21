@@ -125,6 +125,7 @@
 			Wellnara: Provider - <span th:text="${providerName}"></span>
 		</h1>
 
+		<a th:href="@{/home}">Home</a>
 		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
 	</div>
 
@@ -366,16 +367,16 @@
 
 		<form th:action="@{/provider/offerings}" method="post">
 			<div class="form-row">
-				<input id="offeringName" type="text" name="name" placeholder="Price"
+				<input id="offeringName" type="text" name="name" placeholder="Name"
 					required>
 
 				<textarea id="offeringDescription" name="description"
 					placeholder="Description" required></textarea>
 
 				<input id="pricePerSession" type="number" name="pricePerSession"
-					step="0.01" min="0" placeholder="Price" required> <input
+					step="0.01" min="0" placeholder="Price per session" required> <input
 					id="durationMinutes" type="number" name="durationMinutes" min="1"
-					placeholder="Duration" required>
+					placeholder="Duration (min)" required>
 
 				<button type="submit">Create</button>
 			</div>
