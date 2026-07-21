@@ -96,8 +96,7 @@ public class ClientRegistrationController {
 		try {
 			User registeredUser = clientInvitationService.register(token, name, password, firstName, lastName, phone);
 			securitySessionService.establish(registeredUser, request, response);
-
-			return "redirect:/client";
+            return "redirect:/home";
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("token", token);
 			model.addAttribute("email", email);

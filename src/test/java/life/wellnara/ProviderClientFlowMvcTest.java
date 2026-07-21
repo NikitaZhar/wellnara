@@ -136,7 +136,7 @@ class ProviderClientFlowMvcTest {
                 .param("firstName", "Client")
                 .param("lastName", "Three"))
         .andExpect(status().is3xxRedirection())
-        .andExpect(redirectedUrl("/client"))
+        .andExpect(redirectedUrl("/home"))
         .andReturn();
 
         HttpSession clientSession = registrationResult.getRequest().getSession(false);
@@ -170,7 +170,7 @@ class ProviderClientFlowMvcTest {
                         .param("username", "client-three")
                         .param("password", "pass123"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"))
+                .andExpect(redirectedUrl("/home"))
                 .andReturn();
 
         HttpSession loggedClientSession = loginResult.getRequest().getSession(false);

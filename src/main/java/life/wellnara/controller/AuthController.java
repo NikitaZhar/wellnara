@@ -118,7 +118,7 @@ public class AuthController {
             return "redirect:/home";
         }
         if (role == UserRole.CLIENT) {
-            return "redirect:/client";
+            return "redirect:/home";
         }
         return null;
     }

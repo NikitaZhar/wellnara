@@ -53,14 +53,16 @@ class HomeMvcTest {
     }
 
     @Test
-    @DisplayName("Should redirect client from home to client landing")
-    void shouldRedirectClientHomeToClientLanding() throws Exception {
+    @DisplayName("Should render client home for authenticated client")
+    void shouldRenderClientHome() throws Exception {
         User client = createUser("home-client", "home-client@example.com", UserRole.CLIENT);
         MockHttpSession session = authenticatedSession(client);
 
         mockMvc.perform(get("/home").session(session))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(status().isOk())
+                .andExpect(view().name("client-home"))
+                .andExpect(content().string(containsString("Upcoming appointments")))
+                .andExpect(content().string(containsString("Wallet")));
     }
 
     @Test

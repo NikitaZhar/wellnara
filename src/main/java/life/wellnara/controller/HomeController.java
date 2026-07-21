@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
  * Controller for the post-login Home page.
  *
  * <p>Home is the landing page after login. It shows a read-only summary of the
- * current state (variant A: derived from existing data, no event store). For now
- * only the provider Home is implemented; client and admin keep their existing
- * landing pages until their Home is built.
+ * current state (variant A: derived from existing data, no event store).
+ * Provider and client have their own Home; admin keeps its existing landing
+ * page until an admin Home is built.
  */
 @Controller
 public class HomeController {
@@ -45,10 +45,12 @@ public class HomeController {
             return "provider-home";
         }
 
-        // Client and admin Home come later; keep their existing landings for now.
         if (role == UserRole.CLIENT) {
-            return "redirect:/client";
+            homePageModelAssembler.populateClientHome(model, currentUser);
+            return "client-home";
         }
+
+        // Admin Home comes later; keep the existing landing for now.
         if (role == UserRole.ADMIN) {
             return "redirect:/admin";
         }
