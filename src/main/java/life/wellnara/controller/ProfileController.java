@@ -2,6 +2,7 @@ package life.wellnara.controller;
 
 import life.wellnara.model.User;
 import life.wellnara.service.AuthService;
+import life.wellnara.service.ProviderCurrencyService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
@@ -23,35 +24,42 @@ public class ProfileController {
 
     private final UserProfileService userProfileService;
     private final AuthService authService;
+    private final ProviderCurrencyService providerCurrencyService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
 
     /**
      * Creates profile controller.
      *
-     * @param userProfileService        service for user personal data
+     * @param userProfileService         service for user personal data
      * @param authService                service for password verification and change
+     * @param providerCurrencyService    service for the provider wallet currency
      * @param providerPageModelAssembler assembler for provider page model, used to
      *                                   re-render the provider page when the update fails
      */
     public ProfileController(UserProfileService userProfileService,
                              AuthService authService,
+                             ProviderCurrencyService providerCurrencyService,
                              ProviderPageModelAssembler providerPageModelAssembler) {
         this.userProfileService = userProfileService;
         this.authService = authService;
+        this.providerCurrencyService = providerCurrencyService;
         this.providerPageModelAssembler = providerPageModelAssembler;
     }
 
     /**
-     * Updates the provider profile and, optionally, the provider password.
+     * Updates the provider profile, wallet currency and, optionally, the password.
      *
      * <p>When any of the password fields is filled in, the current password is
      * verified and the new password confirmed <em>before</em> anything is saved,
      * so a wrong current password never leaves the name/phone update applied
-     * without the password change (or vice versa).
+     * without the password change (or vice versa). The currency is applied first,
+     * so a rejected currency change (invalid code or non-empty wallet ledger)
+     * leaves the rest of the profile untouched.
      *
      * @param firstName          new first name
      * @param lastName           new last name
      * @param phone              new phone number, optional
+     * @param currency           wallet currency (ISO 4217), optional
      * @param currentPassword    current password, required only when changing the password
      * @param newPassword        new password, required only when changing the password
      * @param confirmNewPassword repeated new password, required only when changing the password
@@ -63,6 +71,7 @@ public class ProfileController {
     public String updateProviderProfile(@RequestParam String firstName,
                                         @RequestParam String lastName,
                                         @RequestParam(required = false) String phone,
+                                        @RequestParam(required = false) String currency,
                                         @RequestParam(required = false) String currentPassword,
                                         @RequestParam(required = false) String newPassword,
                                         @RequestParam(required = false) String confirmNewPassword,
@@ -79,6 +88,10 @@ public class ProfileController {
                 if (!newPassword.equals(confirmNewPassword)) {
                     throw new IllegalArgumentException("New passwords do not match");
                 }
+            }
+
+            if (hasText(currency)) {
+                providerCurrencyService.changeCurrency(currentUser, currency);
             }
 
             userProfileService.updateProfile(currentUser, firstName, lastName, phone);

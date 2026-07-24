@@ -6,6 +6,7 @@ import life.wellnara.model.UserRole;
 import life.wellnara.repository.ProviderInvitationRepository;
 import life.wellnara.repository.UserRepository;
 import life.wellnara.service.time.ApplicationTimeService;
+import life.wellnara.service.wallet.CurrencyCodes;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -88,7 +89,9 @@ public class ProviderInvitationService {
      * @param firstName provider first name
      * @param lastName  provider last name
      * @param phone     provider phone number, optional (may be null or blank)
+     * @param currency  provider wallet currency (ISO 4217; validated)
      * @return created provider user
+     * @throws IllegalArgumentException if the currency code is missing or invalid
      */
     @Transactional
     public User register(String token,
@@ -96,7 +99,8 @@ public class ProviderInvitationService {
                          String password,
                          String firstName,
                          String lastName,
-                         String phone) {
+                         String phone,
+                         String currency) {
         ProviderInvitation invitation = requireValidInvitation(token);
 
         User user = new User();
@@ -104,6 +108,7 @@ public class ProviderInvitationService {
         user.setUsername(name);
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(UserRole.PROVIDER);
+        user.setCurrency(CurrencyCodes.normalize(currency));
 
         User savedUser = userRepository.save(user);
         userProfileService.createProfile(savedUser, firstName, lastName, phone);
@@ -138,4 +143,3 @@ public class ProviderInvitationService {
         return invitation;
     }
 }
-

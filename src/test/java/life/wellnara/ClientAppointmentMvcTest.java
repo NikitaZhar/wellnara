@@ -7,6 +7,11 @@ import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.Wallet;
+import life.wellnara.model.WalletEntry;
+import life.wellnara.model.WalletEntryType;
+import life.wellnara.repository.WalletEntryRepository;
+import life.wellnara.repository.WalletRepository;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.AppointmentRepository;
@@ -74,6 +79,12 @@ class ClientAppointmentMvcTest {
 
     @Autowired
     private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private WalletRepository walletRepository;
+
+    @Autowired
+    private WalletEntryRepository walletEntryRepository;
 
     /**
      * Verifies that client can create appointment request from selected date and time.
@@ -280,6 +291,10 @@ class ClientAppointmentMvcTest {
         providerClientLinkRepository.save(
                 new ProviderClientLink(provider, client, LocalDateTime.now())
         );
+        // fund the client so an appointment request can place a money HOLD (step 3.5)
+        Wallet wallet = walletRepository.save(new Wallet(client, provider, "EUR", LocalDateTime.now()));
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.TOP_UP, new BigDecimal("100000.00"), null, provider, LocalDateTime.now(), null));
     }
 
     /**

@@ -249,10 +249,10 @@
 						<td th:text="${appointment.status}"></td>
 						<td>
 							<form
-								th:action="@{/provider/appointments/{appointmentId}/request-payment(appointmentId=${appointment.id})}"
+								th:action="@{/provider/appointments/{appointmentId}/accept(appointmentId=${appointment.id})}"
 								method="post" style="display: inline; margin-left: 8px;"
-								onsubmit="return confirm('Accept this appointment request and ask client for payment?');">
-								<button type="submit">Accept &amp; Request Payment</button>
+								onsubmit="return confirm('Accept this appointment request?');">
+								<button type="submit">Accept</button>
 							</form>
 
 							<button type="button" style="margin-left: 8px;"
@@ -301,11 +301,11 @@
 						<td th:text="${appointment.localDate}"></td>
 						<td th:text="${appointment.localTime}"></td>
 						<td><span
-							th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+							th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
 								Appointment cancelled by client. </span></td>
 						<td>
 
-							<div th:if="${appointment.status.name() == 'CONFIRMED'}">
+							<div th:if="${appointment.status.name() == 'SCHEDULED'}">
 
 								<button type="button" style="margin-left: 8px;"
 									onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
@@ -338,10 +338,17 @@
 									<button type="submit">Completed</button>
 								</form>
 
+								<form th:if="${appointment.completable}"
+									th:action="@{/provider/appointments/{appointmentId}/no-show(appointmentId=${appointment.id})}"
+									method="post" style="display: inline;"
+									onsubmit="return confirm('Mark this appointment as no-show?');">
+									<button type="submit">No-show</button>
+								</form>
+
 							</div>
 
 							<div
-								th:if="${appointment.status.name() == 'CANCELLED_BY_CLIENT'}">
+								th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
 
 								<form
 									th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
@@ -610,6 +617,14 @@
 					autocomplete="tel" placeholder="+421904746337"
 					pattern="\+[1-9]\d{1,14}"
 					title="Международный формат, например +421904746337">
+			</div>
+
+			<div class="form-row">
+				<label for="currency">Валюта кошелька:</label>
+				<select id="currency" name="currency">
+					<option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
+							th:selected="${c == providerCurrency}"></option>
+				</select>
 			</div>
 
 			<div class="form-row">

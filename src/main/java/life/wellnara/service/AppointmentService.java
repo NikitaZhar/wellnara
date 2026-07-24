@@ -53,50 +53,50 @@ public class AppointmentService {
         return commandService.requestAppointment(client, providerId, offeringId, startDateTimeUtc);
     }
 
+    public void acceptAppointment(User provider, Long appointmentId) {
+        commandService.acceptAppointment(provider, appointmentId);
+    }
+
     public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
         commandService.rejectAppointment(provider, appointmentId, rejectionReason);
     }
 
-    public void requestPaymentForAppointment(User provider, Long appointmentId) {
-        commandService.requestPaymentForAppointment(provider, appointmentId);
+    public void cancelScheduledAppointment(User provider, Long appointmentId) {
+        commandService.cancelScheduledAppointment(provider, appointmentId);
     }
 
-    public void cancelConfirmedAppointment(User provider, Long appointmentId) {
-        commandService.cancelConfirmedAppointment(provider, appointmentId);
-    }
-
-    public void rescheduleConfirmedAppointment(User provider,
+    public void rescheduleScheduledAppointment(User provider,
                                                Long appointmentId,
                                                String providerMessage) {
-        commandService.rescheduleConfirmedAppointment(provider, appointmentId, providerMessage);
+        commandService.rescheduleScheduledAppointment(provider, appointmentId, providerMessage);
     }
 
-    public void completeConfirmedAppointment(User provider, Long appointmentId) {
-        commandService.completeConfirmedAppointment(provider, appointmentId);
+    public void completeScheduledAppointment(User provider, Long appointmentId) {
+        commandService.completeScheduledAppointment(provider, appointmentId);
+    }
+
+    public void markAppointmentNoShow(User provider, Long appointmentId) {
+        commandService.markAppointmentNoShow(provider, appointmentId);
     }
 
     public void acknowledgeProviderAppointmentNotification(User provider, Long appointmentId) {
         commandService.acknowledgeProviderAppointmentNotification(provider, appointmentId);
     }
 
-    public void payForAppointment(User client, Long appointmentId) {
-        commandService.payForAppointment(client, appointmentId);
-    }
-
     public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
         commandService.cancelPendingAppointmentByClient(client, appointmentId);
     }
 
-    public void cancelConfirmedAppointmentByClient(User client, Long appointmentId) {
-        commandService.cancelConfirmedAppointmentByClient(client, appointmentId);
+    public void cancelScheduledAppointmentByClient(User client, Long appointmentId) {
+        commandService.cancelScheduledAppointmentByClient(client, appointmentId);
     }
 
     public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
         commandService.acknowledgeRejectedAppointment(client, appointmentId);
     }
 
-    public void deleteExpiredUnpaidAppointments() {
-        commandService.deleteExpiredUnpaidAppointments();
+    public void expireStaleAppointmentRequests() {
+        commandService.expireStaleAppointmentRequests();
     }
 
     // ===== Queries =====

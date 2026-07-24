@@ -237,8 +237,7 @@ public class AppointmentAvailabilityService {
 				provider.getId(),
 				List.of(
 						AppointmentStatus.REQUESTED,
-						AppointmentStatus.PAYMENT_REQUESTED,
-						AppointmentStatus.CONFIRMED
+						AppointmentStatus.SCHEDULED
 						)
 				);
 	}

@@ -20,7 +20,7 @@ import java.time.ZoneOffset;
  */
 @Component
 public class AppointmentViewMapper {
-	
+
 	private final ApplicationTimeService applicationTimeService;
 
 	public AppointmentViewMapper(ApplicationTimeService applicationTimeService) {
@@ -48,6 +48,7 @@ public class AppointmentViewMapper {
 	            local.toLocalDate(),
 	            local.toLocalTime(),
 	            appointment.getStatus(),
+	            appointment.getCancellationInitiator(),
 	            appointment.getRejectionReason()
 	    );
 

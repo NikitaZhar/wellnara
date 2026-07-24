@@ -1,6 +1,7 @@
 package life.wellnara.dto;
 
 import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.CancellationInitiator;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,6 +17,7 @@ public class AppointmentView {
 	private final LocalDate localDate;
 	private final LocalTime localTime;
 	private final AppointmentStatus status;
+	private final CancellationInitiator cancellationInitiator;
 	private final String rejectionReason;
 	private boolean completable;
 
@@ -25,6 +27,7 @@ public class AppointmentView {
 			LocalDate localDate,
 			LocalTime localTime,
 			AppointmentStatus status,
+			CancellationInitiator cancellationInitiator,
 			String rejectionReason) {
 		this.id = id;
 		this.clientName = clientName;
@@ -32,6 +35,7 @@ public class AppointmentView {
 		this.localDate = localDate;
 		this.localTime = localTime;
 		this.status = status;
+		this.cancellationInitiator = cancellationInitiator;
 		this.rejectionReason = rejectionReason;
 	}
 
@@ -42,7 +46,7 @@ public class AppointmentView {
 	public String getClientName() {
 		return clientName;
 	}
-	
+
 	public String getRejectionReason() {
 	    return rejectionReason;
 	}
@@ -61,6 +65,10 @@ public class AppointmentView {
 
 	public AppointmentStatus getStatus() {
 		return status;
+	}
+
+	public CancellationInitiator getCancellationInitiator() {
+		return cancellationInitiator;
 	}
 
 	public boolean isCompletable() {

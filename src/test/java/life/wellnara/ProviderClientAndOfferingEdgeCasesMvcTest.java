@@ -213,6 +213,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 		provider.setPassword(password);
 		provider.setEmail(email);
 		provider.setRole(UserRole.PROVIDER);
+		provider.setCurrency("EUR");
 		return userRepository.save(provider);
 	}
 

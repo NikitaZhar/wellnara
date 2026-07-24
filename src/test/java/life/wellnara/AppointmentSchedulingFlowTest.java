@@ -6,6 +6,7 @@ import life.wellnara.model.Appointment;
 import life.wellnara.model.AvailabilityDay;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
@@ -327,7 +328,7 @@ class AppointmentSchedulingFlowTest {
                 LocalTime.of(10, 0)
         );
 
-        appointment.cancelByClient();
+        appointment.cancel(CancellationInitiator.CLIENT, null, LocalDateTime.of(2026, 6, 1, 10, 0));
         appointmentRepository.save(appointment);
 
         List<CalendarTerm> terms = appointmentService.getFreeCalendarTerms(provider);

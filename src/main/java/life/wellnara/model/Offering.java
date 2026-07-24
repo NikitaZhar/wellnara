@@ -43,6 +43,15 @@ public class Offering {
     private boolean active;
 
     /**
+     * ISO 4217 currency code the price is quoted in, inherited from the provider.
+     *
+     * <p>Nullable in step 3.1 (column introduced); step 3.3 makes offering
+     * currency follow the provider's wallet currency and enforces its presence.
+     */
+    @Column(length = 3)
+    private String currency;
+
+    /**
      * Required by JPA.
      */
     public Offering() {
@@ -112,5 +121,13 @@ public class Offering {
 
     public boolean isActive() {
         return active;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 }

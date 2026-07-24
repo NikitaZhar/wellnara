@@ -34,26 +34,26 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Accepts appointment request and asks client for payment.
+     * Accepts a client appointment request, scheduling it.
      *
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
      * @return redirect to provider calendar section or provider page with error
      */
-    @PostMapping("/provider/appointments/{appointmentId}/request-payment")
-    public String requestPaymentForAppointment(@PathVariable Long appointmentId,
-                                               @CurrentUser User currentUser,
-                                               Model model) {
+    @PostMapping("/provider/appointments/{appointmentId}/accept")
+    public String acceptAppointment(@PathVariable Long appointmentId,
+                                    @CurrentUser User currentUser,
+                                    Model model) {
         return executeAppointmentAction(
                 currentUser,
                 model,
-                provider -> appointmentService.requestPaymentForAppointment(provider, appointmentId)
+                provider -> appointmentService.acceptAppointment(provider, appointmentId)
         );
     }
 
     /**
-     * Rejects client appointment request.
+     * Rejects a client appointment request.
      *
      * @param appointmentId appointment identifier
      * @param rejectionReason reason shown to client
@@ -78,7 +78,7 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Reschedules confirmed appointment by cancelling it and asking client to choose another time.
+     * Reschedules a scheduled appointment by cancelling it and asking client to choose another time.
      *
      * @param appointmentId appointment identifier
      * @param providerMessage message shown to client
@@ -87,14 +87,14 @@ public class ProviderAppointmentController {
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/reschedule")
-    public String rescheduleConfirmedAppointment(@PathVariable Long appointmentId,
+    public String rescheduleScheduledAppointment(@PathVariable Long appointmentId,
                                                  @RequestParam String providerMessage,
                                                  @CurrentUser User currentUser,
                                                  Model model) {
         return executeAppointmentAction(
                 currentUser,
                 model,
-                provider -> appointmentService.rescheduleConfirmedAppointment(
+                provider -> appointmentService.rescheduleScheduledAppointment(
                         provider,
                         appointmentId,
                         providerMessage
@@ -103,7 +103,7 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Cancels confirmed appointment by provider.
+     * Cancels a scheduled appointment by provider.
      *
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
@@ -111,18 +111,18 @@ public class ProviderAppointmentController {
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/cancel")
-    public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
+    public String cancelScheduledAppointment(@PathVariable Long appointmentId,
                                              @CurrentUser User currentUser,
                                              Model model) {
         return executeAppointmentAction(
                 currentUser,
                 model,
-                provider -> appointmentService.cancelConfirmedAppointment(provider, appointmentId)
+                provider -> appointmentService.cancelScheduledAppointment(provider, appointmentId)
         );
     }
 
     /**
-     * Completes confirmed appointment.
+     * Completes a scheduled appointment.
      *
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
@@ -130,13 +130,32 @@ public class ProviderAppointmentController {
      * @return redirect to provider calendar section or provider page with error
      */
     @PostMapping("/provider/appointments/{appointmentId}/complete")
-    public String completeConfirmedAppointment(@PathVariable Long appointmentId,
+    public String completeScheduledAppointment(@PathVariable Long appointmentId,
                                                @CurrentUser User currentUser,
                                                Model model) {
         return executeAppointmentAction(
                 currentUser,
                 model,
-                provider -> appointmentService.completeConfirmedAppointment(provider, appointmentId)
+                provider -> appointmentService.completeScheduledAppointment(provider, appointmentId)
+        );
+    }
+
+    /**
+     * Marks a scheduled appointment as a no-show.
+     *
+     * @param appointmentId appointment identifier
+     * @param currentUser authenticated provider
+     * @param model MVC model
+     * @return redirect to provider calendar section or provider page with error
+     */
+    @PostMapping("/provider/appointments/{appointmentId}/no-show")
+    public String markAppointmentNoShow(@PathVariable Long appointmentId,
+                                        @CurrentUser User currentUser,
+                                        Model model) {
+        return executeAppointmentAction(
+                currentUser,
+                model,
+                provider -> appointmentService.markAppointmentNoShow(provider, appointmentId)
         );
     }
 

@@ -5,6 +5,7 @@ import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.AvailabilityDay;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
+import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
@@ -36,7 +37,6 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static life.wellnara.SecurityTestSupport.authenticatedSession;
@@ -45,7 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * MVC tests for provider appointment actions and client acknowledgement flow.
+ * MVC tests for the payment-free appointment lifecycle and acknowledgement flow.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -75,7 +75,7 @@ class AppointmentLifecycleMvcTest {
     private AppointmentRepository appointmentRepository;
 
     @Test
-    @DisplayName("Should reject requested appointment with reason")
+    @DisplayName("Should reject requested appointment as cancellation with reason and provider initiator")
     void shouldRejectRequestedAppointmentWithReason() throws Exception {
         User provider = createUser("provider-reject", UserRole.PROVIDER);
         User client = createUser("client-reject", UserRole.CLIENT);
@@ -92,42 +92,19 @@ class AppointmentLifecycleMvcTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
 
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.REJECTED);
-        assertThat(savedAppointment.getRejectionReason())
-                .isEqualTo("Requested time is not suitable");
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.PROVIDER);
+        assertThat(saved.getRejectionReason()).isEqualTo("Requested time is not suitable");
     }
 
     @Test
-    @DisplayName("Should delete rejected appointment after client acknowledgement")
-    void shouldDeleteRejectedAppointmentAfterClientAcknowledgement() throws Exception {
-        User provider = createUser("provider-ack", UserRole.PROVIDER);
-        User client = createUser("client-ack", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.reject("Not available");
-        appointmentRepository.save(appointment);
-
-        MockHttpSession clientSession = authenticatedSession(client);
-
-        mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
-                        .session(clientSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client?section=calendar"));
-
-        assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
-    }
-
-    @Test
-    @DisplayName("Should request payment and keep appointment slot blocked")
-    void shouldRequestPaymentAndKeepAppointmentSlotBlocked() throws Exception {
-        User provider = createUser("provider-payment", UserRole.PROVIDER);
-        User firstClient = createUser("client-payment-one", UserRole.CLIENT);
-        User secondClient = createUser("client-payment-two", UserRole.CLIENT);
+    @DisplayName("Should accept requested appointment and keep its slot blocked")
+    void shouldAcceptRequestedAppointmentAndKeepSlotBlocked() throws Exception {
+        User provider = createUser("provider-accept", UserRole.PROVIDER);
+        User firstClient = createUser("client-accept-one", UserRole.CLIENT);
+        User secondClient = createUser("client-accept-two", UserRole.CLIENT);
 
         linkClient(provider, firstClient);
         linkClient(provider, secondClient);
@@ -139,15 +116,13 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = authenticatedSession(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/request-payment", appointment.getId()).with(csrf())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/accept", appointment.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider?section=provider-calendar"));
 
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
-
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.PAYMENT_REQUESTED);
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
 
         MockHttpSession secondClientSession = authenticatedSession(secondClient);
 
@@ -160,6 +135,150 @@ class AppointmentLifecycleMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
                 .andExpect(model().attribute("appointmentError", "Time slot is already booked"));
+    }
+
+    @Test
+    @DisplayName("Should mark scheduled appointment as no-show")
+    void shouldMarkScheduledAppointmentAsNoShow() throws Exception {
+        User provider = createUser("provider-noshow", UserRole.PROVIDER);
+        User client = createUser("client-noshow", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.schedule();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = authenticatedSession(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/no-show", appointment.getId()).with(csrf())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.NO_SHOW);
+    }
+
+    @Test
+    @DisplayName("Should keep provider-cancelled appointment and mark it acknowledged")
+    void shouldAcknowledgeRejectedAppointmentByClient() throws Exception {
+        User provider = createUser("provider-ack", UserRole.PROVIDER);
+        User client = createUser("client-ack", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.cancel(CancellationInitiator.PROVIDER, "Not available", LocalDateTime.now(ZoneOffset.UTC));
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = authenticatedSession(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client?section=calendar"));
+
+        Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(acknowledged.isAcknowledged()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should cancel scheduled appointment by client through MVC")
+    void shouldCancelScheduledAppointmentByClientThroughMvc() throws Exception {
+        User provider = createUser("provider-client-cancel", UserRole.PROVIDER);
+        User client = createUser("client-client-cancel", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.schedule();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = authenticatedSession(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client?section=calendar"));
+
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.CLIENT);
+    }
+
+    @Test
+    @DisplayName("Should cancel scheduled appointment by provider through MVC")
+    void shouldCancelScheduledAppointmentByProviderThroughMvc() throws Exception {
+        User provider = createUser("provider-provider-cancel", UserRole.PROVIDER);
+        User client = createUser("client-provider-cancel", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.schedule();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = authenticatedSession(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.PROVIDER);
+    }
+
+    @Test
+    @DisplayName("Should reschedule scheduled appointment by provider as cancellation with message")
+    void shouldRescheduleScheduledAppointmentByProviderThroughMvc() throws Exception {
+        User provider = createUser("provider-reschedule", UserRole.PROVIDER);
+        User client = createUser("client-reschedule", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.schedule();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = authenticatedSession(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
+                        .session(providerSession)
+                        .param("providerMessage", "Please choose another available time"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.PROVIDER);
+        assertThat(saved.getRejectionReason()).isEqualTo("Please choose another available time");
+    }
+
+    @Test
+    @DisplayName("Should keep client-cancelled appointment and mark it acknowledged")
+    void shouldAcknowledgeClientCancelledAppointmentByProvider() throws Exception {
+        User provider = createUser("provider-client-cancel-ack", UserRole.PROVIDER);
+        User client = createUser("client-client-cancel-ack", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.schedule();
+        appointment.cancel(CancellationInitiator.CLIENT, null, LocalDateTime.now(ZoneOffset.UTC));
+        appointmentRepository.save(appointment);
+
+        MockHttpSession providerSession = authenticatedSession(provider);
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
+                        .session(providerSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
+
+        Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(acknowledged.isAcknowledged()).isTrue();
     }
 
     private User createUser(String usernamePrefix, UserRole role) {
@@ -223,133 +342,6 @@ class AppointmentLifecycleMvcTest {
         );
     }
 
-    
-    @Test
-    @DisplayName("Should confirm appointment after fake client payment")
-    void shouldConfirmAppointmentAfterFakeClientPayment() throws Exception {
-        User provider = createUser("provider-fake-pay", UserRole.PROVIDER);
-        User client = createUser("client-fake-pay", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.requestPayment();
-        appointmentRepository.save(appointment);
-
-        MockHttpSession clientSession = authenticatedSession(client);
-
-        mockMvc.perform(post("/client/appointments/{appointmentId}/pay", appointment.getId()).with(csrf())
-                        .session(clientSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client?section=calendar"));
-
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
-
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
-    }
-    
-    @Test
-    @DisplayName("Should cancel confirmed appointment by client through MVC")
-    void shouldCancelConfirmedAppointmentByClientThroughMvc() throws Exception {
-        User provider = createUser("provider-client-cancel", UserRole.PROVIDER);
-        User client = createUser("client-client-cancel", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.confirm();
-        appointmentRepository.save(appointment);
-
-        MockHttpSession clientSession = authenticatedSession(client);
-
-        mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
-                        .session(clientSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client?section=calendar"));
-
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
-
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_CLIENT);
-    }
-
-    @Test
-    @DisplayName("Should cancel confirmed appointment by provider through MVC")
-    void shouldCancelConfirmedAppointmentByProviderThroughMvc() throws Exception {
-        User provider = createUser("provider-provider-cancel", UserRole.PROVIDER);
-        User client = createUser("client-provider-cancel", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.confirm();
-        appointmentRepository.save(appointment);
-
-        MockHttpSession providerSession = authenticatedSession(provider);
-
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
-                        .session(providerSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
-
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
-
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
-    }
-
-    @Test
-    @DisplayName("Should reschedule confirmed appointment by provider through MVC")
-    void shouldRescheduleConfirmedAppointmentByProviderThroughMvc() throws Exception {
-        User provider = createUser("provider-reschedule", UserRole.PROVIDER);
-        User client = createUser("client-reschedule", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.confirm();
-        appointmentRepository.save(appointment);
-
-        MockHttpSession providerSession = authenticatedSession(provider);
-
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
-                        .session(providerSession)
-                        .param("providerMessage", "Please choose another available time"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
-
-        Appointment savedAppointment = appointmentRepository.findById(appointment.getId())
-                .orElseThrow();
-
-        assertThat(savedAppointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
-        assertThat(savedAppointment.getRejectionReason())
-                .isEqualTo("Please choose another available time");
-    }
-
-    @Test
-    @DisplayName("Should delete client-cancelled appointment after provider acknowledgement")
-    void shouldDeleteClientCancelledAppointmentAfterProviderAcknowledgement() throws Exception {
-        User provider = createUser("provider-client-cancel-ack", UserRole.PROVIDER);
-        User client = createUser("client-client-cancel-ack", UserRole.CLIENT);
-        linkClient(provider, client);
-
-        Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
-        appointment.confirm();
-        appointment.cancelByClient();
-        appointmentRepository.save(appointment);
-
-        MockHttpSession providerSession = authenticatedSession(provider);
-
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
-                        .session(providerSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=provider-calendar"));
-
-        assertThat(appointmentRepository.findById(appointment.getId())).isEmpty();
-    }
-    
     @TestConfiguration
     static class FixedClockConfig {
 

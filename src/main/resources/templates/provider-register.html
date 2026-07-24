@@ -43,6 +43,14 @@
     </div>
 
     <div style="margin-top: 10px;">
+        <label for="currency">Валюта:</label>
+        <select id="currency" name="currency" required>
+            <option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
+                    th:selected="${c == selectedCurrency}"></option>
+        </select>
+    </div>
+
+    <div style="margin-top: 10px;">
         <label for="password">Пароль:</label>
         <input id="password" type="password" name="password" required>
     </div>

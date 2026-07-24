@@ -7,6 +7,11 @@ import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.Wallet;
+import life.wellnara.model.WalletEntry;
+import life.wellnara.model.WalletEntryType;
+import life.wellnara.repository.WalletEntryRepository;
+import life.wellnara.repository.WalletRepository;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.AvailabilityPeriodRepository;
@@ -64,6 +69,12 @@ class AppointmentServiceTest {
 
     @Autowired
     private AvailabilityRuleRepository availabilityRuleRepository;
+    @Autowired
+    private WalletRepository walletRepository;
+
+    @Autowired
+    private WalletEntryRepository walletEntryRepository;
+
 
     /**
      * Next Monday relative to today, always in the future, always a {@code MONDAY}.
@@ -399,6 +410,10 @@ class AppointmentServiceTest {
         providerClientLinkRepository.save(
                 new ProviderClientLink(provider, client, LocalDateTime.now())
         );
+        // fund the client so an appointment request can place a money HOLD (step 3.5)
+        Wallet wallet = walletRepository.save(new Wallet(client, provider, "EUR", LocalDateTime.now()));
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.TOP_UP, new BigDecimal("100000.00"), null, provider, LocalDateTime.now(), null));
     }
 
     private Offering createOffering(User provider) {

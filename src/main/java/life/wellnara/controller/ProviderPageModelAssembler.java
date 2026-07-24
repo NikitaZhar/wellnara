@@ -11,6 +11,7 @@ import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.service.time.ApplicationTimeService;
+import life.wellnara.service.wallet.CurrencyCodes;
 
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
@@ -81,6 +82,8 @@ public class ProviderPageModelAssembler {
         model.addAttribute("profileFirstName", profile != null ? profile.getFirstName() : "");
         model.addAttribute("profileLastName", profile != null ? profile.getLastName() : "");
         model.addAttribute("profilePhone", profile != null ? profile.getPhone() : "");
+        model.addAttribute("providerCurrency", provider.getCurrency());
+        model.addAttribute("supportedCurrencies", CurrencyCodes.SUPPORTED);
     }
 
     private List<ClientRow> buildClientRows(User provider) {

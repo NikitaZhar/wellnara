@@ -48,7 +48,7 @@ public class ProviderController {
     public String showPage(@CurrentUser User currentUser, HttpSession session, Model model) {
         providerCalendarService.deleteExpiredAvailabilityPeriods(currentUser);
         providerCalendarService.deleteExpiredAvailabilityOverrides(currentUser);
-        appointmentService.deleteExpiredUnpaidAppointments();
+        appointmentService.expireStaleAppointmentRequests();
 
         moveSessionAttributeToModel(session, model, "clientInviteSuccessMessage");
         moveSessionAttributeToModel(session, model, "clientInviteError");

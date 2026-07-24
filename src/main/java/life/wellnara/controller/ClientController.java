@@ -224,7 +224,7 @@ public class ClientController {
 	}
 
 	/**
-	 * Acknowledges rejected appointment and removes it from client's list.
+	 * Acknowledges a provider-cancelled or completed appointment and removes it from client's list.
 	 *
 	 * @param appointmentId appointment identifier
 	 * @param currentUser authenticated client
@@ -239,22 +239,7 @@ public class ClientController {
 	}
 
 	/**
-	 * Performs fake payment for appointment and confirms it.
-	 *
-	 * @param appointmentId appointment identifier
-	 * @param currentUser authenticated client
-	 * @return redirect to client page
-	 */
-	@PostMapping("/client/appointments/{appointmentId}/pay")
-	public String payForAppointment(@PathVariable Long appointmentId,
-	                                @CurrentUser User currentUser) {
-	    appointmentService.payForAppointment(currentUser, appointmentId);
-
-	    return "redirect:/client?section=calendar";
-	}
-
-	/**
-	 * Cancels pending (not yet confirmed) appointment by client.
+	 * Cancels pending (not yet accepted) appointment request by client.
 	 *
 	 * @param appointmentId appointment identifier
 	 * @param currentUser authenticated client
@@ -269,16 +254,16 @@ public class ClientController {
 	}
 
 	/**
-	 * Cancels confirmed appointment by client.
+	 * Cancels a scheduled appointment by client.
 	 *
 	 * @param appointmentId appointment identifier
 	 * @param currentUser authenticated client
 	 * @return redirect to client calendar
 	 */
 	@PostMapping("/client/appointments/{appointmentId}/cancel")
-	public String cancelConfirmedAppointment(@PathVariable Long appointmentId,
+	public String cancelScheduledAppointment(@PathVariable Long appointmentId,
 	                                         @CurrentUser User currentUser) {
-	    appointmentService.cancelConfirmedAppointmentByClient(currentUser, appointmentId);
+	    appointmentService.cancelScheduledAppointmentByClient(currentUser, appointmentId);
 
 	    return "redirect:/client?section=calendar";
 	}

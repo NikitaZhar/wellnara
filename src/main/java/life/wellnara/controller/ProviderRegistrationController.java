@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import life.wellnara.model.User;
 import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.ProviderInvitationService;
+import life.wellnara.service.wallet.CurrencyCodes;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -46,6 +47,7 @@ public class ProviderRegistrationController {
             String email = service.getEmailByToken(token);
             model.addAttribute("token", token);
             model.addAttribute("email", email);
+            addCurrencyAttributes(model, CurrencyCodes.DEFAULT);
             return "provider-register";
         } catch (IllegalArgumentException exception) {
             model.addAttribute("error", exception.getMessage());
@@ -60,10 +62,14 @@ public class ProviderRegistrationController {
      * @param name            provider name
      * @param password        provider password
      * @param confirmPassword repeated provider password
+     * @param firstName       provider first name
+     * @param lastName        provider last name
+     * @param phone           provider phone number, optional
+     * @param currency        provider wallet currency (ISO 4217)
      * @param request         current request
      * @param response        current response
      * @param model           MVC model
-     * @return redirect to provider page on success or registration page on validation error
+     * @return redirect to home on success or registration page on validation error
      */
     @PostMapping("/provider/register")
     public String register(@RequestParam String token,
@@ -73,6 +79,7 @@ public class ProviderRegistrationController {
                            @RequestParam String firstName,
                            @RequestParam String lastName,
                            @RequestParam(required = false) String phone,
+                           @RequestParam String currency,
                            HttpServletRequest request,
                            HttpServletResponse response,
                            Model model) {
@@ -86,34 +93,42 @@ public class ProviderRegistrationController {
         }
 
         if (!password.equals(confirmPassword)) {
-            model.addAttribute("token", token);
-            model.addAttribute("email", email);
-            addProfileAttributes(model, name, firstName, lastName, phone);
-            model.addAttribute("error", "Passwords do not match");
-            return "provider-register";
+            return renderRegisterError(model, token, email, name, firstName, lastName, phone,
+                    currency, "Passwords do not match");
         }
 
         try {
-            User registeredUser = service.register(token, name, password, firstName, lastName, phone);
+            User registeredUser = service.register(token, name, password, firstName, lastName, phone, currency);
             securitySessionService.establish(registeredUser, request, response);
             return "redirect:/home";
         } catch (IllegalArgumentException exception) {
-            model.addAttribute("token", token);
-            model.addAttribute("email", email);
-            addProfileAttributes(model, name, firstName, lastName, phone);
-            model.addAttribute("error", exception.getMessage());
-            return "provider-register";
+            return renderRegisterError(model, token, email, name, firstName, lastName, phone,
+                    currency, exception.getMessage());
         }
     }
 
-    private void addProfileAttributes(Model model,
-                                      String name,
-                                      String firstName,
-                                      String lastName,
-                                      String phone) {
+    private String renderRegisterError(Model model,
+                                       String token,
+                                       String email,
+                                       String name,
+                                       String firstName,
+                                       String lastName,
+                                       String phone,
+                                       String currency,
+                                       String error) {
+        model.addAttribute("token", token);
+        model.addAttribute("email", email);
         model.addAttribute("name", name);
         model.addAttribute("firstName", firstName);
         model.addAttribute("lastName", lastName);
         model.addAttribute("phone", phone);
+        addCurrencyAttributes(model, currency);
+        model.addAttribute("error", error);
+        return "provider-register";
+    }
+
+    private void addCurrencyAttributes(Model model, String selectedCurrency) {
+        model.addAttribute("supportedCurrencies", CurrencyCodes.SUPPORTED);
+        model.addAttribute("selectedCurrency", selectedCurrency);
     }
 }

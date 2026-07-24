@@ -34,6 +34,16 @@ public class User {
     private UserRole role;
 
     /**
+     * ISO 4217 currency code of the provider's wallet (e.g. {@code "USD"}).
+     *
+     * <p>Set only for {@link UserRole#PROVIDER} users; {@code null} for admins and
+     * clients. Nullable in step 3.1 (column introduced); step 3.3 wires the
+     * currency semantics and enforces its presence for providers.
+     */
+    @Column(length = 3)
+    private String currency;
+
+    /**
      * Required by JPA.
      */
     public User() {
@@ -73,5 +83,13 @@ public class User {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 }

@@ -3,6 +3,7 @@ package life.wellnara.service;
 import life.wellnara.dto.AppointmentView;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
 import life.wellnara.repository.AppointmentRepository;
@@ -24,6 +25,9 @@ import java.util.function.Function;
  *   <li>query appointments by actor and status,</li>
  *   <li>convert results to {@link AppointmentView} via {@link AppointmentViewMapper}.</li>
  * </ul>
+ *
+ * <p>Notification lists exclude acknowledged appointments — those stay in history
+ * but have been dismissed from the cards.
  *
  * <p>Client display names are resolved with a single batched profile lookup per call,
  * avoiding one query per appointment.
@@ -80,7 +84,9 @@ public class AppointmentQueryService {
 	}
 
 	/**
-	 * Returns client appointment notifications.
+	 * Returns client appointment notifications: own pending requests,
+	 * provider-cancelled appointments, and completed ones. The client's own
+	 * cancellations and dismissed notifications are not shown.
 	 *
 	 * @param client client whose appointment notifications are requested
 	 * @return appointment views ordered by date and time
@@ -92,12 +98,14 @@ public class AppointmentQueryService {
 						client,
 						List.of(
 								AppointmentStatus.REQUESTED,
-								AppointmentStatus.PAYMENT_REQUESTED,
-								AppointmentStatus.REJECTED,
-								AppointmentStatus.CANCELLED_BY_PROVIDER,
+								AppointmentStatus.CANCELLED,
 								AppointmentStatus.COMPLETED
 						)
-				);
+				)
+				.stream()
+				.filter(appointment -> !appointment.isAcknowledged())
+				.filter(appointment -> !cancelledBy(appointment, CancellationInitiator.CLIENT))
+				.toList();
 
 		return toViews(
 				appointments,
@@ -125,7 +133,8 @@ public class AppointmentQueryService {
 	}
 
 	/**
-	 * Returns provider calendar appointments.
+	 * Returns provider calendar appointments: scheduled appointments and
+	 * undismissed client-cancelled notifications.
 	 *
 	 * @param provider provider whose appointments are requested
 	 * @return provider calendar appointments ordered by date and time
@@ -138,26 +147,31 @@ public class AppointmentQueryService {
 				.findAllByProviderAndStatusInOrderByStartDateTimeUtcAsc(
 						provider,
 						List.of(
-								AppointmentStatus.CONFIRMED,
-								AppointmentStatus.CANCELLED_BY_CLIENT
+								AppointmentStatus.SCHEDULED,
+								AppointmentStatus.CANCELLED
 						)
-				);
+				)
+				.stream()
+				.filter(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED
+						|| (!appointment.isAcknowledged()
+								&& cancelledBy(appointment, CancellationInitiator.CLIENT)))
+				.toList();
 
 		return toViews(appointments, appointment -> providerZone);
 	}
 
 	/**
-	 * Returns confirmed appointments of client for calendar section.
+	 * Returns scheduled appointments of client for calendar section.
 	 *
-	 * @param client client whose confirmed appointments are requested
-	 * @return confirmed appointment views ordered by date and time
+	 * @param client client whose scheduled appointments are requested
+	 * @return scheduled appointment views ordered by date and time
 	 */
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getConfirmedAppointmentViewsOfClient(User client) {
 		List<Appointment> appointments = appointmentRepository
 				.findAllByClientAndStatusOrderByStartDateTimeUtcAsc(
 						client,
-						AppointmentStatus.CONFIRMED
+						AppointmentStatus.SCHEDULED
 				);
 
 		return toViews(
@@ -170,7 +184,7 @@ public class AppointmentQueryService {
 	 * Returns provider appointment notifications.
 	 *
 	 * @param provider provider who owns notifications
-	 * @return client-cancelled appointment notifications ordered by date and time
+	 * @return undismissed client-cancelled appointment notifications ordered by date and time
 	 */
 	@Transactional(readOnly = true)
 	public List<AppointmentView> getAppointmentNotificationViewsOfProvider(User provider) {
@@ -179,10 +193,19 @@ public class AppointmentQueryService {
 		List<Appointment> appointments = appointmentRepository
 				.findAllByProviderAndStatusOrderByStartDateTimeUtcAsc(
 						provider,
-						AppointmentStatus.CANCELLED_BY_CLIENT
-				);
+						AppointmentStatus.CANCELLED
+				)
+				.stream()
+				.filter(appointment -> !appointment.isAcknowledged())
+				.filter(appointment -> cancelledBy(appointment, CancellationInitiator.CLIENT))
+				.toList();
 
 		return toViews(appointments, appointment -> providerZone);
+	}
+
+	private boolean cancelledBy(Appointment appointment, CancellationInitiator initiator) {
+		return appointment.getStatus() == AppointmentStatus.CANCELLED
+				&& appointment.getCancellationInitiator() == initiator;
 	}
 
 	/**

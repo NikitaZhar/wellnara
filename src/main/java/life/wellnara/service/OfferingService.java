@@ -28,13 +28,15 @@ public class OfferingService {
     }
 
     /**
-     * Creates offering for provider.
+     * Creates offering for provider. The offering price inherits the provider's
+     * wallet currency, which must already be set.
      *
      * @param provider provider owner
      * @param name offering name
      * @param description offering description
      * @param pricePerSession price per session
      * @param durationMinutes session duration in minutes
+     * @throws IllegalArgumentException if the user is not a provider or has no currency set
      */
     @Transactional
     public void createOffering(User provider,
@@ -43,6 +45,7 @@ public class OfferingService {
                                BigDecimal pricePerSession,
                                Integer durationMinutes) {
         validateProvider(provider);
+        String currency = requireProviderCurrency(provider);
 
         Offering offering = new Offering(
                 provider,
@@ -51,6 +54,7 @@ public class OfferingService {
                 pricePerSession,
                 durationMinutes
         );
+        offering.setCurrency(currency);
 
         offeringRepository.save(offering);
     }
@@ -81,7 +85,8 @@ public class OfferingService {
     }
 
     /**
-     * Updates offering owned by provider.
+     * Updates offering owned by provider. Currency is not editable per offering —
+     * it follows the provider currency (see {@link ProviderCurrencyService}).
      *
      * @param provider provider owner
      * @param offeringId offering identifier
@@ -127,5 +132,13 @@ public class OfferingService {
         if (provider.getRole() != UserRole.PROVIDER) {
             throw new IllegalArgumentException("Only provider can manage offerings");
         }
+    }
+
+    private String requireProviderCurrency(User provider) {
+        String currency = provider.getCurrency();
+        if (currency == null || currency.isBlank()) {
+            throw new IllegalArgumentException("Provider currency is not set");
+        }
+        return currency;
     }
 }

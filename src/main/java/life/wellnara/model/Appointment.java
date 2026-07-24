@@ -3,9 +3,10 @@ package life.wellnara.model;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
- * Appointment request or confirmed meeting between client and provider.
+ * Appointment request or booked meeting between client and provider.
  */
 @Entity
 @Table(name = "appointments")
@@ -54,9 +55,42 @@ public class Appointment {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-    
+
+    /**
+     * Message shown to the client when the appointment is cancelled (rejection or
+     * reschedule reason). {@code null} when no message was given.
+     */
     @Column(length = 1000)
     private String rejectionReason;
+
+    /**
+     * Who initiated the cancellation; {@code null} until the appointment is cancelled.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column
+    private CancellationInitiator cancellationInitiator;
+
+    /**
+     * When the appointment was cancelled, in UTC; {@code null} until cancelled.
+     */
+    @Column
+    private LocalDateTime cancelledAt;
+
+    /**
+     * Whether the notification for this appointment has been dismissed. Once an
+     * appointment carries wallet ledger entries it is never deleted; acknowledging
+     * only hides it from the notification lists while keeping it in history.
+     */
+    @Column(nullable = false)
+    private boolean acknowledged;
+
+    /**
+     * Optimistic-lock version. Two concurrent terminal transitions on the same
+     * appointment then conflict, so exactly one settlement/release wins.
+     */
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     protected Appointment() {
     }
@@ -98,76 +132,74 @@ public class Appointment {
         return status;
     }
 
-    public void confirm() {
-        this.status = AppointmentStatus.CONFIRMED;
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public String getRejectionReason() {
         return rejectionReason;
     }
 
+    public CancellationInitiator getCancellationInitiator() {
+        return cancellationInitiator;
+    }
+
+    public LocalDateTime getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public boolean isAcknowledged() {
+        return acknowledged;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
     /**
-     * Rejects requested appointment with provider explanation.
+     * Accepts a requested appointment: {@code REQUESTED → SCHEDULED}.
+     */
+    public void schedule() {
+        this.status = AppointmentStatus.SCHEDULED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Cancels the appointment, recording who cancelled and when.
      *
-     * @param rejectionReason reason shown to client
-     */
-    public void reject(String rejectionReason) {
-        if (rejectionReason == null || rejectionReason.isBlank()) {
-            throw new IllegalArgumentException("Rejection reason is required");
-        }
-
-        this.status = AppointmentStatus.REJECTED;
-        this.rejectionReason = rejectionReason.trim();
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    /**
-     * Cancels confirmed appointment by provider.
-     */
-    public void cancelByProvider() {
-        this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    /**
-     * Cancels confirmed appointment by provider with explanation.
+     * <p>Covers provider rejection, provider reschedule, and both provider and
+     * client cancellations of a scheduled appointment.
      *
-     * @param providerMessage message shown to client
+     * @param initiator who cancelled (required)
+     * @param message   message shown to the client, or {@code null}/blank for none
+     * @param at        cancellation time in UTC (supplied by the time service)
      */
-    public void cancelByProvider(String providerMessage) {
-        if (providerMessage == null || providerMessage.isBlank()) {
-            throw new IllegalArgumentException("Provider message is required");
-        }
-
-        this.status = AppointmentStatus.CANCELLED_BY_PROVIDER;
-        this.rejectionReason = providerMessage.trim();
-        this.updatedAt = LocalDateTime.now();
+    public void cancel(CancellationInitiator initiator, String message, LocalDateTime at) {
+        Objects.requireNonNull(initiator, "Cancellation initiator is required");
+        this.status = AppointmentStatus.CANCELLED;
+        this.cancellationInitiator = initiator;
+        this.cancelledAt = at;
+        this.rejectionReason = (message == null || message.isBlank()) ? null : message.trim();
+        this.updatedAt = at;
     }
 
     /**
-     * Cancels confirmed appointment by client.
+     * Marks a scheduled appointment as completed: {@code SCHEDULED → COMPLETED}.
      */
-    public void cancelByClient() {
-        this.status = AppointmentStatus.CANCELLED_BY_CLIENT;
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public void complete() {
         this.status = AppointmentStatus.COMPLETED;
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * Marks a scheduled appointment as a no-show: {@code SCHEDULED → NO_SHOW}.
+     */
     public void markNoShow() {
         this.status = AppointmentStatus.NO_SHOW;
         this.updatedAt = LocalDateTime.now();
     }
-    
+
     /**
-     * Marks requested appointment as accepted by provider and waiting for payment.
+     * Dismisses the notification for this appointment without deleting it.
      */
-    public void requestPayment() {
-        this.status = AppointmentStatus.PAYMENT_REQUESTED;
+    public void acknowledge() {
+        this.acknowledged = true;
         this.updatedAt = LocalDateTime.now();
     }
 }

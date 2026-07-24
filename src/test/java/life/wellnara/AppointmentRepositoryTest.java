@@ -21,6 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 class AppointmentRepositoryTest {
 
+    private static final LocalDateTime CANCELLED_AT = LocalDateTime.of(2026, 5, 1, 12, 0);
+
     @Autowired
     private AppointmentRepository appointmentRepository;
 
@@ -71,13 +73,15 @@ class AppointmentRepositoryTest {
                 LocalDateTime.now()
         );
 
-        appointment.confirm();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        appointment.schedule();
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
 
-        appointment.cancelByProvider();
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_PROVIDER);
+        appointment.cancel(CancellationInitiator.PROVIDER, null, CANCELLED_AT);
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(appointment.getCancellationInitiator()).isEqualTo(CancellationInitiator.PROVIDER);
+        assertThat(appointment.getCancelledAt()).isEqualTo(CANCELLED_AT);
     }
-    
+
     /**
      * Verifies that appointment can be cancelled by client.
      */
@@ -96,12 +100,13 @@ class AppointmentRepositoryTest {
                 LocalDateTime.now()
         );
 
-        appointment.confirm();
-        appointment.cancelByClient();
+        appointment.schedule();
+        appointment.cancel(CancellationInitiator.CLIENT, null, CANCELLED_AT);
 
-        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED_BY_CLIENT);
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(appointment.getCancellationInitiator()).isEqualTo(CancellationInitiator.CLIENT);
     }
-    
+
     /**
      * Verifies repository query by provider.
      */
@@ -144,7 +149,7 @@ class AppointmentRepositoryTest {
         Appointment a2 = new Appointment(provider, client, offering,
                 LocalDateTime.of(2026, 5, 10, 10, 0));
 
-        a2.confirm();
+        a2.schedule();
 
         appointmentRepository.save(a1);
         appointmentRepository.save(a2);
@@ -152,13 +157,13 @@ class AppointmentRepositoryTest {
         List<Appointment> result =
                 appointmentRepository.findAllByProviderAndStatusInAndStartDateTimeUtcBetween(
                         provider,
-                        List.of(AppointmentStatus.CONFIRMED),
+                        List.of(AppointmentStatus.SCHEDULED),
                         LocalDateTime.of(2026, 5, 1, 0, 0),
                         LocalDateTime.of(2026, 5, 31, 23, 59)
                 );
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+        assertThat(result.get(0).getStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
     }
 
     // ===== helpers =====
