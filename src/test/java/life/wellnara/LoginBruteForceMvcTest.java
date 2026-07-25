@@ -51,7 +51,7 @@ class LoginBruteForceMvcTest {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             performLogin("wrong-password")
                     .andExpect(status().isOk())
-                    .andExpect(content().string(containsString("Неверный логин или пароль")));
+                    .andExpect(content().string(containsString("Invalid login or password")));
         }
     }
 
@@ -64,7 +64,7 @@ class LoginBruteForceMvcTest {
 
         performLogin("wrong-password")
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Слишком много неудачных попыток входа")));
+                .andExpect(content().string(containsString("Too many failed login attempts")));
     }
 
     private org.springframework.test.web.servlet.ResultActions performLogin(String password) throws Exception {

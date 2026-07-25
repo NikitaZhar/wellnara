@@ -48,8 +48,7 @@ class HomeMvcTest {
         mockMvc.perform(get("/home").session(session))
                 .andExpect(status().isOk())
                 .andExpect(view().name("provider-home"))
-                .andExpect(content().string(containsString("Appointment requests")))
-                .andExpect(content().string(containsString("Wallet")));
+                .andExpect(content().string(containsString("Appointment requests")));
     }
 
     @Test

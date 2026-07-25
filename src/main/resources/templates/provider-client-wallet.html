@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>Wellnara — Client wallet</title>
+<link rel="stylesheet" th:href="@{/css/provider.css}">
+</head>
+
+<body>
+
+	<div class="page-header">
+		<h1>
+			Wallet — <span th:text="${wallet.clientName}">Client</span>
+		</h1>
+
+		<a th:href="@{/provider(section='clients')}">Back to clients</a>
+		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
+	</div>
+
+	<div th:if="${walletActionError}" style="color: red;">
+		<p th:text="${walletActionError}"></p>
+	</div>
+
+	<!-- Current balance -->
+	<div style="margin-top: 20px;">
+		<h2>Balance</h2>
+		<p>
+			Available:
+			<strong th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</strong>
+			<span th:text="${wallet.currency}">EUR</span>
+		</p>
+		<p>
+			Held (reserved):
+			<strong th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</strong>
+			<span th:text="${wallet.currency}">EUR</span>
+		</p>
+		<p class="empty" th:unless="${wallet.walletExists}">No wallet yet — the first top-up creates it.</p>
+	</div>
+
+	<!-- Remaining package sessions -->
+	<div style="margin-top: 30px;" th:if="${wallet.hasPackages}">
+		<h2>Package sessions</h2>
+		<table>
+			<thead>
+				<tr>
+					<th>Offering</th>
+					<th>Available</th>
+					<th>Held</th>
+					<th>Total</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="pkg : ${wallet.packages}">
+					<td th:text="${pkg.offeringName}"></td>
+					<td th:text="${pkg.available}"></td>
+					<td th:text="${pkg.held}"></td>
+					<td th:text="${pkg.total}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Manual top-up: money received outside the system -->
+	<div style="margin-top: 30px;">
+		<h2>Top up balance</h2>
+		<form th:action="@{/provider/clients/{clientId}/wallet/top-up(clientId=${clientId})}" method="post">
+			<div class="form-row">
+				<input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" required>
+				<span th:text="${wallet.currency}">EUR</span>
+				<input type="text" name="comment" placeholder="Comment (optional)">
+				<button type="submit">Top up</button>
+			</div>
+		</form>
+	</div>
+
+	<!-- Full movement history -->
+	<div style="margin-top: 30px;">
+		<h2>Payment history</h2>
+
+		<p class="empty" th:unless="${wallet.hasHistory}">No movements yet.</p>
+
+		<table th:if="${wallet.hasHistory}">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Type</th>
+					<th>Amount / Sessions</th>
+					<th>Offering</th>
+					<th>Comment</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="row : ${wallet.history}">
+					<td th:text="${row.timestamp}"></td>
+					<td th:text="${row.typeLabel}"></td>
+					<td>
+						<span th:if="${row.money}">
+							<span th:text="${#numbers.formatDecimal(row.amount, 1, 2)}"></span>
+							<span th:text="${row.currency}"></span>
+						</span>
+						<span th:if="${row.session}">
+							<span th:text="${row.sessionCount}"></span> session(s)
+						</span>
+					</td>
+					<td th:text="${row.offeringName}"></td>
+					<td th:text="${row.comment}"></td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+
+</body>
+</html>

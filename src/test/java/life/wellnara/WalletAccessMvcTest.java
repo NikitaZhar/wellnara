@@ -60,7 +60,7 @@ class WalletAccessMvcTest {
                         .session(authenticatedSession(provider))
                         .param("amount", "75.00"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=clients"));
+                .andExpect(redirectedUrl("/provider/clients/" + client.getId() + "/wallet"));
 
         Wallet wallet = walletRepository.findByClient(client).orElseThrow();
         assertThat(walletEntryRepository.findAllByWalletOrderByIdAsc(wallet)).hasSize(1);

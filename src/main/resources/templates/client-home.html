@@ -47,6 +47,11 @@
     .home-nav a {
         margin-right: 14px;
     }
+    .wallet-card .wallet-history {
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 13px;
+    }
 </style>
 </head>
 
@@ -115,10 +120,49 @@
             <a class="card-link" th:href="@{/client}">Browse offerings →</a>
         </div>
 
-        <!-- Wallet placeholder: filled in phase 3 (financial module) -->
-        <div class="home-card disabled">
+        <!-- Wallet: read-only view of the client's finances -->
+        <div class="home-card wallet-card">
             <h3>Wallet</h3>
-            <p class="empty">Coming soon.</p>
+
+            <p>
+                Available:
+                <strong th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</strong>
+                <span th:text="${wallet.currency}"></span>
+            </p>
+            <p>
+                Held (reserved):
+                <strong th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</strong>
+                <span th:text="${wallet.currency}"></span>
+            </p>
+
+            <div th:if="${wallet.hasPackages}">
+                <h4 style="margin: 12px 0 4px;">Package sessions</h4>
+                <ul>
+                    <li th:each="pkg : ${wallet.packages}">
+                        <span th:text="${pkg.offeringName}"></span>:
+                        <span th:text="${pkg.available}"></span> available
+                        <span th:if="${pkg.held > 0}">
+                            (<span th:text="${pkg.held}"></span> held)</span>
+                    </li>
+                </ul>
+            </div>
+
+            <h4 style="margin: 12px 0 4px;">History</h4>
+            <p class="empty" th:unless="${wallet.hasHistory}">No movements yet.</p>
+            <ul th:if="${wallet.hasHistory}" class="wallet-history">
+                <li th:each="row : ${wallet.history}">
+                    <span th:text="${row.timestamp}"></span> —
+                    <span th:text="${row.typeLabel}"></span>:
+                    <span th:if="${row.money}">
+                        <span th:text="${#numbers.formatDecimal(row.amount, 1, 2)}"></span>
+                        <span th:text="${row.currency}"></span>
+                    </span>
+                    <span th:if="${row.session}">
+                        <span th:text="${row.sessionCount}"></span> session(s)
+                        <span th:if="${row.offeringName}">— <span th:text="${row.offeringName}"></span></span>
+                    </span>
+                </li>
+            </ul>
         </div>
 
     </div>

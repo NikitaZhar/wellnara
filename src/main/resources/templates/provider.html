@@ -186,6 +186,7 @@
 						<th>Name</th>
 						<th>Email</th>
 						<th>Phone</th>
+						<th>Balance</th>
 						<th>Invited at</th>
 						<th>Action</th>
 					</tr>
@@ -196,11 +197,16 @@
 						<td th:text="${clientRow.displayName}"></td>
 						<td th:text="${clientRow.email}"></td>
 						<td th:text="${clientRow.phone}"></td>
+						<td>
+							<span th:text="${#numbers.formatDecimal(clientRow.availableBalance, 1, 2)}">0.00</span>
+							<span th:text="${clientRow.currency}"></span>
+						</td>
 						<td th:text="${clientRow.invitedAt}"></td>
 						<td>
+							<a th:href="@{/provider/clients/{clientId}/wallet(clientId=${clientRow.clientId})}">Wallet</a>
 							<form
 								th:action="@{/provider/clients/{clientId}/delete(clientId=${clientRow.clientId})}"
-								method="post"
+								method="post" style="display: inline; margin-left: 8px;"
 								onsubmit="return confirm('Are you sure you want to delete this client?');">
 								<button type="submit">Delete</button>
 							</form>
@@ -604,23 +610,23 @@
 
 		<form th:action="@{/provider/profile}" method="post">
 			<div class="form-row">
-				<label for="firstName">Имя:</label>
+				<label for="firstName">First name:</label>
 				<input id="firstName" type="text" name="firstName"
 					th:value="${profileFirstName}" required>
 
-				<label for="lastName">Фамилия:</label>
+				<label for="lastName">Last name:</label>
 				<input id="lastName" type="text" name="lastName"
 					th:value="${profileLastName}" required>
 
-				<label for="phone">Телефон (необязательно):</label>
+				<label for="phone">Phone (optional):</label>
 				<input id="phone" type="tel" name="phone" th:value="${profilePhone}"
 					autocomplete="tel" placeholder="+421904746337"
 					pattern="\+[1-9]\d{1,14}"
-					title="Международный формат, например +421904746337">
+					title="International format, e.g. +421904746337">
 			</div>
 
 			<div class="form-row">
-				<label for="currency">Валюта кошелька:</label>
+				<label for="currency">Wallet currency:</label>
 				<select id="currency" name="currency">
 					<option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
 							th:selected="${c == providerCurrency}"></option>
@@ -628,17 +634,17 @@
 			</div>
 
 			<div class="form-row">
-				<p>Чтобы сменить пароль, заполните три поля ниже. Если пароль менять не нужно, оставьте их пустыми.</p>
+				<p>To change your password, fill in the three fields below. Leave them blank to keep your current password.</p>
 
-				<label for="currentPassword">Текущий пароль:</label>
+				<label for="currentPassword">Current password:</label>
 				<input id="currentPassword" type="password" name="currentPassword"
 					autocomplete="current-password">
 
-				<label for="newPassword">Новый пароль:</label>
+				<label for="newPassword">New password:</label>
 				<input id="newPassword" type="password" name="newPassword"
 					autocomplete="new-password">
 
-				<label for="confirmNewPassword">Повторите новый пароль:</label>
+				<label for="confirmNewPassword">Repeat new password:</label>
 				<input id="confirmNewPassword" type="password" name="confirmNewPassword"
 					autocomplete="new-password">
 			</div>

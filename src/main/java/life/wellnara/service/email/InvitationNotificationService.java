@@ -52,7 +52,7 @@ public class InvitationNotificationService {
         String registrationLink = publicBaseUrl + "/client/register?token=" + token;
         emailService.sendPlainTextEmail(
                 recipientEmail,
-                "Wellnara — приглашение для регистрации",
+                "Wellnara client invitation",
                 buildClientBody(registrationLink));
     }
 
@@ -70,13 +70,13 @@ public class InvitationNotificationService {
 
     private String buildClientBody(String registrationLink) {
         return """
-                Вас пригласили зарегистрироваться на платформе Wellnara.
+                You have been invited to register as a client on Wellnara.
 
-                Для завершения регистрации перейдите по ссылке:
+                Please use the following link to complete your registration:
 
                 %s
 
-                Если вы не ожидали это приглашение — просто проигнорируйте письмо.
+                If you did not expect this invitation, you can ignore this email.
                 """.formatted(registrationLink);
     }
 }

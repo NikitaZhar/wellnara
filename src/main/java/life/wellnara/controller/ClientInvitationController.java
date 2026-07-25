@@ -46,7 +46,7 @@ public class ClientInvitationController {
             String token = clientInvitationService.invite(currentUser, email);
             invitationNotificationService.sendClientInvitation(email, token);
 
-            session.setAttribute("clientInviteSuccessMessage", "Приглашение отправлено на " + email);
+            session.setAttribute("clientInviteSuccessMessage", "Invitation sent to " + email);
             session.removeAttribute("clientInviteError");
         } catch (IllegalArgumentException exception) {
             session.setAttribute("clientInviteError", exception.getMessage());

@@ -9,6 +9,7 @@ import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderClientService;
 import life.wellnara.service.UserProfileService;
+import life.wellnara.service.WalletQueryService;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
@@ -30,6 +31,7 @@ public class HomePageModelAssembler {
     private final ProviderClientService providerClientService;
     private final ClientOfferingService clientOfferingService;
     private final UserProfileService userProfileService;
+    private final WalletQueryService walletQueryService;
 
     /**
      * Creates the home page model assembler.
@@ -39,17 +41,20 @@ public class HomePageModelAssembler {
      * @param providerClientService service for provider-client links
      * @param clientOfferingService service for client access to provider offerings
      * @param userProfileService    service for user personal data
+     * @param walletQueryService    service for read-only wallet balances
      */
     public HomePageModelAssembler(AppointmentService appointmentService,
                                   OfferingService offeringService,
                                   ProviderClientService providerClientService,
                                   ClientOfferingService clientOfferingService,
-                                  UserProfileService userProfileService) {
+                                  UserProfileService userProfileService,
+                                  WalletQueryService walletQueryService) {
         this.appointmentService = appointmentService;
         this.offeringService = offeringService;
         this.providerClientService = providerClientService;
         this.clientOfferingService = clientOfferingService;
         this.userProfileService = userProfileService;
+        this.walletQueryService = walletQueryService;
     }
 
     /**
@@ -104,6 +109,7 @@ public class HomePageModelAssembler {
         model.addAttribute("upcomingAppointments", upcomingAppointments);
         model.addAttribute("availableOfferings", availableOfferings);
         model.addAttribute("availableOfferingCount", availableOfferings.size());
+        model.addAttribute("wallet", walletQueryService.getWalletOfClient(client));
     }
 
     /**

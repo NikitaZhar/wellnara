@@ -78,11 +78,11 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Приглашение отправлено на client-one@example.com")));
+                .andExpect(content().string(containsString("Invitation sent to client-one@example.com")));
 
         mockMvc.perform(get("/provider").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Приглашение отправлено на"))));
+                .andExpect(content().string(not(containsString("Invitation sent to"))));
 
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }

@@ -21,9 +21,9 @@ import java.util.Optional;
 @Controller
 public class AuthController {
 
-    private static final String INVALID_CREDENTIALS_MESSAGE = "Неверный логин или пароль";
+    private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid login or password";
     private static final String LOCKED_OUT_MESSAGE =
-            "Слишком много неудачных попыток входа. Повторите попытку позже.";
+            "Too many failed login attempts. Please try again later.";
 
     private final AuthService authService;
     private final SecuritySessionService securitySessionService;
@@ -89,7 +89,7 @@ public class AuthController {
         String target = homeRouteForRole(user.getRole());
 
         if (target == null) {
-            model.addAttribute("error", "Неизвестная роль пользователя");
+            model.addAttribute("error", "Unknown user role");
             return "login";
         }
 

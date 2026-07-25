@@ -1,0 +1,260 @@
+package life.wellnara.service;
+
+import life.wellnara.dto.ClientWalletView;
+import life.wellnara.dto.PackageRemainder;
+import life.wellnara.dto.WalletHistoryRow;
+import life.wellnara.model.SessionBalance;
+import life.wellnara.model.User;
+import life.wellnara.model.Wallet;
+import life.wellnara.model.WalletBalance;
+import life.wellnara.model.WalletEntry;
+import life.wellnara.model.WalletEntryType;
+import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.WalletEntryRepository;
+import life.wellnara.repository.WalletRepository;
+import life.wellnara.service.time.ApplicationTimeService;
+import life.wellnara.service.wallet.WalletLedgerCalculator;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Read-only projections over the wallet ledger.
+ *
+ * <p>This is the query side of the wallet module (the write side lives in
+ * {@link WalletCommandService} / {@link WalletReservationService} /
+ * {@link AppointmentSettlementService}); the split follows the Command/Query
+ * separation already used for appointments. Every balance here is a fold of the
+ * append-only ledger through the single, tested {@link WalletLedgerCalculator} —
+ * this service never re-implements the sign rules, so money and session
+ * semantics have exactly one home.
+ *
+ * <p>History rows are localised: the ledger stores UTC, but timestamps are shown
+ * in the provider's calendar timezone (the same zone appointments use), and entry
+ * types are mapped to human-readable labels here rather than leaking the raw enum
+ * into templates.
+ */
+@Service
+public class WalletQueryService {
+
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    private final WalletRepository walletRepository;
+    private final WalletEntryRepository walletEntryRepository;
+    private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final WalletLedgerCalculator ledgerCalculator;
+    private final UserProfileService userProfileService;
+    private final ApplicationTimeService applicationTimeService;
+
+    /**
+     * Creates the wallet query service.
+     *
+     * @param walletRepository             repository for wallets
+     * @param walletEntryRepository        repository for wallet ledger entries
+     * @param providerClientLinkRepository repository for provider-client links
+     * @param ledgerCalculator             folds the ledger into money and session balances
+     * @param userProfileService           resolves a client display name for the provider page
+     * @param applicationTimeService       resolves the provider timezone for localised timestamps
+     */
+    public WalletQueryService(WalletRepository walletRepository,
+                              WalletEntryRepository walletEntryRepository,
+                              ProviderClientLinkRepository providerClientLinkRepository,
+                              WalletLedgerCalculator ledgerCalculator,
+                              UserProfileService userProfileService,
+                              ApplicationTimeService applicationTimeService) {
+        this.walletRepository = walletRepository;
+        this.walletEntryRepository = walletEntryRepository;
+        this.providerClientLinkRepository = providerClientLinkRepository;
+        this.ledgerCalculator = ledgerCalculator;
+        this.userProfileService = userProfileService;
+        this.applicationTimeService = applicationTimeService;
+    }
+
+    /**
+     * Builds the wallet view for a client to read their own finances.
+     *
+     * <p>A client cannot change their balance, so this is strictly read-only. When
+     * the client has no wallet yet, the view shows zero balances in the provider
+     * currency (resolved via the client-provider link) rather than failing, so the
+     * Home tile always renders.
+     *
+     * @param client authenticated client
+     * @return the client's wallet view; zeros in the provider currency if no wallet exists
+     */
+    @Transactional(readOnly = true)
+    public ClientWalletView getWalletOfClient(User client) {
+        return walletRepository.findByClient(client)
+                .map(wallet -> buildView(wallet, null, null))
+                .orElseGet(() -> emptyView(providerCurrencyOf(client), null, null));
+    }
+
+    /**
+     * Builds the wallet view of one of the provider's clients.
+     *
+     * <p>The {@code /provider/**} route guard is the first access check; this
+     * re-verifies the client belongs to the provider (defense in depth). When the
+     * client has no wallet yet, an empty view in the provider currency is returned
+     * so the provider can still open the page and top it up.
+     *
+     * @param provider authenticated provider
+     * @param clientId client whose wallet is read
+     * @return the client's wallet view
+     * @throws IllegalArgumentException if the client is not linked to the provider
+     */
+    @Transactional(readOnly = true)
+    public ClientWalletView getWalletForProvider(User provider, Long clientId) {
+        User client = providerClientLinkRepository.findByProviderAndClientId(provider, clientId)
+                .orElseThrow(() -> new IllegalArgumentException("Client is not linked to provider"))
+                .getClient();
+        String clientName = userProfileService.resolveDisplayName(client);
+
+        return walletRepository.findByClient(client)
+                .map(wallet -> buildView(wallet, client.getId(), clientName))
+                .orElseGet(() -> emptyView(provider.getCurrency(), client.getId(), clientName));
+    }
+
+    /**
+     * Computes the spendable (available) money balance for every client of the
+     * provider, keyed by client id.
+     *
+     * <p>All of a provider's wallets share the provider currency, so the caller
+     * pairs these amounts with {@code provider.getCurrency()} for display. Clients
+     * without a wallet (no movements yet) are absent from the map; the caller
+     * treats a missing entry as a zero balance. Uses one fetch-joined query for the
+     * whole provider ledger and folds it per wallet through the shared calculator —
+     * no query per client.
+     *
+     * @param provider authenticated provider
+     * @return map of client id to available money for clients that have a wallet
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, BigDecimal> getClientBalances(User provider) {
+        String currency = provider.getCurrency();
+
+        Map<Long, List<WalletEntry>> entriesByClientId = new LinkedHashMap<>();
+        for (WalletEntry entry : walletEntryRepository.findAllForProviderFetchingWalletAndClient(provider)) {
+            Long clientId = entry.getWallet().getClient().getId();
+            entriesByClientId.computeIfAbsent(clientId, id -> new ArrayList<>()).add(entry);
+        }
+
+        Map<Long, BigDecimal> availableByClientId = new LinkedHashMap<>();
+        entriesByClientId.forEach((clientId, entries) ->
+                availableByClientId.put(clientId, ledgerCalculator.foldMoney(currency, entries).getAvailable()));
+
+        return availableByClientId;
+    }
+
+    // ===== Private helpers =====
+
+    private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName) {
+        List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
+        WalletBalance money = ledgerCalculator.foldMoney(wallet.getCurrency(), entries);
+        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(wallet.getProvider());
+
+        return new ClientWalletView(
+                clientId,
+                clientName,
+                true,
+                wallet.getCurrency(),
+                money.getAvailable(),
+                money.getHeld(),
+                buildPackageRemainders(entries),
+                buildHistory(entries, providerZone));
+    }
+
+    private ClientWalletView emptyView(String currency, Long clientId, String clientName) {
+        return new ClientWalletView(
+                clientId, clientName, false, currency, BigDecimal.ZERO, BigDecimal.ZERO, List.of(), List.of());
+    }
+
+    /**
+     * Folds the session ledger per package (grants keep insertion order) and keeps
+     * only packages that still owe the client at least one session.
+     */
+    private List<PackageRemainder> buildPackageRemainders(List<WalletEntry> entries) {
+        Map<Long, List<WalletEntry>> sessionEntriesByPackageId = new LinkedHashMap<>();
+        for (WalletEntry entry : entries) {
+            if (entry.getType().isSession()) {
+                sessionEntriesByPackageId
+                        .computeIfAbsent(entry.getServicePackage().getId(), id -> new ArrayList<>())
+                        .add(entry);
+            }
+        }
+
+        List<PackageRemainder> remainders = new ArrayList<>();
+        for (List<WalletEntry> packageEntries : sessionEntriesByPackageId.values()) {
+            SessionBalance sessions = ledgerCalculator.foldSessions(packageEntries);
+            if (sessions.getTotal() <= 0) {
+                continue;
+            }
+            String offeringName = packageEntries.get(0).getServicePackage().getOffering().getName();
+            remainders.add(new PackageRemainder(offeringName, sessions.getAvailable(), sessions.getHeld()));
+        }
+        return remainders;
+    }
+
+    /**
+     * Maps the ledger to display rows, newest first (the ledger is stored oldest
+     * first, so the list is reversed). Timestamps are converted from stored UTC to
+     * the provider timezone.
+     */
+    private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone) {
+        List<WalletHistoryRow> rows = new ArrayList<>(entries.size());
+        for (WalletEntry entry : entries) {
+            String offeringName = entry.getServicePackage() != null
+                    ? entry.getServicePackage().getOffering().getName()
+                    : null;
+            rows.add(new WalletHistoryRow(
+                    formatInZone(entry.getCreatedAt(), providerZone),
+                    entry.getType(),
+                    labelOf(entry.getType()),
+                    entry.getAmount(),
+                    entry.getSessionCount(),
+                    entry.getCurrency(),
+                    offeringName,
+                    entry.getComment()));
+        }
+        Collections.reverse(rows);
+        return rows;
+    }
+
+    private String formatInZone(LocalDateTime utc, ZoneId providerZone) {
+        return utc.atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(providerZone)
+                .format(TIMESTAMP_FORMAT);
+    }
+
+    /**
+     * Human-readable label for a ledger entry type, shown to both client and
+     * provider. Presentation text lives here, not on the domain enum.
+     */
+    private String labelOf(WalletEntryType type) {
+        return switch (type) {
+            case TOP_UP -> "Top-up";
+            case HOLD -> "Reserved for appointment";
+            case RELEASE -> "Reservation released";
+            case SETTLE -> "Charged";
+            case ADJUSTMENT -> "Adjustment";
+            case PACKAGE_GRANT -> "Package granted";
+            case PACKAGE_HOLD -> "Package session reserved";
+            case PACKAGE_RELEASE -> "Package session released";
+            case PACKAGE_CONSUME -> "Package session used";
+        };
+    }
+
+    private String providerCurrencyOf(User client) {
+        return providerClientLinkRepository.findByClient(client)
+                .map(link -> link.getProvider().getCurrency())
+                .orElse(null);
+    }
+}

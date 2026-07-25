@@ -20,30 +20,30 @@
     </div>
 
     <div>
-        <label for="name">Логин:</label>
+        <label for="name">Login:</label>
         <input id="name" type="text" name="name" th:value="${name}" required>
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="firstName">Имя:</label>
+        <label for="firstName">First name:</label>
         <input id="firstName" type="text" name="firstName" th:value="${firstName}" required>
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="lastName">Фамилия:</label>
+        <label for="lastName">Last name:</label>
         <input id="lastName" type="text" name="lastName" th:value="${lastName}" required>
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="phone">Телефон (необязательно):</label>
+        <label for="phone">Phone (optional):</label>
         <input id="phone" type="tel" name="phone" th:value="${phone}"
                autocomplete="tel" placeholder="+421904746337"
                pattern="\+[1-9]\d{1,14}"
-               title="Международный формат, например +421904746337">
+               title="International format, e.g. +421904746337">
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="currency">Валюта:</label>
+        <label for="currency">Currency:</label>
         <select id="currency" name="currency" required>
             <option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
                     th:selected="${c == selectedCurrency}"></option>
@@ -51,17 +51,17 @@
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="password">Пароль:</label>
+        <label for="password">Password:</label>
         <input id="password" type="password" name="password" required>
     </div>
 
     <div style="margin-top: 10px;">
-        <label for="confirmPassword">Повторите пароль:</label>
+        <label for="confirmPassword">Repeat password:</label>
         <input id="confirmPassword" type="password" name="confirmPassword" required>
     </div>
 
     <div style="margin-top: 15px;">
-        <button type="submit">Зарегистрироваться</button>
+        <button type="submit">Register</button>
     </div>
 
 </form>

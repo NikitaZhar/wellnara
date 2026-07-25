@@ -9,6 +9,7 @@ import life.wellnara.service.AppointmentService;
 import life.wellnara.service.OfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.ProviderClientService;
+import life.wellnara.service.WalletQueryService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.service.time.ApplicationTimeService;
 import life.wellnara.service.wallet.CurrencyCodes;
@@ -16,6 +17,7 @@ import life.wellnara.service.wallet.CurrencyCodes;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +33,7 @@ public class ProviderPageModelAssembler {
     private final AppointmentService appointmentService;
     private final ApplicationTimeService applicationTimeService;
     private final UserProfileService userProfileService;
+    private final WalletQueryService walletQueryService;
 
     /**
      * Creates provider page model assembler.
@@ -41,19 +44,22 @@ public class ProviderPageModelAssembler {
      * @param appointmentService service for appointment operations
      * @param applicationTimeService service for application time calculations
      * @param userProfileService service for user personal data
+     * @param walletQueryService service for read-only wallet balances
      */
     public ProviderPageModelAssembler(ProviderClientService providerClientService,
                                       OfferingService offeringService,
                                       ProviderCalendarService providerCalendarService,
                                       AppointmentService appointmentService,
                                       ApplicationTimeService applicationTimeService,
-                                      UserProfileService userProfileService) {
+                                      UserProfileService userProfileService,
+                                      WalletQueryService walletQueryService) {
         this.providerClientService = providerClientService;
         this.offeringService = offeringService;
         this.providerCalendarService = providerCalendarService;
         this.appointmentService = appointmentService;
         this.applicationTimeService = applicationTimeService;
         this.userProfileService = userProfileService;
+        this.walletQueryService = walletQueryService;
     }
 
     /**
@@ -94,17 +100,22 @@ public class ProviderPageModelAssembler {
                 .toList();
 
         Map<Long, UserProfile> profilesByUserId = userProfileService.loadProfilesByUserId(clients);
+        Map<Long, BigDecimal> availableByClientId = walletQueryService.getClientBalances(provider);
+        String providerCurrency = provider.getCurrency();
 
         return links.stream()
                 .map(link -> {
                     User client = link.getClient();
                     UserProfile profile = profilesByUserId.get(client.getId());
+                    BigDecimal available = availableByClientId.get(client.getId());
                     return new ClientRow(
                             client.getId(),
                             userProfileService.displayNameOf(client, profile),
                             client.getEmail(),
                             profile != null ? profile.getPhone() : null,
-                            link.getInvitedAt()
+                            link.getInvitedAt(),
+                            available != null ? available : BigDecimal.ZERO,
+                            providerCurrency
                     );
                 })
                 .toList();
