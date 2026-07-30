@@ -1,23 +1,25 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
-import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.util.List;
 
 /**
  * Controller for provider availability calendar actions.
+ *
+ * <p>The whole calendar — planning period, weekly rules and one-time changes —
+ * is committed by a single Save. While editing, the term list is refreshed
+ * through a read-only preview so the provider sees the result before saving.
  */
 @Controller
 public class ProviderCalendarController {
@@ -41,12 +43,13 @@ public class ProviderCalendarController {
     }
 
     /**
-     * Saves provider calendar availability settings.
+     * Saves the whole provider calendar — planning period, weekly rules and
+     * one-time changes — atomically.
      *
-     * @param form provider calendar form
+     * @param form calendar form including staged one-time changes
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with validation errors
+     * @return redirect to calendar section, or provider page with validation errors
      */
     @PostMapping("/provider/calendar")
     public String saveCalendar(@ModelAttribute ProviderCalendarForm form,
@@ -66,59 +69,17 @@ public class ProviderCalendarController {
     }
 
     /**
-     * Creates one-time provider availability override.
+     * Returns the calendar terms generated from the current, unsaved form so the
+     * term list can be refreshed live. Does not persist anything.
      *
-     * @param overrideDate override date
-     * @param startTime override start time
-     * @param endTime override end time
-     * @param type override type
+     * @param form current calendar form input
      * @param currentUser authenticated provider
-     * @param model MVC model
-     * @return redirect to provider calendar section or provider page with validation error
+     * @return preview calendar terms
      */
-    @PostMapping("/provider/calendar/overrides")
-    public String createAvailabilityOverride(@RequestParam LocalDate overrideDate,
-                                             @RequestParam LocalTime startTime,
-                                             @RequestParam LocalTime endTime,
-                                             @RequestParam AvailabilityOverrideType type,
-                                             @CurrentUser User currentUser,
-                                             Model model) {
-        try {
-            providerCalendarService.createAvailabilityOverride(
-                    currentUser,
-                    overrideDate,
-                    startTime,
-                    endTime,
-                    type
-            );
-
-            return CALENDAR_REDIRECT;
-        } catch (IllegalArgumentException exception) {
-            providerPageModelAssembler.populate(model, currentUser);
-            model.addAttribute("calendarOverrideError", exception.getMessage());
-            return PROVIDER_VIEW;
-        }
-    }
-
-    /**
-     * Deletes one-time provider availability override.
-     *
-     * @param overrideId override identifier
-     * @param currentUser authenticated provider
-     * @param model MVC model
-     * @return redirect to provider calendar section or provider page with validation error
-     */
-    @PostMapping("/provider/calendar/overrides/{overrideId}/delete")
-    public String deleteAvailabilityOverride(@PathVariable Long overrideId,
-                                             @CurrentUser User currentUser,
-                                             Model model) {
-        try {
-            providerCalendarService.deleteAvailabilityOverride(currentUser, overrideId);
-            return CALENDAR_REDIRECT;
-        } catch (IllegalArgumentException exception) {
-            providerPageModelAssembler.populate(model, currentUser);
-            model.addAttribute("calendarOverrideError", exception.getMessage());
-            return PROVIDER_VIEW;
-        }
+    @PostMapping("/provider/calendar/preview")
+    @ResponseBody
+    public List<CalendarTerm> previewCalendar(@ModelAttribute ProviderCalendarForm form,
+                                              @CurrentUser User currentUser) {
+        return providerCalendarService.previewCalendar(currentUser, form);
     }
 }

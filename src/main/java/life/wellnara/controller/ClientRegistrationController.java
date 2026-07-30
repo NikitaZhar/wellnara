@@ -41,7 +41,7 @@ public class ClientRegistrationController {
 	 * @return registration page view name
 	 */
 	@GetMapping("/client/register")
-	public String showRegisterPage(@RequestParam String token, Model model) {
+	public String showRegisterPage(@RequestParam(required = false) String token, Model model) {
 		try {
 			String email = clientInvitationService.getEmailByToken(token);
 			model.addAttribute("token", token);

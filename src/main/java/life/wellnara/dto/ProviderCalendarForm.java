@@ -2,6 +2,8 @@ package life.wellnara.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Form object for provider calendar availability input.
@@ -19,6 +21,9 @@ public class ProviderCalendarForm {
      * Example: Europe/Bratislava
      */
     private String providerTimezone;
+
+    /** Staged one-time changes, committed together on Save. */
+    private List<AvailabilityOverrideForm> overrides = new ArrayList<>();
 
     private LocalTime mondayStart;
     private LocalTime mondayEnd;
@@ -137,5 +142,13 @@ public class ProviderCalendarForm {
 
     public void setFridayEnd(LocalTime fridayEnd) {
         this.fridayEnd = fridayEnd;
+    }
+
+    public List<AvailabilityOverrideForm> getOverrides() {
+        return overrides;
+    }
+
+    public void setOverrides(List<AvailabilityOverrideForm> overrides) {
+        this.overrides = overrides;
     }
 }

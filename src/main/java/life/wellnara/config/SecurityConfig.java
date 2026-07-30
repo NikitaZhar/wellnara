@@ -75,7 +75,9 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) ->
-                    response.sendRedirect(request.getContextPath() + "/auth/login")))
+                    response.sendRedirect(request.getContextPath() + "/auth/login"))
+                .accessDeniedHandler((request, response, accessDeniedException) ->
+                    response.sendRedirect(request.getContextPath() + "/home")))
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())
             .logout(logout -> logout.disable());

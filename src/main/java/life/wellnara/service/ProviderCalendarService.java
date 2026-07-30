@@ -1,7 +1,9 @@
 package life.wellnara.service;
 
+import life.wellnara.dto.AvailabilityOverrideForm;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
+import life.wellnara.exception.CalendarValidationException;
 import life.wellnara.model.AvailabilityDay;
 import life.wellnara.model.AvailabilityOverride;
 import life.wellnara.model.AvailabilityOverrideType;
@@ -21,7 +23,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -76,6 +81,10 @@ public class ProviderCalendarService {
 	    LocalDate currentDate = applicationTimeService.currentDate(resolveFormTimezoneOrDefault(form));
 
 	    calendarValidator.validateCalendarForm(form, currentDate);
+	    validateOverrides(provider, form.getOverrides(), currentDate);
+
+	    clearCalendar(provider);
+	    availabilityOverrideService.replaceOverrides(provider, form.getOverrides());
 
 	    AvailabilityPeriod savedPeriod = availabilityPeriodRepository.save(
 	            new AvailabilityPeriod(
@@ -91,6 +100,134 @@ public class ProviderCalendarService {
 	    saveRuleIfComplete(savedPeriod, AvailabilityDay.WEDNESDAY, form.getWednesdayStart(), form.getWednesdayEnd());
 	    saveRuleIfComplete(savedPeriod, AvailabilityDay.THURSDAY, form.getThursdayStart(), form.getThursdayEnd());
 	    saveRuleIfComplete(savedPeriod, AvailabilityDay.FRIDAY, form.getFridayStart(), form.getFridayEnd());
+	}
+
+	/**
+	 * Generates the calendar terms for unsaved form input, applying one-time
+	 * changes, without touching the database. Used for the live preview so the
+	 * provider sees the result before pressing Save. Returns an empty list when
+	 * the planning period or timezone is not yet valid.
+	 *
+	 * @param provider provider who owns the calendar
+	 * @param form current calendar form input
+	 * @return preview calendar terms ordered by date and start time
+	 */
+	@Transactional(readOnly = true)
+	public List<CalendarTerm> previewCalendar(User provider, ProviderCalendarForm form) {
+		ZoneId zone = resolveFormTimezone(form);
+
+		if (zone == null
+				|| form.getPlanningFrom() == null
+				|| form.getPlanningTo() == null
+				|| form.getPlanningTo().isBefore(form.getPlanningFrom())) {
+			return List.of();
+		}
+
+		AvailabilityPeriod period = new AvailabilityPeriod(
+				provider, form.getPlanningFrom(), form.getPlanningTo(), form.getProviderTimezone());
+
+		List<CalendarTerm> baseTerms = calendarGenerator.generate(
+				period, buildRules(period, form), applicationTimeService.currentDate(zone));
+
+		return availabilityOverrideApplier.apply(baseTerms, buildOverrides(provider, form));
+	}
+
+	/**
+	 * Validates every staged one-time change and aggregates errors so an
+	 * invalid entry aborts the whole Save without touching the database.
+	 */
+	private void validateOverrides(User provider, List<AvailabilityOverrideForm> items, LocalDate currentDate) {
+		if (items == null || items.isEmpty()) {
+			return;
+		}
+
+		Map<String, String> errors = new HashMap<>();
+
+		for (int i = 0; i < items.size(); i++) {
+			AvailabilityOverrideForm item = items.get(i);
+
+			if (item == null || item.getType() == null) {
+				continue;
+			}
+
+			try {
+				calendarValidator.validateAvailabilityOverride(
+						provider, item.getDate(), item.getStartTime(), item.getEndTime(), item.getType(), currentDate);
+			} catch (IllegalArgumentException exception) {
+				errors.put("override" + i, "One-time change #" + (i + 1) + ": " + exception.getMessage());
+			}
+		}
+
+		if (!errors.isEmpty()) {
+			throw new CalendarValidationException(errors);
+		}
+	}
+
+	/** Deletes the provider's current planning periods and their rules. */
+	private void clearCalendar(User provider) {
+		List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
+
+		for (AvailabilityPeriod period : periods) {
+			availabilityRuleRepository.deleteAllByAvailabilityPeriod(period);
+		}
+
+		availabilityPeriodRepository.deleteAll(periods);
+	}
+
+	/** Builds transient weekly rules from the form, skipping empty or invalid days. */
+	private List<AvailabilityRule> buildRules(AvailabilityPeriod period, ProviderCalendarForm form) {
+		List<AvailabilityRule> rules = new ArrayList<>();
+		addRuleIfComplete(rules, period, AvailabilityDay.MONDAY, form.getMondayStart(), form.getMondayEnd());
+		addRuleIfComplete(rules, period, AvailabilityDay.TUESDAY, form.getTuesdayStart(), form.getTuesdayEnd());
+		addRuleIfComplete(rules, period, AvailabilityDay.WEDNESDAY, form.getWednesdayStart(), form.getWednesdayEnd());
+		addRuleIfComplete(rules, period, AvailabilityDay.THURSDAY, form.getThursdayStart(), form.getThursdayEnd());
+		addRuleIfComplete(rules, period, AvailabilityDay.FRIDAY, form.getFridayStart(), form.getFridayEnd());
+		return rules;
+	}
+
+	private void addRuleIfComplete(List<AvailabilityRule> rules, AvailabilityPeriod period,
+			AvailabilityDay day, LocalTime start, LocalTime end) {
+		if (start == null || end == null
+				|| calendarValidator.isEmptyAvailabilityDay(start, end)
+				|| !end.isAfter(start)) {
+			return;
+		}
+
+		rules.add(new AvailabilityRule(period, day, start, end));
+	}
+
+	/** Builds transient overrides from the form, skipping incomplete or invalid entries. */
+	private List<AvailabilityOverride> buildOverrides(User provider, ProviderCalendarForm form) {
+		List<AvailabilityOverride> overrides = new ArrayList<>();
+
+		if (form.getOverrides() == null) {
+			return overrides;
+		}
+
+		for (AvailabilityOverrideForm item : form.getOverrides()) {
+			if (item == null || item.getType() == null || item.getDate() == null
+					|| item.getStartTime() == null || item.getEndTime() == null
+					|| !item.getEndTime().isAfter(item.getStartTime())) {
+				continue;
+			}
+
+			overrides.add(new AvailabilityOverride(
+					provider, item.getDate(), item.getStartTime(), item.getEndTime(), item.getType()));
+		}
+
+		return overrides;
+	}
+
+	private ZoneId resolveFormTimezone(ProviderCalendarForm form) {
+		if (form.getProviderTimezone() == null || form.getProviderTimezone().isBlank()) {
+			return null;
+		}
+
+		try {
+			return ZoneId.of(form.getProviderTimezone());
+		} catch (DateTimeException exception) {
+			return null;
+		}
 	}
 
 	private ZoneId resolveFormTimezoneOrDefault(ProviderCalendarForm form) {

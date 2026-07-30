@@ -42,7 +42,7 @@ public class ProviderRegistrationController {
      * @return registration page view name
      */
     @GetMapping("/provider/register")
-    public String showRegisterPage(@RequestParam String token, Model model) {
+    public String showRegisterPage(@RequestParam(required = false) String token, Model model) {
         try {
             String email = service.getEmailByToken(token);
             model.addAttribute("token", token);

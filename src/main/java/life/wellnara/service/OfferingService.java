@@ -86,7 +86,7 @@ public class OfferingService {
 
     /**
      * Updates offering owned by provider. Currency is not editable per offering —
-     * it follows the provider currency (see {@link ProviderCurrencyService}).
+     * it follows the provider currency set at registration.
      *
      * @param provider provider owner
      * @param offeringId offering identifier

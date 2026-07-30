@@ -8,6 +8,10 @@
 
 <h2>Edit offering</h2>
 
+<div th:if="${offeringError}" style="margin-bottom: 10px; color: red;">
+    <p th:text="${offeringError}"></p>
+</div>
+
 <form th:action="@{/provider/offerings/{offeringId}/edit(offeringId=${offering.id})}" method="post">
     <div>
         <label for="offeringName">Offering Name:</label>

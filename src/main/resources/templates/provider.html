@@ -70,6 +70,8 @@
         fillProviderTimezone();
         configurePlanningDateLimits();
         fillOverrideTimeOptions();
+        seedStagedOverrides();
+        initCalendarPreview();
         
         document.getElementById('overrideStartTime')
         ?.addEventListener('change', fixOverrideEndTime);
@@ -115,6 +117,157 @@
         }
     }
     
+    let stagedOverrides = [];
+
+    function seedStagedOverrides() {
+        stagedOverrides = [];
+
+        document.querySelectorAll('.staged-seed').forEach(function (el) {
+            stagedOverrides.push({
+                type: el.getAttribute('data-type'),
+                date: el.getAttribute('data-date'),
+                startTime: el.getAttribute('data-start'),
+                endTime: el.getAttribute('data-end')
+            });
+        });
+
+        renderStagedOverrides();
+    }
+
+    function initCalendarPreview() {
+        document.querySelectorAll('#calendarForm input[name]').forEach(function (el) {
+            el.addEventListener('change', refreshPreview);
+        });
+
+        refreshPreview();
+    }
+
+    function renderStagedOverrides() {
+        const body = document.getElementById('stagedOverridesBody');
+        const inputs = document.getElementById('stagedOverridesInputs');
+        const table = document.getElementById('stagedOverridesTable');
+        const empty = document.getElementById('stagedOverridesEmpty');
+
+        if (!body || !inputs) {
+            return;
+        }
+
+        body.innerHTML = '';
+        inputs.innerHTML = '';
+
+        stagedOverrides.forEach(function (o, i) {
+            const row = document.createElement('tr');
+            row.appendChild(textCell(o.type));
+            row.appendChild(textCell(o.date));
+            row.appendChild(textCell(o.startTime));
+            row.appendChild(textCell(o.endTime));
+
+            const action = document.createElement('td');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Remove';
+            button.addEventListener('click', function () {
+                stagedOverrides.splice(i, 1);
+                renderStagedOverrides();
+                refreshPreview();
+            });
+            action.appendChild(button);
+            row.appendChild(action);
+            body.appendChild(row);
+
+            inputs.insertAdjacentHTML('beforeend',
+                hidden('overrides[' + i + '].type', o.type) +
+                hidden('overrides[' + i + '].date', o.date) +
+                hidden('overrides[' + i + '].startTime', o.startTime) +
+                hidden('overrides[' + i + '].endTime', o.endTime));
+        });
+
+        const has = stagedOverrides.length > 0;
+        if (table) {
+            table.style.display = has ? '' : 'none';
+        }
+        if (empty) {
+            empty.style.display = has ? 'none' : '';
+        }
+    }
+
+    function stageAddOverride() {
+        const type = document.getElementById('overrideType').value;
+        const date = document.getElementById('overrideDate').value;
+        const start = document.getElementById('overrideStartTime').value;
+        const end = document.getElementById('overrideEndTime').value;
+
+        if (!date || !start || !end) {
+            alert('Pick date, start and end time.');
+            return;
+        }
+
+        if (end <= start) {
+            alert('End time must be after start time.');
+            return;
+        }
+
+        const exists = stagedOverrides.some(function (o) {
+            return o.type === type && o.date === date && o.startTime === start && o.endTime === end;
+        });
+
+        if (!exists) {
+            stagedOverrides.push({ type: type, date: date, startTime: start, endTime: end });
+            renderStagedOverrides();
+            refreshPreview();
+        }
+
+        document.getElementById('overrideDate').value = '';
+        document.getElementById('overrideStartTime').value = '';
+        document.getElementById('overrideEndTime').value = '';
+    }
+
+    function refreshPreview() {
+        const form = document.getElementById('calendarForm');
+
+        if (!form) {
+            return;
+        }
+
+        fetch(form.getAttribute('data-preview-url'), {
+            method: 'POST',
+            body: new URLSearchParams(new FormData(form))
+        })
+        .then(function (response) { return response.json(); })
+        .then(renderTerms)
+        .catch(function () { });
+    }
+
+    const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+    function renderTerms(terms) {
+        const body = document.getElementById('termsBody');
+
+        if (!body) {
+            return;
+        }
+
+        body.innerHTML = '';
+
+        terms.forEach(function (t) {
+            const row = document.createElement('tr');
+            row.appendChild(textCell(t.date));
+            row.appendChild(textCell(WEEKDAYS[new Date(t.date + 'T00:00:00').getDay()]));
+            row.appendChild(textCell(t.startTime));
+            row.appendChild(textCell(t.endTime));
+            body.appendChild(row);
+        });
+    }
+
+    function textCell(value) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        return td;
+    }
+
+    function hidden(name, value) {
+        return '<input type="hidden" name="' + name + '" value="' + value + '">';
+    }
 </script>
 </head>
 
@@ -439,11 +592,9 @@
 			</div>
 		</div>
 
-		<p>
-			Period: <span id="availabilityPreviewPeriod"
-				th:text="${planningFrom != null and planningTo != null} ? ${planningFrom} + ' - ' + ${planningTo} : 'not selected'">
-			</span>
-		</p>
+		<!-- Saved one-time changes, seeded into the staged list on load. -->
+		<div class="staged-seed" style="display: none;" th:each="o : ${availabilityOverrides}"
+			th:attr="data-type=${o.type},data-date=${o.overrideDate},data-start=${o.startTime},data-end=${o.endTime}"></div>
 
 		<table>
 			<thead>
@@ -454,89 +605,19 @@
 					<th>End</th>
 				</tr>
 			</thead>
-
-			<tbody>
-				<tr th:each="term : ${calendarTerms}" class="available-slot-row"
-					th:data-date="${term.date}" th:data-start="${term.startTime}"
-					th:data-end="${term.endTime}">
-					<td th:text="${term.date}"></td>
-					<td th:text="${term.date.dayOfWeek}"></td>
-					<td th:text="${term.startTime}"></td>
-					<td th:text="${term.endTime}"></td>
-				</tr>
-			</tbody>
+			<tbody id="termsBody"></tbody>
 		</table>
 
-		<div style="margin-top: 30px;">
-			<h3>One-time availability changes</h3>
-
-			<div th:if="${calendarOverrideError}" style="color: red;">
-				<p th:text="${calendarOverrideError}"></p>
-			</div>
-
-			<form th:action="@{/provider/calendar/overrides}" method="post">
-				<div class="form-row">
-					<select name="type" required>
-						<option value="AVAILABLE">Available</option>
-						<option value="UNAVAILABLE">Unavailable</option>
-					</select> <input id="overrideDate" type="date" name="overrideDate"
-						th:min="${today}" required> <select id="overrideStartTime"
-						name="startTime" required>
-						<option value="">Start</option>
-					</select> <select id="overrideEndTime" name="endTime" required>
-						<option value="">End</option>
-					</select>
-
-					<button type="submit">Add change</button>
-				</div>
-			</form>
-
-			<div th:if="${#lists.isEmpty(availabilityOverrides)}">
-				<p>No one-time changes</p>
-			</div>
-
-			<table th:if="${not #lists.isEmpty(availabilityOverrides)}">
-				<thead>
-					<tr>
-						<th>Type</th>
-						<th>Date</th>
-						<th>Day</th>
-						<th>Start</th>
-						<th>End</th>
-						<th>Action</th>
-					</tr>
-				</thead>
-
-				<tbody>
-					<tr th:each="override : ${availabilityOverrides}">
-						<td th:text="${override.type}"></td>
-						<td th:text="${override.overrideDate}"></td>
-						<td th:text="${override.overrideDate.dayOfWeek}"></td>
-						<td th:text="${override.startTime}"></td>
-						<td th:text="${override.endTime}"></td>
-						<td>
-							<form
-								th:action="@{/provider/calendar/overrides/{overrideId}/delete(overrideId=${override.id})}"
-								method="post"
-								onsubmit="return confirm('Delete this one-time availability change?');">
-								<button type="submit">Delete</button>
-							</form>
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-
-		<form th:action="@{/provider/calendar}" method="post">
+		<form id="calendarForm" th:action="@{/provider/calendar}" method="post"
+			th:attr="data-preview-url=@{/provider/calendar/preview}" autocomplete="off">
 
 			<input id="providerTimezone" type="hidden" name="providerTimezone">
 
 			<h3>Period</h3>
 
 			<div class="form-row">
-				<input id="planningFrom" type="date" name="planningFrom"
-					th:value="${planningFrom}" required> <input id="planningTo"
-					type="date" name="planningTo" th:value="${planningTo}" required>
+				<input id="planningFrom" type="date" name="planningFrom" th:value="${planningFrom}" required autocomplete="off">
+				<input id="planningTo" type="date" name="planningTo" th:value="${planningTo}" required autocomplete="off">
 			</div>
 
 			<h3>Availability</h3>
@@ -545,47 +626,67 @@
 				<tbody>
 					<tr>
 						<td>Monday</td>
-						<td><input id="monday-start" name="mondayStart" type="time"
-							th:value="${calendarForm.mondayStart}"></td>
-						<td><input id="monday-end" name="mondayEnd" type="time"
-							th:value="${calendarForm.mondayEnd}"></td>
+						<td><input id="monday-start" name="mondayStart" type="time" th:value="${calendarForm.mondayStart}" autocomplete="off"></td>
+						<td><input id="monday-end" name="mondayEnd" type="time" th:value="${calendarForm.mondayEnd}" autocomplete="off"></td>
 					</tr>
 
 					<tr>
 						<td>Tuesday</td>
-						<td><input id="tuesday-start" name="tuesdayStart" type="time"
-							th:value="${calendarForm.tuesdayStart}"></td>
-						<td><input id="tuesday-end" name="tuesdayEnd" type="time"
-							th:value="${calendarForm.tuesdayEnd}"></td>
+						<td><input id="tuesday-start" name="tuesdayStart" type="time" th:value="${calendarForm.tuesdayStart}" autocomplete="off"></td>
+						<td><input id="tuesday-end" name="tuesdayEnd" type="time" th:value="${calendarForm.tuesdayEnd}" autocomplete="off"></td>
 					</tr>
 
 					<tr>
 						<td>Wednesday</td>
-						<td><input id="wednesday-start" name="wednesdayStart"
-							type="time" th:value="${calendarForm.wednesdayStart}"></td>
-						<td><input id="wednesday-end" name="wednesdayEnd" type="time"
-							th:value="${calendarForm.wednesdayEnd}"></td>
+						<td><input id="wednesday-start" name="wednesdayStart" type="time" th:value="${calendarForm.wednesdayStart}" autocomplete="off"></td>
+						<td><input id="wednesday-end" name="wednesdayEnd" type="time" th:value="${calendarForm.wednesdayEnd}" autocomplete="off"></td>
 					</tr>
 
 					<tr>
 						<td>Thursday</td>
-						<td><input id="thursday-start" name="thursdayStart"
-							type="time" th:value="${calendarForm.thursdayStart}"></td>
-						<td><input id="thursday-end" name="thursdayEnd" type="time"
-							th:value="${calendarForm.thursdayEnd}"></td>
+						<td><input id="thursday-start" name="thursdayStart" type="time" th:value="${calendarForm.thursdayStart}" autocomplete="off"></td>
+						<td><input id="thursday-end" name="thursdayEnd" type="time" th:value="${calendarForm.thursdayEnd}" autocomplete="off"></td>
 					</tr>
 
 					<tr>
 						<td>Friday</td>
-						<td><input id="friday-start" name="fridayStart" type="time"
-							th:value="${calendarForm.fridayStart}"></td>
-						<td><input id="friday-end" name="fridayEnd" type="time"
-							th:value="${calendarForm.fridayEnd}"></td>
+						<td><input id="friday-start" name="fridayStart" type="time" th:value="${calendarForm.fridayStart}" autocomplete="off"></td>
+						<td><input id="friday-end" name="fridayEnd" type="time" th:value="${calendarForm.fridayEnd}" autocomplete="off"></td>
 					</tr>
 				</tbody>
 			</table>
 
-			<button class="primary-button" type="submit">Save</button>
+			<h3>One-time changes</h3>
+
+			<div class="form-row">
+				<select id="overrideType">
+					<option value="AVAILABLE">Available</option>
+					<option value="UNAVAILABLE">Unavailable</option>
+				</select>
+				<input id="overrideDate" type="date" th:min="${today}">
+				<select id="overrideStartTime"><option value="">Start</option></select>
+				<select id="overrideEndTime"><option value="">End</option></select>
+				<button type="button" onclick="stageAddOverride()">Add change</button>
+			</div>
+
+			<div id="stagedOverridesEmpty"><p>No one-time changes</p></div>
+
+			<table id="stagedOverridesTable" style="display: none;">
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Date</th>
+						<th>Start</th>
+						<th>End</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+				<tbody id="stagedOverridesBody"></tbody>
+			</table>
+
+			<div id="stagedOverridesInputs" style="display: none;"></div>
+
+			<button class="primary-button" type="submit" style="margin-top: 20px;">Save</button>
 		</form>
 	</div>
 

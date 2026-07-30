@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Wellnara — Error</title>
+</head>
+<body>
+
+<h2 th:text="${statusCode} + ' — ' + ${statusReason}">Error</h2>
+
+<p th:text="${message}">Something went wrong.</p>
+
+<p style="margin-top: 15px;">
+    <a th:href="@{/home}">Back to home</a>
+    &nbsp;|&nbsp;
+    <a th:href="@{/auth/login}">Sign in</a>
+</p>
+
+</body>
+</html>

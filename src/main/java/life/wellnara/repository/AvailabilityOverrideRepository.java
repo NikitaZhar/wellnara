@@ -22,6 +22,13 @@ public interface AvailabilityOverrideRepository extends JpaRepository<Availabili
     List<AvailabilityOverride> findAllByProviderOrderByOverrideDateAscStartTimeAsc(User provider);
 
     /**
+     * Deletes all availability overrides for the specified provider.
+     *
+     * @param provider provider who owns the overrides
+     */
+    void deleteAllByProvider(User provider);
+
+    /**
      * Deletes provider availability overrides that ended before the specified date.
      *
      * @param provider provider who owns the overrides

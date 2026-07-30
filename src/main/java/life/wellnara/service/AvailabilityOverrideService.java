@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.dto.AvailabilityOverrideForm;
 import life.wellnara.model.AvailabilityOverride;
 import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
@@ -114,5 +115,31 @@ public class AvailabilityOverrideService {
 
 		return availabilityOverrideRepository
 				.findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+	}
+
+	/**
+	 * Replaces all provider one-time changes with the given list inside the
+	 * caller transaction, so saving the whole calendar stays atomic.
+	 * Items are already validated by the caller.
+	 *
+	 * @param provider provider who owns the overrides
+	 * @param items one-time changes to persist
+	 */
+	@Transactional
+	public void replaceOverrides(User provider, List<AvailabilityOverrideForm> items) {
+		availabilityOverrideRepository.deleteAllByProvider(provider);
+
+		if (items == null) {
+			return;
+		}
+
+		for (AvailabilityOverrideForm item : items) {
+			if (item == null || item.getType() == null) {
+				continue;
+			}
+
+			availabilityOverrideRepository.save(new AvailabilityOverride(
+					provider, item.getDate(), item.getStartTime(), item.getEndTime(), item.getType()));
+		}
 	}
 }
