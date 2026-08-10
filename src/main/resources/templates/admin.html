@@ -1,71 +1,78 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Wellnara Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
 </head>
 <body>
 
-<h2>Wellnara: Admin</h2>
+<div th:replace="~{fragments/app-header :: header('Admin')}"></div>
 
-<form th:action="@{/admin/invite}" method="post">
-    <div>
-        <label for="email">Enter Provider email:</label>
-        <input id="email" type="email" name="email" required value="">
+<main class="page">
+
+    <div class="page-head">
+        <h1 class="page-title">Admin</h1>
     </div>
 
-    <div style="margin-top: 15px;">
-        <button type="submit">Press to invite provider</button>
+    <!-- Invite a provider -->
+    <section class="card">
+        <p class="card-title">Invite a provider</p>
+
+        <div th:if="${providerInviteSuccessMessage}" class="alert alert-success" role="status">
+            <span th:text="${providerInviteSuccessMessage}">Invitation sent.</span>
+        </div>
+        <div th:if="${inviteError}" class="alert alert-danger" role="alert">
+            <span th:text="${inviteError}">Something went wrong.</span>
+        </div>
+
+        <form th:action="@{/admin/invite}" method="post" class="inline-form">
+            <div class="field">
+                <label for="email">Provider email</label>
+                <input id="email" type="email" name="email" placeholder="name@example.com" autocomplete="off" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Send invitation</button>
+        </form>
+    </section>
+
+    <!-- System users -->
+    <div class="section-head">
+        <h2>System users</h2>
+        <span class="count-pill" th:if="${not #lists.isEmpty(users)}" th:text="${#lists.size(users)}">0</span>
     </div>
-</form>
 
-<div th:if="${inviteError}" style="margin-top: 15px; color: red;">
-    <p th:text="${inviteError}"></p>
-</div>
-
-<div th:if="${providerInviteSuccessMessage}"
-     style="margin-top: 15px; color: green;">
-    <p th:text="${providerInviteSuccessMessage}"></p>
-</div>
-
-<div style="margin-top: 30px;">
-    <h3>System users</h3>
-
-    <div th:if="${#lists.isEmpty(users)}">
-        <p>No users found.</p>
+    <div th:if="${#lists.isEmpty(users)}" class="list">
+        <div class="empty">
+            <p>No users yet.</p>
+        </div>
     </div>
 
-    <table th:if="${not #lists.isEmpty(users)}" border="1" cellpadding="8" cellspacing="0">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Action</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="user : ${users}">
-            <td th:text="${user.id}"></td>
-            <td th:text="${user.username}"></td>
-            <td th:text="${user.email}"></td>
-            <td th:text="${user.role}"></td>
-            <td>
-                <form th:action="@{/admin/users/{id}/delete(id=${user.id})}"
-                      method="post"
-                      onsubmit="return confirm('Are you sure you want to delete this user?');">
-                    <button type="submit">Delete</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
-</div>
+    <div th:if="${not #lists.isEmpty(users)}" class="list">
+        <div class="list-row" th:each="user : ${users}">
+            <span class="avatar" th:text="${#strings.toUpperCase(#strings.substring(user.username,0,1))}">A</span>
+            <div class="who">
+                <p class="name" th:text="${user.username}">Username</p>
+                <p class="email" th:text="${user.email}">email@example.com</p>
+            </div>
+            <span class="badge badge-primary" th:text="${user.role}">ROLE</span>
+            <form th:action="@{/admin/users/{id}/delete(id=${user.id})}"
+                  method="post"
+                  onsubmit="return confirm('Delete this user? This cannot be undone.');">
+                <button type="submit" class="btn-icon" aria-label="Delete user" title="Delete user">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
 
-<div style="margin-top: 20px;">
-    <a th:href="@{/auth/logout}">Logout</a>
-</div>
+</main>
 
 </body>
 </html>

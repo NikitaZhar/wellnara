@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Reusable application header.
+  Usage on any authenticated page:
+    <div th:replace="~{fragments/app-header :: header('Admin')}"></div>
+  Pass the current role label as the argument.
+-->
+<header th:fragment="header(role)" class="app-header">
+    <div class="brand">
+        <span class="logo-mark" aria-hidden="true"></span>
+        <span class="wordmark">Wellnara</span>
+    </div>
+    <div class="app-header-right">
+        <span class="badge badge-primary" th:text="${role}">Role</span>
+        <a th:href="@{/auth/logout}" class="btn btn-secondary btn-sm">Log out</a>
+    </div>
+</header>
+
+</body>
+</html>

@@ -1,125 +1,124 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
-<meta charset="UTF-8">
-<title>Wellnara — Home</title>
-<link rel="stylesheet" th:href="@{/css/provider.css}">
-<style>
-    .home-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 16px;
-        margin-top: 20px;
-    }
-    .home-card {
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        padding: 16px 18px;
-        background: #fff;
-    }
-    .home-card h3 {
-        margin: 0 0 10px;
-    }
-    .home-card .metric {
-        font-size: 28px;
-        font-weight: 600;
-    }
-    .home-card ul {
-        margin: 8px 0 0;
-        padding-left: 18px;
-    }
-    .home-card li {
-        margin-bottom: 4px;
-    }
-    .home-card a.card-link {
-        display: inline-block;
-        margin-top: 10px;
-    }
-    .home-card.disabled {
-        opacity: 0.55;
-    }
-    .empty {
-        color: #777;
-    }
-    .home-nav {
-        margin-top: 8px;
-    }
-    .home-nav a {
-        margin-right: 14px;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
 </head>
-
 <body>
 
-    <div class="page-header">
-        <h1>Wellnara: Home — <span th:text="${providerName}"></span></h1>
-        <a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-    </div>
+<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
 
-    <div class="home-nav">
-        <a th:href="@{/provider(section='clients')}">Clients</a>
-        <a th:href="@{/provider(section='offerings')}">Offerings</a>
-        <a th:href="@{/provider(section='provider-calendar')}">My Calendar</a>
-        <a th:href="@{/provider(section='calendar')}">Availability</a>
-        <a th:href="@{/provider(section='profile')}">Profile</a>
-    </div>
+<main class="page">
 
-    <div class="home-grid">
+    <h1 class="greeting">Hello, <span th:text="${providerName}">there</span></h1>
+    <p class="greeting-sub">Here's your overview</p>
 
-        <!-- Appointment requests awaiting the provider's response -->
-        <div class="home-card">
-            <h3>Appointment requests</h3>
-            <div class="metric" th:text="${pendingRequestCount}">0</div>
+    <!-- Activity: appointment requests + upcoming (both lead into My Calendar) -->
+    <div class="grid-2">
 
-            <ul th:if="${not #lists.isEmpty(pendingRequests)}">
-                <li th:each="req : ${pendingRequests}">
-                    <span th:text="${req.clientName}"></span> —
-                    <span th:text="${req.offeringName}"></span>,
-                    <span th:text="${req.localDate}"></span>
-                    <span th:text="${req.localTime}"></span>
-                </li>
-            </ul>
-            <p class="empty" th:if="${#lists.isEmpty(pendingRequests)}">No pending requests.</p>
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Appointment requests</h2>
+                <span class="count-pill" th:text="${pendingRequestCount}">0</span>
+            </div>
+            <div class="panel-body">
+                <div th:if="${#lists.isEmpty(pendingRequests)}" class="empty">
+                    <p>No pending requests.</p>
+                </div>
+                <div class="item" th:each="req : ${pendingRequests}">
+                    <p class="primary">
+                        <span th:text="${req.clientName}">Client</span> ·
+                        <span th:text="${req.offeringName}">Offering</span>
+                    </p>
+                    <p class="secondary">
+                        <span th:text="${req.localDate}">Date</span>,
+                        <span th:text="${req.localTime}">Time</span>
+                    </p>
+                </div>
+            </div>
+            <div class="panel-foot">
+                <a class="link-arrow" th:href="@{/provider(section='provider-calendar')}">Review requests →</a>
+            </div>
+        </section>
 
-            <a class="card-link" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
-        </div>
-
-        <!-- Upcoming confirmed appointments -->
-        <div class="home-card">
-            <h3>Upcoming appointments</h3>
-
-            <ul th:if="${not #lists.isEmpty(upcomingAppointments)}">
-                <li th:each="appointment : ${upcomingAppointments}">
-                    <span th:text="${appointment.clientName}"></span> —
-                    <span th:text="${appointment.offeringName}"></span>,
-                    <span th:text="${appointment.localDate}"></span>
-                    <span th:text="${appointment.localTime}"></span>
-                </li>
-            </ul>
-            <p class="empty" th:if="${#lists.isEmpty(upcomingAppointments)}">No upcoming appointments.</p>
-
-            <a class="card-link" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
-        </div>
-
-        <!-- Offerings summary -->
-        <div class="home-card">
-            <h3>My offerings</h3>
-            <div class="metric" th:text="${activeOfferingCount}">0</div>
-            <p>active offering(s)</p>
-            <a class="card-link" th:href="@{/provider(section='offerings')}">Manage offerings →</a>
-        </div>
-
-        <!-- Clients summary -->
-        <div class="home-card">
-            <h3>My clients</h3>
-            <div class="metric" th:text="${clientCount}">0</div>
-            <p>client(s)</p>
-            <a class="card-link" th:href="@{/provider(section='clients')}">Manage clients →</a>
-        </div>
-
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Upcoming appointments</h2>
+                <span class="count-pill" th:text="${#lists.size(upcomingAppointments)}">0</span>
+            </div>
+            <div class="panel-body">
+                <div th:if="${#lists.isEmpty(upcomingAppointments)}" class="empty">
+                    <p>No upcoming appointments.</p>
+                </div>
+                <div class="item" th:each="appointment : ${upcomingAppointments}">
+                    <p class="primary">
+                        <span th:text="${appointment.clientName}">Client</span> ·
+                        <span th:text="${appointment.offeringName}">Offering</span>
+                    </p>
+                    <p class="secondary">
+                        <span th:text="${appointment.localDate}">Date</span>,
+                        <span th:text="${appointment.localTime}">Time</span>
+                    </p>
+                </div>
+            </div>
+            <div class="panel-foot">
+                <a class="link-arrow" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
+            </div>
+        </section>
 
     </div>
+
+    <!-- Manage: the remaining workspace areas -->
+    <div class="section-head">
+        <h2>Manage</h2>
+    </div>
+
+    <div class="grid-cards">
+
+        <a class="nav-card" th:href="@{/provider(section='clients')}">
+            <span class="nc-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <p class="nc-title">Clients</p>
+            <p class="nc-sub"><span th:text="${clientCount}">0</span> client(s) · manage</p>
+            <span class="nc-go">Open →</span>
+        </a>
+
+        <a class="nav-card" th:href="@{/provider(section='offerings')}">
+            <span class="nc-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>
+            </span>
+            <p class="nc-title">Offerings</p>
+            <p class="nc-sub"><span th:text="${activeOfferingCount}">0</span> active · manage</p>
+            <span class="nc-go">Open →</span>
+        </a>
+
+        <a class="nav-card" th:href="@{/provider(section='calendar')}">
+            <span class="nc-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v18H3zM16 2v4M8 2v4M3 10h18M12 14v4M9 16h6"/></svg>
+            </span>
+            <p class="nc-title">Availability</p>
+            <p class="nc-sub">Set your weekly hours</p>
+            <span class="nc-go">Open →</span>
+        </a>
+
+        <a class="nav-card" th:href="@{/provider(section='profile')}">
+            <span class="nc-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+            </span>
+            <p class="nc-title">Profile</p>
+            <p class="nc-sub">Account &amp; password</p>
+            <span class="nc-go">Open →</span>
+        </a>
+
+    </div>
+
+</main>
 
 </body>
 </html>
