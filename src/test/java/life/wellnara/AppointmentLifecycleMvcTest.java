@@ -232,7 +232,7 @@ class AppointmentLifecycleMvcTest {
     }
 
     @Test
-    @DisplayName("Should reschedule scheduled appointment by provider as cancellation with message")
+    @DisplayName("Should cancel scheduled appointment by provider with a message and block the slot")
     void shouldRescheduleScheduledAppointmentByProviderThroughMvc() throws Exception {
         User provider = createUser("provider-reschedule", UserRole.PROVIDER);
         User client = createUser("client-reschedule", UserRole.CLIENT);
@@ -245,9 +245,10 @@ class AppointmentLifecycleMvcTest {
 
         MockHttpSession providerSession = authenticatedSession(provider);
 
-        mockMvc.perform(post("/provider/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(providerSession)
-                        .param("providerMessage", "Please choose another available time"))
+                        .param("providerMessage", "Please choose another available time")
+                        .param("blockSlot", "true"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider/appointments"));
 

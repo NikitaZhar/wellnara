@@ -78,46 +78,36 @@ public class ProviderAppointmentController {
     }
 
     /**
-     * Reschedules a scheduled appointment by cancelling it and asking client to choose another time.
+     * Cancels a scheduled appointment by the provider.
      *
-     * @param appointmentId appointment identifier
-     * @param providerMessage message shown to client
-     * @param currentUser authenticated provider
-     * @param model MVC model
-     * @return redirect to the appointments page, or that page with an error
-     */
-    @PostMapping("/provider/appointments/{appointmentId}/reschedule")
-    public String rescheduleScheduledAppointment(@PathVariable Long appointmentId,
-                                                 @RequestParam String providerMessage,
-                                                 @CurrentUser User currentUser,
-                                                 Model model) {
-        return executeAppointmentAction(
-                currentUser,
-                model,
-                provider -> appointmentService.rescheduleScheduledAppointment(
-                        provider,
-                        appointmentId,
-                        providerMessage
-                )
-        );
-    }
-
-    /**
-     * Cancels a scheduled appointment by provider.
+     * <p>The provider may include a message shown to the client. When
+     * {@code blockSlot} is set the freed time is blocked, so the client cannot
+     * re-book the same slot and must choose another time; otherwise the slot
+     * stays open for re-booking. This single action replaces the former separate
+     * "cancel" and "reschedule" operations.
      *
-     * @param appointmentId appointment identifier
-     * @param currentUser authenticated provider
-     * @param model MVC model
+     * @param appointmentId   appointment identifier
+     * @param providerMessage optional message shown to the client
+     * @param blockSlot       whether to block the freed time slot
+     * @param currentUser     authenticated provider
+     * @param model           MVC model
      * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/cancel")
     public String cancelScheduledAppointment(@PathVariable Long appointmentId,
+                                             @RequestParam(required = false) String providerMessage,
+                                             @RequestParam(required = false, defaultValue = "false") boolean blockSlot,
                                              @CurrentUser User currentUser,
                                              Model model) {
         return executeAppointmentAction(
                 currentUser,
                 model,
-                provider -> appointmentService.cancelScheduledAppointment(provider, appointmentId)
+                provider -> appointmentService.cancelScheduledAppointment(
+                        provider,
+                        appointmentId,
+                        providerMessage,
+                        blockSlot
+                )
         );
     }
 

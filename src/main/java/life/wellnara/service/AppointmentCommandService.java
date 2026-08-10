@@ -159,41 +159,43 @@ public class AppointmentCommandService {
 	}
 
 	/**
-	 * Cancels a scheduled appointment by provider and releases its hold.
+	 * Cancels a scheduled appointment by the provider and releases its hold.
 	 *
-	 * @param provider      provider who owns appointment
+	 * <p>The provider may include a message shown to the client. When
+	 * {@code blockSlot} is {@code true} the freed time is also marked unavailable
+	 * (a one-time UNAVAILABLE override), so the same slot cannot be re-booked and
+	 * the client must choose another time; when {@code false} the slot stays open
+	 * for re-booking.
+	 *
+	 * @param provider      provider who owns the appointment
 	 * @param appointmentId appointment identifier
+	 * @param message       optional message shown to the client
+	 * @param blockSlot     whether to block the freed time slot
 	 */
 	@Transactional
-	public void cancelScheduledAppointment(User provider, Long appointmentId) {
+	public void cancelScheduledAppointment(User provider,
+			Long appointmentId,
+			String message,
+			boolean blockSlot) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be cancelled");
 
-		appointment.cancel(CancellationInitiator.PROVIDER, null, now());
+		if (blockSlot) {
+			blockSlot(provider, appointment);
+		}
+		appointment.cancel(CancellationInitiator.PROVIDER, message, now());
 		settlementService.release(appointment, appointment.getProvider());
 	}
 
 	/**
-	 * Reschedules a scheduled appointment by provider: the old slot is freed, the
-	 * appointment is cancelled with a message and its hold released, and the client
-	 * books a new time (with its own hold).
+	 * Cancels a scheduled appointment with no message and the slot left open.
 	 *
-	 * @param provider        provider who owns appointment
-	 * @param appointmentId   appointment identifier
-	 * @param providerMessage message shown to client (required)
+	 * @param provider      provider who owns the appointment
+	 * @param appointmentId appointment identifier
 	 */
 	@Transactional
-	public void rescheduleScheduledAppointment(User provider,
-			Long appointmentId,
-			String providerMessage) {
-		requireMessage(providerMessage, "Provider message is required");
-
-		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be rescheduled");
-
-		blockSlot(provider, appointment);
-		appointment.cancel(CancellationInitiator.PROVIDER, providerMessage, now());
-		settlementService.release(appointment, appointment.getProvider());
+	public void cancelScheduledAppointment(User provider, Long appointmentId) {
+		cancelScheduledAppointment(provider, appointmentId, null, false);
 	}
 
 	/**

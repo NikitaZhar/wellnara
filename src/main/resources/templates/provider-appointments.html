@@ -15,13 +15,18 @@
         .appt-head { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; }
         .appt-title { font-size:15px; font-weight:500; color:var(--text); margin:0; }
         .appt-meta { font-size:13px; color:var(--text-muted); margin:2px 0 0; }
-        .appt-actions { display:flex; align-items:flex-start; gap:var(--s-2); flex-wrap:wrap; margin-top:10px; }
-        .appt-actions form { margin:0; display:inline-flex; gap:var(--s-2); align-items:flex-start; flex-wrap:wrap; }
-        .appt-actions textarea {
-            font-family:var(--font-ui); font-size:14px; padding:8px 10px; min-width:220px;
+        .appt-actions { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; margin-top:10px; }
+        .appt-actions form { margin:0; }
+        /* Reason input revealed under the action row: full-width field, buttons below. */
+        .reveal { margin-top:var(--s-3); }
+        .reveal textarea {
+            width:100%; font-family:var(--font-ui); font-size:14px; padding:8px 10px; resize:vertical;
             border:1px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface); color:var(--text);
         }
-        .appt-actions textarea:focus { outline:none; border-color:var(--sea-primary); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+        .reveal textarea:focus { outline:none; border-color:var(--sea-primary); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+        .reveal-actions { display:flex; gap:var(--s-2); margin-top:var(--s-2); }
+        .block-check { display:flex; align-items:center; gap:var(--s-2); font-size:14px; color:var(--text); margin-top:var(--s-3); cursor:pointer; }
+        .block-check input { accent-color:var(--sea-primary); width:16px; height:16px; }
         /* Keep anchored sections clear of the sticky header when jumped to. */
         section[id] { scroll-margin-top:88px; }
     </style>
@@ -76,16 +81,19 @@
                     </form>
 
                     <button type="button" class="btn btn-secondary btn-sm"
-                            onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
-                        Reject</button>
-
-                    <form th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
-                          method="post" style="display: none;"
-                          onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
-                        <textarea name="rejectionReason" placeholder="Rejection reason" required maxlength="1000"></textarea>
-                        <button type="submit" class="btn btn-secondary btn-sm">Confirm reject</button>
-                    </form>
+                            data-reveal th:attr="data-target='reject-' + ${appointment.id}">Reject</button>
                 </div>
+
+                <form class="reveal" style="display:none" th:id="'reject-' + ${appointment.id}"
+                      th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
+                    <textarea name="rejectionReason" placeholder="Reason for rejection" rows="2" required maxlength="1000"></textarea>
+                    <div class="reveal-actions">
+                        <button type="submit" class="btn btn-secondary btn-sm">Confirm reject</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='reject-' + ${appointment.id}">Back</button>
+                    </div>
+                </form>
             </div>
         </div>
     </section>
@@ -120,21 +128,7 @@
 
                 <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}">
                     <button type="button" class="btn btn-secondary btn-sm"
-                            onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
-                        Reschedule</button>
-
-                    <form th:action="@{/provider/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
-                          method="post" style="display: none;"
-                          onsubmit="return confirm('Cancel this appointment and ask the client to choose a new time?');">
-                        <textarea name="providerMessage" placeholder="Reason for rescheduling" required maxlength="1000"></textarea>
-                        <button type="submit" class="btn btn-secondary btn-sm">Confirm reschedule</button>
-                    </form>
-
-                    <form th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
-                          method="post"
-                          onsubmit="return confirm('Are you sure you want to cancel this confirmed appointment?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
-                    </form>
+                            data-reveal th:attr="data-target='cancel-' + ${appointment.id}">Cancel appointment</button>
 
                     <form th:if="${appointment.completable}"
                           th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
@@ -151,6 +145,22 @@
                     </form>
                 </div>
 
+                <form class="reveal" style="display:none" th:if="${appointment.status.name() == 'SCHEDULED'}"
+                      th:id="'cancel-' + ${appointment.id}"
+                      th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+                      method="post"
+                      onsubmit="return confirm('Cancel this appointment?');">
+                    <textarea name="providerMessage" placeholder="Message to the client (optional)" rows="2" maxlength="1000"></textarea>
+                    <label class="block-check">
+                        <input type="checkbox" name="blockSlot" value="true">
+                        I'm no longer available at this time (block this slot)
+                    </label>
+                    <div class="reveal-actions">
+                        <button type="submit" class="btn btn-secondary btn-sm">Confirm cancellation</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='cancel-' + ${appointment.id}">Back</button>
+                    </div>
+                </form>
+
                 <div class="appt-actions"
                      th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
                     <form th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
@@ -164,6 +174,31 @@
     </section>
 
 </main>
+
+<script>
+    document.querySelectorAll('[data-reveal]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const target = document.getElementById(button.getAttribute('data-target'));
+            if (target) {
+                target.style.display = 'block';
+            }
+            button.style.display = 'none';
+        });
+    });
+
+    document.querySelectorAll('[data-hide]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const id = button.getAttribute('data-target');
+            const target = document.getElementById(id);
+            if (target) {
+                target.style.display = 'none';
+            }
+            document.querySelectorAll('[data-reveal][data-target="' + id + '"]').forEach(function (toggle) {
+                toggle.style.display = '';
+            });
+        });
+    });
+</script>
 
 </body>
 </html>

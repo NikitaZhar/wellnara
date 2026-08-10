@@ -61,14 +61,15 @@ public class AppointmentService {
         commandService.rejectAppointment(provider, appointmentId, rejectionReason);
     }
 
-    public void cancelScheduledAppointment(User provider, Long appointmentId) {
-        commandService.cancelScheduledAppointment(provider, appointmentId);
+    public void cancelScheduledAppointment(User provider,
+                                           Long appointmentId,
+                                           String message,
+                                           boolean blockSlot) {
+        commandService.cancelScheduledAppointment(provider, appointmentId, message, blockSlot);
     }
 
-    public void rescheduleScheduledAppointment(User provider,
-                                               Long appointmentId,
-                                               String providerMessage) {
-        commandService.rescheduleScheduledAppointment(provider, appointmentId, providerMessage);
+    public void cancelScheduledAppointment(User provider, Long appointmentId) {
+        commandService.cancelScheduledAppointment(provider, appointmentId);
     }
 
     public void completeScheduledAppointment(User provider, Long appointmentId) {
