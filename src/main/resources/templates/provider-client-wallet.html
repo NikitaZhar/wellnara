@@ -15,7 +15,7 @@
 
 <main class="page">
 
-    <a class="back-link" th:href="@{/provider(section='clients')}">← Back to clients</a>
+    <a class="back-link" th:href="@{/provider/clients}">← Back to clients</a>
     <div class="page-head">
         <h1 class="page-title">Wallet — <span th:text="${wallet.clientName}">Client</span></h1>
     </div>
@@ -39,7 +39,7 @@
             </p>
         </div>
     </div>
-    <p class="greeting-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;">No wallet yet — the first top-up creates it.</p>
+    <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;">No wallet yet — the first top-up creates it.</p>
 
     <!-- Package sessions -->
     <div th:if="${wallet.hasPackages}">

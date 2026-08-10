@@ -117,7 +117,9 @@ a { color:var(--sea-primary-dark); }
   padding:14px 24px; background:var(--surface); border-bottom:1px solid var(--border);
   position:sticky; top:0; z-index:10;
 }
-.app-header .brand { display:flex; align-items:center; gap:10px; }
+.app-header .brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text); border-radius:var(--r-sm); }
+.app-header .brand:hover .wordmark { color:var(--sea-primary-dark); }
+.app-header .brand:focus-visible { outline:none; box-shadow:0 0 0 3px var(--sea-primary-tint); }
 .app-header .logo-mark { width:26px; height:26px; border-radius:50%; background:var(--sea-primary); flex:none; }
 .app-header .wordmark { font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--text); }
 .app-header-right { display:flex; align-items:center; gap:var(--s-3); }
@@ -211,11 +213,46 @@ a { color:var(--sea-primary-dark); }
 /* Narrow single-column container for focused forms */
 .page-narrow { max-width:560px; }
 
+/* Page subtitle under the page title (muted context line) */
+.page-sub { color:var(--text-muted); font-size:14px; margin:4px 0 0; }
+
+/* Card — surface container for a grouped block (e.g. a create form) */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--sh-sm); padding:var(--s-6); }
+
+/* Two fields side by side; collapses to one column on narrow screens */
+.field-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 var(--s-3); }
+
+/* Right-aligned form actions row */
+.form-actions { display:flex; justify-content:flex-end; gap:var(--s-2); margin-top:var(--s-2); }
+
+/* Provider section navigation — real links under the app header,
+   active item underlined. Aligned with the page content width. */
+.provider-nav { display:flex; gap:var(--s-1); flex-wrap:wrap; max-width:880px; margin:0 auto; padding:0 var(--s-6); border-bottom:1px solid var(--border); }
+.provider-nav-link { display:inline-flex; align-items:center; gap:7px; padding:12px var(--s-3); font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s ease, border-color .15s ease; }
+.provider-nav-link svg { width:16px; height:16px; flex:none; }
+.provider-nav-link:hover { color:var(--sea-primary-dark); }
+.provider-nav-link.is-active { color:var(--sea-primary-dark); border-bottom-color:var(--sea-primary); }
+.provider-nav-link:focus-visible { outline:none; border-radius:var(--r-sm); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+/* Home return sits before the section tabs, set off by a divider. */
+.provider-nav-home { margin-right:var(--s-2); padding-right:var(--s-4); border-right:1px solid var(--border); }
+
+/* Functional data table (calendar terms, weekly hours, staged changes).
+   Used where the data is a grid of inputs/rows rather than records. */
+.data-table { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-md); font-size:14px; }
+.data-table th, .data-table td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); }
+.data-table thead th { font-family:var(--font-ui); font-weight:600; font-size:13px; color:var(--text-muted); background:var(--surface-2); }
+.data-table tbody tr:last-child td { border-bottom:none; }
+.data-table input[type="time"], .data-table input[type="date"] { font-family:var(--font-ui); font-size:14px; padding:7px 9px; border:1px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface); color:var(--text); }
+.data-table input:focus { outline:none; border-color:var(--sea-primary); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+
 @media (max-width:520px) {
   .app-header { padding:12px 16px; }
   .app-header .wordmark { font-size:18px; }
   .page { padding:var(--s-6) var(--s-4) var(--s-12); }
   .inline-form .btn { width:100%; }
+  .provider-nav { padding:0 var(--s-4); gap:0; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
+  .provider-nav-link { white-space:nowrap; }
+  .field-grid { grid-template-columns:1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

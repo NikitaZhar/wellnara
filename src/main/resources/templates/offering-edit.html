@@ -15,7 +15,7 @@
 
 <main class="page page-narrow">
 
-    <a class="back-link" th:href="@{/provider(section='offerings')}">← Back to offerings</a>
+    <a class="back-link" th:href="@{/provider/offerings}">← Back to offerings</a>
     <div class="page-head">
         <h1 class="page-title">Edit offering</h1>
     </div>
@@ -38,7 +38,10 @@
 
             <div class="field">
                 <label for="pricePerSession">Price per session</label>
-                <input id="pricePerSession" type="number" name="pricePerSession" step="0.01" min="0" th:value="${offering.pricePerSession}" required>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <input id="pricePerSession" type="number" name="pricePerSession" step="0.01" min="0" th:value="${offering.pricePerSession}" required style="flex:1;">
+                    <span class="badge badge-primary" th:text="${offering.currency}">EUR</span>
+                </div>
             </div>
 
             <div class="field">
@@ -48,7 +51,7 @@
 
             <div style="display:flex; gap:12px; margin-top:8px;">
                 <button type="submit" class="btn btn-primary">Update offering</button>
-                <a class="btn btn-secondary" th:href="@{/provider(section='offerings')}">Cancel</a>
+                <a class="btn btn-secondary" th:href="@{/provider/offerings}">Cancel</a>
             </div>
         </form>
     </section>

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Controller for client invitation from the provider page.
+ * Controller for client invitation from the provider clients page.
  */
 @Controller
 public class ClientInvitationController {
@@ -33,10 +33,13 @@ public class ClientInvitationController {
     /**
      * Creates a client invitation and sends the registration link by email.
      *
+     * <p>The result message is stashed in the session and shown on the clients
+     * page after the redirect.
+     *
      * @param email       invited client email
      * @param currentUser authenticated provider
      * @param session     current HTTP session
-     * @return redirect to the provider page
+     * @return redirect to the clients page
      */
     @PostMapping("/provider/invite-client")
     public String inviteClient(@RequestParam String email,
@@ -53,6 +56,6 @@ public class ClientInvitationController {
             session.removeAttribute("clientInviteSuccessMessage");
         }
 
-        return "redirect:/provider";
+        return "redirect:/provider/clients";
     }
 }

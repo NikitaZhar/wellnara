@@ -12,14 +12,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 /**
  * Controller for editing personal data (profile) of provider users.
  *
- * <p>The provider profile is edited inline in the provider page (see
- * {@code /provider}, profile section); this controller only handles the
- * form submission and redirects back to that page.
+ * <p>The provider profile is edited on its own page ({@code /provider/profile});
+ * this controller only handles the form submission and redirects back to that
+ * page on success, or re-renders it with the error and the submitted values on
+ * failure.
  */
 @Controller
 public class ProfileController {
 
-    private static final String PROVIDER_VIEW = "provider";
+    private static final String PROFILE_VIEW = "provider-profile";
 
     private final UserProfileService userProfileService;
     private final AuthService authService;
@@ -30,8 +31,8 @@ public class ProfileController {
      *
      * @param userProfileService         service for user personal data
      * @param authService                service for password verification and change
-     * @param providerPageModelAssembler assembler for provider page model, used to
-     *                                   re-render the provider page when the update fails
+     * @param providerPageModelAssembler assembler for the provider profile model, used
+     *                                   to re-render the profile page when the update fails
      */
     public ProfileController(UserProfileService userProfileService,
                              AuthService authService,
@@ -57,7 +58,7 @@ public class ProfileController {
      * @param confirmNewPassword repeated new password, required only when changing the password
      * @param currentUser        authenticated provider
      * @param model              MVC model
-     * @return redirect to the provider profile section, or the provider page with an error
+     * @return redirect to the profile page, or the profile page re-rendered with an error
      */
     @PostMapping("/provider/profile")
     public String updateProviderProfile(@RequestParam String firstName,
@@ -87,14 +88,14 @@ public class ProfileController {
                 authService.changePassword(currentUser, newPassword);
             }
 
-            return "redirect:/provider?section=profile&profileUpdated";
+            return "redirect:/provider/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
-            providerPageModelAssembler.populate(model, currentUser);
+            providerPageModelAssembler.populateProfile(model, currentUser);
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);
             model.addAttribute("profileError", exception.getMessage());
-            return PROVIDER_VIEW;
+            return PROFILE_VIEW;
         }
     }
 

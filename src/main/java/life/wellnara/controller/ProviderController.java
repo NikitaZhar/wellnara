@@ -10,12 +10,26 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 /**
- * Controller for provider main page access.
+ * Serves the provider cabinet as five separate pages, one per section.
+ *
+ * <p>Each page loads only its own data through {@link ProviderPageModelAssembler}.
+ * Housekeeping that used to run on every visit to the single page is now bound
+ * to the pages whose correctness depends on it. Stale requests are expired both
+ * on the appointments page (to keep the pending list current) and on the
+ * availability page: a requested term still within its confirmation window must
+ * show as busy, while an expired one must free the slot and release the hold, so
+ * the free-term computation needs the expiry to have run first. Expired
+ * availability periods and one-time overrides are cleaned on the availability
+ * page. A scheduler is the target solution for these cleanups (out of scope here).
  */
 @Controller
 public class ProviderController {
 
-    private static final String PROVIDER_VIEW = "provider";
+    private static final String CLIENTS_VIEW = "provider-clients";
+    private static final String OFFERINGS_VIEW = "provider-offerings";
+    private static final String APPOINTMENTS_VIEW = "provider-appointments";
+    private static final String AVAILABILITY_VIEW = "provider-availability";
+    private static final String PROFILE_VIEW = "provider-profile";
 
     private final ProviderCalendarService providerCalendarService;
     private final AppointmentService appointmentService;
@@ -37,25 +51,99 @@ public class ProviderController {
     }
 
     /**
-     * Shows provider page for authenticated provider user.
+     * Redirects the cabinet root to the clients page, keeping old links,
+     * bookmarks and the post-login default working.
+     *
+     * @return redirect to the clients page
+     */
+    @GetMapping("/provider")
+    public String showProvider() {
+        return "redirect:/provider/clients";
+    }
+
+    /**
+     * Shows the clients page: the provider's clients and the invite result
+     * messages carried over from the invite POST through the session.
      *
      * @param currentUser authenticated provider
      * @param session current HTTP session
      * @param model MVC model
-     * @return provider page view name
+     * @return clients page view name
      */
-    @GetMapping("/provider")
-    public String showPage(@CurrentUser User currentUser, HttpSession session, Model model) {
-        providerCalendarService.deleteExpiredAvailabilityPeriods(currentUser);
-        providerCalendarService.deleteExpiredAvailabilityOverrides(currentUser);
-        appointmentService.expireStaleAppointmentRequests();
-
+    @GetMapping("/provider/clients")
+    public String showClients(@CurrentUser User currentUser, HttpSession session, Model model) {
         moveSessionAttributeToModel(session, model, "clientInviteSuccessMessage");
         moveSessionAttributeToModel(session, model, "clientInviteError");
 
-        providerPageModelAssembler.populate(model, currentUser);
+        providerPageModelAssembler.populateClients(model, currentUser);
 
-        return PROVIDER_VIEW;
+        return CLIENTS_VIEW;
+    }
+
+    /**
+     * Shows the offerings page.
+     *
+     * @param currentUser authenticated provider
+     * @param model MVC model
+     * @return offerings page view name
+     */
+    @GetMapping("/provider/offerings")
+    public String showOfferings(@CurrentUser User currentUser, Model model) {
+        providerPageModelAssembler.populateOfferings(model, currentUser);
+
+        return OFFERINGS_VIEW;
+    }
+
+    /**
+     * Shows the appointments page. Expires stale appointment requests first, so
+     * the pending list reflects the current state.
+     *
+     * @param currentUser authenticated provider
+     * @param model MVC model
+     * @return appointments page view name
+     */
+    @GetMapping("/provider/appointments")
+    public String showAppointments(@CurrentUser User currentUser, Model model) {
+        appointmentService.expireStaleAppointmentRequests();
+
+        providerPageModelAssembler.populateAppointments(model, currentUser);
+
+        return APPOINTMENTS_VIEW;
+    }
+
+    /**
+     * Shows the availability page. Expires stale appointment requests and removes
+     * expired availability periods and one-time overrides first, so the generated
+     * terms are current: a still-pending request keeps its slot busy, while an
+     * expired one frees the slot and releases the hold.
+     *
+     * @param currentUser authenticated provider
+     * @param model MVC model
+     * @return availability page view name
+     */
+    @GetMapping("/provider/availability")
+    public String showAvailability(@CurrentUser User currentUser, Model model) {
+        appointmentService.expireStaleAppointmentRequests();
+        providerCalendarService.deleteExpiredAvailabilityPeriods(currentUser);
+        providerCalendarService.deleteExpiredAvailabilityOverrides(currentUser);
+
+        providerPageModelAssembler.populateAvailability(model, currentUser);
+
+        return AVAILABILITY_VIEW;
+    }
+
+    /**
+     * Shows the profile page.
+     *
+     * @param currentUser authenticated provider
+     * @param model MVC model
+     * @return profile page view name
+     */
+    @GetMapping("/provider/profile")
+    public String showProfile(@CurrentUser User currentUser, Model model) {
+        providerPageModelAssembler.populateProfile(model, currentUser);
+
+        return PROFILE_VIEW;
     }
 
     private void moveSessionAttributeToModel(HttpSession session,

@@ -15,8 +15,12 @@
 
 <main class="page">
 
-    <h1 class="greeting">Hello, <span th:text="${providerName}">there</span></h1>
-    <p class="greeting-sub">Here's your overview</p>
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Hello, <span th:text="${providerName}">there</span></h1>
+            <p class="page-sub">Here's your overview</p>
+        </div>
+    </div>
 
     <!-- Activity: appointment requests + upcoming (both lead into My Calendar) -->
     <div class="grid-2">
@@ -42,7 +46,7 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/provider(section='provider-calendar')}">Review requests →</a>
+                <a class="link-arrow" th:href="@{/provider/appointments} + '#pending'">Review requests →</a>
             </div>
         </section>
 
@@ -67,7 +71,7 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/provider(section='provider-calendar')}">Open calendar →</a>
+                <a class="link-arrow" th:href="@{/provider/appointments} + '#confirmed'">View upcoming →</a>
             </div>
         </section>
 
@@ -80,7 +84,7 @@
 
     <div class="grid-cards">
 
-        <a class="nav-card" th:href="@{/provider(section='clients')}">
+        <a class="nav-card" th:href="@{/provider/clients}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
@@ -89,7 +93,7 @@
             <span class="nc-go">Open →</span>
         </a>
 
-        <a class="nav-card" th:href="@{/provider(section='offerings')}">
+        <a class="nav-card" th:href="@{/provider/offerings}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>
             </span>
@@ -98,7 +102,7 @@
             <span class="nc-go">Open →</span>
         </a>
 
-        <a class="nav-card" th:href="@{/provider(section='calendar')}">
+        <a class="nav-card" th:href="@{/provider/availability}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v18H3zM16 2v4M8 2v4M3 10h18M12 14v4M9 16h6"/></svg>
             </span>
@@ -107,7 +111,7 @@
             <span class="nc-go">Open →</span>
         </a>
 
-        <a class="nav-card" th:href="@{/provider(section='profile')}">
+        <a class="nav-card" th:href="@{/provider/profile}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
             </span>

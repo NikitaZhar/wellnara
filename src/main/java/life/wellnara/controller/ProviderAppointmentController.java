@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 public class ProviderAppointmentController {
 
-    private static final String PROVIDER_VIEW = "provider";
-    private static final String PROVIDER_CALENDAR_REDIRECT = "redirect:/provider?section=provider-calendar";
+    private static final String APPOINTMENTS_VIEW = "provider-appointments";
+    private static final String APPOINTMENTS_REDIRECT = "redirect:/provider/appointments";
 
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
@@ -39,7 +39,7 @@ public class ProviderAppointmentController {
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/accept")
     public String acceptAppointment(@PathVariable Long appointmentId,
@@ -59,7 +59,7 @@ public class ProviderAppointmentController {
      * @param rejectionReason reason shown to client
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/reject")
     public String rejectAppointment(@PathVariable Long appointmentId,
@@ -84,7 +84,7 @@ public class ProviderAppointmentController {
      * @param providerMessage message shown to client
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/reschedule")
     public String rescheduleScheduledAppointment(@PathVariable Long appointmentId,
@@ -108,7 +108,7 @@ public class ProviderAppointmentController {
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/cancel")
     public String cancelScheduledAppointment(@PathVariable Long appointmentId,
@@ -127,7 +127,7 @@ public class ProviderAppointmentController {
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/complete")
     public String completeScheduledAppointment(@PathVariable Long appointmentId,
@@ -146,7 +146,7 @@ public class ProviderAppointmentController {
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/no-show")
     public String markAppointmentNoShow(@PathVariable Long appointmentId,
@@ -165,7 +165,7 @@ public class ProviderAppointmentController {
      * @param appointmentId appointment identifier
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to provider calendar section or provider page with error
+     * @return redirect to the appointments page, or that page with an error
      */
     @PostMapping("/provider/appointments/{appointmentId}/acknowledge")
     public String acknowledgeAppointmentNotification(@PathVariable Long appointmentId,
@@ -186,11 +186,11 @@ public class ProviderAppointmentController {
                                             ProviderAppointmentAction action) {
         try {
             action.execute(currentUser);
-            return PROVIDER_CALENDAR_REDIRECT;
+            return APPOINTMENTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
-            providerPageModelAssembler.populate(model, currentUser);
+            providerPageModelAssembler.populateAppointments(model, currentUser);
             model.addAttribute("appointmentActionError", exception.getMessage());
-            return PROVIDER_VIEW;
+            return APPOINTMENTS_VIEW;
         }
     }
 

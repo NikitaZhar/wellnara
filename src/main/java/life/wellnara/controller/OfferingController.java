@@ -19,7 +19,9 @@ import java.math.BigDecimal;
 @Controller
 public class OfferingController {
 
-	private static final String PROVIDER_VIEW = "provider";
+	private static final String OFFERINGS_VIEW = "provider-offerings";
+	private static final String OFFERINGS_REDIRECT = "redirect:/provider/offerings";
+	private static final String OFFERING_EDIT_VIEW = "offering-edit";
 
 	private final OfferingService offeringService;
 	private final ProviderPageModelAssembler providerPageModelAssembler;
@@ -28,7 +30,7 @@ public class OfferingController {
 	 * Creates offering controller.
 	 *
 	 * @param offeringService            service for offering operations
-	 * @param providerPageModelAssembler assembler used to re-render the provider
+	 * @param providerPageModelAssembler assembler used to re-render the offerings
 	 *                                   page when an offering operation is rejected
 	 */
 	public OfferingController(OfferingService offeringService,
@@ -41,7 +43,7 @@ public class OfferingController {
 	 * Creates a new offering for the current provider.
 	 *
 	 * <p>Domain rejections (e.g. the provider currency is not set) are shown as a
-	 * message on the provider page instead of surfacing as a 500 error.
+	 * message on the offerings page instead of surfacing as a 500 error.
 	 *
 	 * @param name             offering name
 	 * @param description      offering description
@@ -49,7 +51,7 @@ public class OfferingController {
 	 * @param durationMinutes  session duration in minutes
 	 * @param currentUser      authenticated provider
 	 * @param model            MVC model
-	 * @return redirect to the offerings section, or the provider page with an error
+	 * @return redirect to the offerings page, or the offerings page with an error
 	 */
 	@PostMapping("/provider/offerings")
 	public String createOffering(@RequestParam String name,
@@ -66,11 +68,11 @@ public class OfferingController {
 	                pricePerSession,
 	                durationMinutes
 	        );
-	        return "redirect:/provider?section=offerings";
+	        return OFFERINGS_REDIRECT;
 	    } catch (IllegalArgumentException exception) {
-	        providerPageModelAssembler.populate(model, currentUser);
+	        providerPageModelAssembler.populateOfferings(model, currentUser);
 	        model.addAttribute("offeringError", exception.getMessage());
-	        return PROVIDER_VIEW;
+	        return OFFERINGS_VIEW;
 	    }
 	}
 
@@ -88,7 +90,7 @@ public class OfferingController {
 			Model model) {
 		Offering offering = offeringService.getOfferingOfProvider(currentUser, offeringId);
 		model.addAttribute("offering", offering);
-		return "offering-edit";
+		return OFFERING_EDIT_VIEW;
 	}
 
 	/**
@@ -101,7 +103,7 @@ public class OfferingController {
 	 * @param durationMinutes session duration in minutes
 	 * @param currentUser     authenticated provider
 	 * @param model           MVC model
-	 * @return redirect to the offerings section, or the edit page with an error
+	 * @return redirect to the offerings page, or the edit page with an error
 	 */
 	@PostMapping("/provider/offerings/{offeringId}/edit")
 	public String updateOffering(@PathVariable Long offeringId,
@@ -120,12 +122,12 @@ public class OfferingController {
 					pricePerSession,
 					durationMinutes
 					);
-			return "redirect:/provider?section=offerings";
+			return OFFERINGS_REDIRECT;
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("offering",
 					offeringService.getOfferingOfProvider(currentUser, offeringId));
 			model.addAttribute("offeringError", exception.getMessage());
-			return "offering-edit";
+			return OFFERING_EDIT_VIEW;
 		}
 	}
 }

@@ -22,7 +22,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Assembles model data required by the provider page.
+ * Assembles the model data for the provider pages.
+ *
+ * <p>Each provider section is a separate page and loads only its own data, so
+ * this assembler exposes one {@code populate*} method per page rather than a
+ * single method that fills everything. Every page shows the provider name in
+ * its header, so each method also adds it through a shared helper.
  */
 @Component
 public class ProviderPageModelAssembler {
@@ -63,24 +68,51 @@ public class ProviderPageModelAssembler {
     }
 
     /**
-     * Adds provider page data to MVC model.
+     * Adds the clients page data to the MVC model.
      *
      * @param model MVC model
      * @param provider authenticated provider
      */
-    public void populate(Model model, User provider) {
+    public void populateClients(Model model, User provider) {
         model.addAttribute("clients", buildClientRows(provider));
+        addProviderName(model, provider);
+    }
+
+    /**
+     * Adds the offerings page data to the MVC model: the provider's offerings and
+     * the provider wallet currency new offering prices are quoted in.
+     *
+     * @param model MVC model
+     * @param provider authenticated provider
+     */
+    public void populateOfferings(Model model, User provider) {
         model.addAttribute("offerings", offeringService.getOfferingsOfProvider(provider));
-        model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
+        model.addAttribute("providerCurrency", provider.getCurrency());
+        addProviderName(model, provider);
+    }
+
+    /**
+     * Adds the appointments page data to the MVC model: pending requests and
+     * confirmed appointments.
+     *
+     * @param model MVC model
+     * @param provider authenticated provider
+     */
+    public void populateAppointments(Model model, User provider) {
         model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
         model.addAttribute("confirmedAppointments",
                 appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
-
-        populateProfileModel(model, provider);
-        populateCalendarModel(model, provider);
+        addProviderName(model, provider);
     }
 
-    private void populateProfileModel(Model model, User provider) {
+    /**
+     * Adds the profile page data to the MVC model: account fields, personal data
+     * and the currencies supported for the provider currency selector.
+     *
+     * @param model MVC model
+     * @param provider authenticated provider
+     */
+    public void populateProfile(Model model, User provider) {
         UserProfile profile = userProfileService.findProfile(provider).orElse(null);
 
         model.addAttribute("providerLogin", provider.getUsername());
@@ -90,6 +122,32 @@ public class ProviderPageModelAssembler {
         model.addAttribute("profilePhone", profile != null ? profile.getPhone() : "");
         model.addAttribute("providerCurrency", provider.getCurrency());
         model.addAttribute("supportedCurrencies", CurrencyCodes.SUPPORTED);
+        addProviderName(model, provider);
+    }
+
+    /**
+     * Adds the availability page data to the MVC model: the calendar form, its
+     * planning window, the provider's current calendar date, the generated free
+     * terms and the one-time availability overrides.
+     *
+     * @param model MVC model
+     * @param provider authenticated provider
+     */
+    public void populateAvailability(Model model, User provider) {
+        ProviderCalendarForm calendarForm =
+                providerCalendarService.getLatestCalendarForm(provider);
+
+        model.addAttribute("calendarForm", calendarForm);
+        model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
+        model.addAttribute("planningTo", calendarForm.getPlanningTo());
+        model.addAttribute("today", applicationTimeService.currentProviderCalendarDate(provider));
+        model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
+        model.addAttribute("availabilityOverrides", providerCalendarService.getAvailabilityOverrides(provider));
+        addProviderName(model, provider);
+    }
+
+    private void addProviderName(Model model, User provider) {
+        model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
     }
 
     private List<ClientRow> buildClientRows(User provider) {
@@ -119,23 +177,5 @@ public class ProviderPageModelAssembler {
                     );
                 })
                 .toList();
-    }
-
-    /**
-     * Adds provider calendar section data to MVC model.
-     *
-     * @param model MVC model
-     * @param provider authenticated provider
-     */
-    private void populateCalendarModel(Model model, User provider) {
-        ProviderCalendarForm calendarForm =
-                providerCalendarService.getLatestCalendarForm(provider);
-
-        model.addAttribute("calendarForm", calendarForm);
-        model.addAttribute("planningFrom", calendarForm.getPlanningFrom());
-        model.addAttribute("planningTo", calendarForm.getPlanningTo());
-        model.addAttribute("today", applicationTimeService.currentProviderCalendarDate(provider));
-        model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
-        model.addAttribute("availabilityOverrides", providerCalendarService.getAvailabilityOverrides(provider));
     }
 }

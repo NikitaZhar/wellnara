@@ -24,8 +24,8 @@ import java.util.List;
 @Controller
 public class ProviderCalendarController {
 
-    private static final String PROVIDER_VIEW = "provider";
-    private static final String CALENDAR_REDIRECT = "redirect:/provider?section=calendar";
+    private static final String AVAILABILITY_VIEW = "provider-availability";
+    private static final String AVAILABILITY_REDIRECT = "redirect:/provider/availability";
 
     private final ProviderCalendarService providerCalendarService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
@@ -46,10 +46,14 @@ public class ProviderCalendarController {
      * Saves the whole provider calendar — planning period, weekly rules and
      * one-time changes — atomically.
      *
+     * <p>On validation failure the availability page is re-rendered with the
+     * submitted form kept in place (so the provider's input is not lost) and the
+     * field errors shown.
+     *
      * @param form calendar form including staged one-time changes
      * @param currentUser authenticated provider
      * @param model MVC model
-     * @return redirect to calendar section, or provider page with validation errors
+     * @return redirect to the availability page, or that page with validation errors
      */
     @PostMapping("/provider/calendar")
     public String saveCalendar(@ModelAttribute ProviderCalendarForm form,
@@ -57,14 +61,14 @@ public class ProviderCalendarController {
                                Model model) {
         try {
             providerCalendarService.saveCalendar(currentUser, form);
-            return CALENDAR_REDIRECT;
+            return AVAILABILITY_REDIRECT;
         } catch (CalendarValidationException exception) {
-            providerPageModelAssembler.populate(model, currentUser);
+            providerPageModelAssembler.populateAvailability(model, currentUser);
             model.addAttribute("calendarForm", form);
             model.addAttribute("planningFrom", form.getPlanningFrom());
             model.addAttribute("planningTo", form.getPlanningTo());
             model.addAttribute("calendarErrors", exception.getFieldErrors());
-            return PROVIDER_VIEW;
+            return AVAILABILITY_VIEW;
         }
     }
 

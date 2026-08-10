@@ -74,13 +74,13 @@ class ProviderClientFlowMvcTest {
                         .session(session)
                         .param("email", "client-one@example.com"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider/clients"));
 
-        mockMvc.perform(get("/provider").session(session))
+        mockMvc.perform(get("/provider/clients").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Invitation sent to client-one@example.com")));
 
-        mockMvc.perform(get("/provider").session(session))
+        mockMvc.perform(get("/provider/clients").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(not(containsString("Invitation sent to"))));
 
@@ -122,7 +122,7 @@ class ProviderClientFlowMvcTest {
                         .session(providerSession)
                         .param("email", "client-three@example.com"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider/clients"));
 
         ClientInvitation invitation = clientInvitationRepository.findByToken(
                         extractTokenFromInvitationEmail("client-three@example.com"))
@@ -156,7 +156,7 @@ class ProviderClientFlowMvcTest {
         assertThat(providerClientLink.get().getProvider().getId()).isEqualTo(provider.getId());
         assertThat(providerClientLink.get().getClient().getId()).isEqualTo(savedClient.getId());
 
-        mockMvc.perform(get("/provider").session(providerSession))
+        mockMvc.perform(get("/provider/clients").session(providerSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("My clients")))
                 .andExpect(content().string(containsString("Client Three")))
@@ -183,12 +183,12 @@ class ProviderClientFlowMvcTest {
         mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"));
+                .andExpect(redirectedUrl("/provider/clients"));
 
         assertThat(userRepository.findById(savedClient.getId())).isEmpty();
         assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, savedClient.getId())).isEmpty();
 
-        mockMvc.perform(get("/provider").session(providerSession))
+        mockMvc.perform(get("/provider/clients").session(providerSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(not(containsString("client-three@example.com"))));
     }
@@ -207,7 +207,7 @@ class ProviderClientFlowMvcTest {
                         .session(providerSession)
                         .param("email", "existing-client@example.com"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider"))
+                .andExpect(redirectedUrl("/provider/clients"))
                 .andReturn();
 
         MockHttpSession updatedSession =
@@ -215,7 +215,7 @@ class ProviderClientFlowMvcTest {
 
         assertThat(updatedSession).isNotNull();
 
-        mockMvc.perform(get("/provider").session(updatedSession))
+        mockMvc.perform(get("/provider/clients").session(updatedSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Email already used")));
     }

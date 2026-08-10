@@ -7,12 +7,16 @@
   Usage on any authenticated page:
     <div th:replace="~{fragments/app-header :: header('Admin')}"></div>
   Pass the current role label as the argument.
+
+  The brand (logo + wordmark) links to /home, giving every authenticated screen a
+  return to its role landing page. Provider pages also expose an explicit "Home"
+  entry in the section navigation (fragments/provider-nav).
 -->
 <header th:fragment="header(role)" class="app-header">
-    <div class="brand">
+    <a class="brand" th:href="@{/home}" aria-label="Wellnara home">
         <span class="logo-mark" aria-hidden="true"></span>
         <span class="wordmark">Wellnara</span>
-    </div>
+    </a>
     <div class="app-header-right">
         <span class="badge badge-primary" th:text="${role}">Role</span>
         <a th:href="@{/auth/logout}" class="btn btn-secondary btn-sm">Log out</a>

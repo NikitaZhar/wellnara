@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Availability</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+
+    <script>
+        function fillProviderTimezone() {
+            const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            const timezoneInput = document.getElementById('providerTimezone');
+            if (timezoneInput) {
+                timezoneInput.value = zone;
+            }
+
+            const hint = document.getElementById('timezoneHint');
+            if (hint) {
+                hint.textContent = 'Times shown in your timezone · ' + zone;
+            }
+        }
+
+        function configurePlanningDateLimits() {
+            const planningFrom = document.getElementById('planningFrom');
+            const planningTo = document.getElementById('planningTo');
+
+            if (!planningFrom || !planningTo) {
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            planningFrom.min = today;
+
+            if (planningFrom.value < today) {
+                planningFrom.value = today;
+            }
+
+            planningTo.min = planningFrom.value;
+
+            if (planningTo.value < planningFrom.value) {
+                planningTo.value = planningFrom.value;
+            }
+        }
+
+        function fixOverrideEndTime() {
+            const start = document.getElementById('overrideStartTime');
+            const end = document.getElementById('overrideEndTime');
+
+            if (end.value <= start.value) {
+                end.value = '';
+            }
+
+            Array.from(end.options).forEach(option => {
+                option.hidden = option.value && option.value <= start.value;
+            });
+        }
+
+        function fillOverrideTimeOptions() {
+            const startSelect = document.getElementById('overrideStartTime');
+            const endSelect = document.getElementById('overrideEndTime');
+
+            if (!startSelect || !endSelect) {
+                return;
+            }
+
+            startSelect.innerHTML = '<option value="">Start</option>';
+            endSelect.innerHTML = '<option value="">End</option>';
+
+            for (let hour = 9; hour <= 18; hour++) {
+                for (let minute = 0; minute < 60; minute += 15) {
+                    if (hour === 18 && minute > 0) {
+                        break;
+                    }
+
+                    const time =
+                        String(hour).padStart(2, '0') + ':' +
+                        String(minute).padStart(2, '0');
+
+                    startSelect.add(new Option(time, time));
+                    endSelect.add(new Option(time, time));
+                }
+            }
+        }
+
+        // ===== Weekly hours: Open/Closed toggle per day =====
+
+        function dayInputs(toggle) {
+            const day = toggle.getAttribute('data-day');
+            return {
+                start: document.getElementById(day + '-start'),
+                end: document.getElementById(day + '-end')
+            };
+        }
+
+        function setDayOpen(toggle, open) {
+            const row = toggle.closest('.wk-day');
+            row.classList.toggle('is-closed', !open);
+
+            const state = row.querySelector('.wk-state');
+            if (state) {
+                state.textContent = open ? 'Open' : 'Closed';
+            }
+        }
+
+        function syncDayFromValues(toggle) {
+            const { start, end } = dayInputs(toggle);
+            const open = Boolean(start.value && end.value);
+            toggle.checked = open;
+            setDayOpen(toggle, open);
+        }
+
+        function onDayToggle(toggle) {
+            const { start, end } = dayInputs(toggle);
+
+            if (toggle.checked) {
+                if (!start.value) start.value = '09:00';
+                if (!end.value) end.value = '18:00';
+            } else {
+                start.value = '';
+                end.value = '';
+            }
+
+            setDayOpen(toggle, toggle.checked);
+            refreshPreview();
+        }
+
+        function initWeeklyToggles() {
+            document.querySelectorAll('.wk-toggle').forEach(function (toggle) {
+                syncDayFromValues(toggle);
+                toggle.addEventListener('change', function () { onDayToggle(toggle); });
+            });
+        }
+
+        // ===== One-time changes staged as chips =====
+
+        let stagedOverrides = [];
+
+        function seedStagedOverrides() {
+            stagedOverrides = [];
+
+            document.querySelectorAll('.staged-seed').forEach(function (el) {
+                stagedOverrides.push({
+                    type: el.getAttribute('data-type'),
+                    date: el.getAttribute('data-date'),
+                    startTime: el.getAttribute('data-start'),
+                    endTime: el.getAttribute('data-end')
+                });
+            });
+
+            renderStagedOverrides();
+        }
+
+        function renderStagedOverrides() {
+            const body = document.getElementById('stagedOverridesBody');
+            const inputs = document.getElementById('stagedOverridesInputs');
+            const empty = document.getElementById('stagedOverridesEmpty');
+
+            if (!body || !inputs) {
+                return;
+            }
+
+            body.innerHTML = '';
+            inputs.innerHTML = '';
+
+            stagedOverrides.forEach(function (o, i) {
+                const chip = document.createElement('span');
+                chip.className = 'ov-chip' + (o.type === 'UNAVAILABLE' ? ' ov-unavailable' : '');
+
+                const label = document.createElement('span');
+                label.textContent = o.date + ' · ' + o.startTime + '–' + o.endTime + ' · ' +
+                    (o.type === 'AVAILABLE' ? 'Available' : 'Unavailable');
+                chip.appendChild(label);
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'ov-remove';
+                remove.setAttribute('aria-label', 'Remove one-time change');
+                remove.textContent = '✕';
+                remove.addEventListener('click', function () {
+                    stagedOverrides.splice(i, 1);
+                    renderStagedOverrides();
+                    refreshPreview();
+                });
+                chip.appendChild(remove);
+
+                body.appendChild(chip);
+
+                inputs.insertAdjacentHTML('beforeend',
+                    hidden('overrides[' + i + '].type', o.type) +
+                    hidden('overrides[' + i + '].date', o.date) +
+                    hidden('overrides[' + i + '].startTime', o.startTime) +
+                    hidden('overrides[' + i + '].endTime', o.endTime));
+            });
+
+            if (empty) {
+                empty.style.display = stagedOverrides.length > 0 ? 'none' : '';
+            }
+        }
+
+        function setOverrideType(button) {
+            const group = document.getElementById('overrideType');
+            group.setAttribute('data-value', button.getAttribute('data-val'));
+            group.querySelectorAll('.seg-opt').forEach(function (b) {
+                b.classList.toggle('is-on', b === button);
+            });
+        }
+
+        function initOneTimeControls() {
+            const date = document.getElementById('overrideDate');
+            const start = document.getElementById('overrideStartTime');
+            const end = document.getElementById('overrideEndTime');
+
+            if (date) date.addEventListener('change', maybeAddOverride);
+            if (start) start.addEventListener('change', function () { fixOverrideEndTime(); maybeAddOverride(); });
+            if (end) end.addEventListener('change', maybeAddOverride);
+        }
+
+        // Adds the entry as soon as date, from and to are all set and valid, then
+        // clears the inputs for the next one — no explicit "add" button needed.
+        function maybeAddOverride() {
+            const type = document.getElementById('overrideType').getAttribute('data-value');
+            const date = document.getElementById('overrideDate').value;
+            const start = document.getElementById('overrideStartTime').value;
+            const end = document.getElementById('overrideEndTime').value;
+
+            if (!date || !start || !end || end <= start) {
+                return;
+            }
+
+            const exists = stagedOverrides.some(function (o) {
+                return o.type === type && o.date === date && o.startTime === start && o.endTime === end;
+            });
+
+            if (!exists) {
+                stagedOverrides.push({ type: type, date: date, startTime: start, endTime: end });
+                renderStagedOverrides();
+                refreshPreview();
+            }
+
+            document.getElementById('overrideDate').value = '';
+            document.getElementById('overrideStartTime').value = '';
+            document.getElementById('overrideEndTime').value = '';
+        }
+
+        // ===== Live preview: "Available times" grouped by day =====
+
+        function refreshPreview() {
+            const form = document.getElementById('calendarForm');
+
+            if (!form) {
+                return;
+            }
+
+            fetch(form.getAttribute('data-preview-url'), {
+                method: 'POST',
+                body: new URLSearchParams(new FormData(form))
+            })
+            .then(function (response) { return response.json(); })
+            .then(renderTerms)
+            .catch(function () { });
+        }
+
+        function formatDay(isoDate) {
+            const date = new Date(isoDate + 'T00:00:00');
+            return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        }
+
+        function renderTerms(terms) {
+            const box = document.getElementById('availableTimes');
+
+            if (!box) {
+                return;
+            }
+
+            box.innerHTML = '';
+
+            const days = [];
+            const indexByDate = {};
+
+            terms.forEach(function (t) {
+                if (indexByDate[t.date] === undefined) {
+                    indexByDate[t.date] = days.length;
+                    days.push({ date: t.date, ranges: [] });
+                }
+                days[indexByDate[t.date]].ranges.push(
+                    String(t.startTime).slice(0, 5) + '–' + String(t.endTime).slice(0, 5));
+            });
+
+            if (days.length === 0) {
+                box.innerHTML = '<div class="empty"><p>No available times yet. Set your hours below.</p></div>';
+                return;
+            }
+
+            days.forEach(function (d) {
+                const row = document.createElement('div');
+                row.className = 'avail-day';
+
+                const name = document.createElement('span');
+                name.className = 'avail-day-name';
+                name.textContent = formatDay(d.date);
+                row.appendChild(name);
+
+                const ranges = document.createElement('span');
+                ranges.className = 'avail-ranges';
+                d.ranges.forEach(function (r) {
+                    const chip = document.createElement('span');
+                    chip.className = 'avail-range';
+                    chip.textContent = r;
+                    ranges.appendChild(chip);
+                });
+                row.appendChild(ranges);
+
+                box.appendChild(row);
+            });
+        }
+
+        function hidden(name, value) {
+            return '<input type="hidden" name="' + name + '" value="' + value + '">';
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            fillProviderTimezone();
+            configurePlanningDateLimits();
+            fillOverrideTimeOptions();
+            initWeeklyToggles();
+            seedStagedOverrides();
+            initCalendarPreview();
+            initOneTimeControls();
+        });
+
+        function initCalendarPreview() {
+            document.querySelectorAll('#calendarForm input[name]').forEach(function (el) {
+                el.addEventListener('change', refreshPreview);
+            });
+
+            refreshPreview();
+        }
+    </script>
+
+    <style>
+        /* One-off layout for the availability screen (tokens only). */
+
+        /* Result: available times grouped by day */
+        .avail-day { display:flex; align-items:center; gap:var(--s-4); padding:12px 16px; border-bottom:1px solid var(--border); }
+        .avail-day:last-child { border-bottom:none; }
+        .avail-day-name { width:120px; flex:none; font-size:14px; font-weight:500; color:var(--text); }
+        .avail-ranges { display:flex; flex-wrap:wrap; gap:6px; }
+        .avail-range { font-size:13px; font-weight:500; color:var(--sea-primary-dark); background:var(--sea-primary-tint); border-radius:var(--r-sm); padding:3px 9px; }
+
+        /* Edit section intro */
+        .edit-head { margin:var(--s-8) 0 var(--s-2); }
+        .edit-head h2 { font-family:var(--font-ui); font-size:16px; font-weight:600; margin:0; }
+        .edit-head p { color:var(--text-muted); font-size:14px; margin:4px 0 0; }
+
+        /* Period / one-time controls row */
+        .avail-controls { display:flex; gap:var(--s-3); align-items:flex-end; flex-wrap:wrap; }
+        .avail-controls .field { min-width:150px; margin-bottom:0; }
+
+        /* Weekly hours: day rows with an Open/Closed switch */
+        .wk-day { display:flex; align-items:center; gap:var(--s-4); padding:11px 0; border-bottom:1px solid var(--border); }
+        .wk-day:last-child { border-bottom:none; }
+        .wk-name { width:96px; flex:none; font-size:14px; font-weight:500; }
+        .wk-switch { display:inline-flex; align-items:center; gap:8px; width:104px; flex:none; cursor:pointer; }
+        .wk-switch input { position:absolute; width:1px; height:1px; opacity:0; }
+        .wk-track { width:34px; height:20px; border-radius:var(--r-pill); background:#CBD5D3; position:relative; flex:none; transition:background .15s ease; }
+        .wk-knob { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s ease; }
+        .wk-switch input:checked + .wk-track { background:var(--sea-primary); }
+        .wk-switch input:checked + .wk-track .wk-knob { left:16px; }
+        .wk-switch input:focus-visible + .wk-track { box-shadow:0 0 0 3px var(--sea-primary-tint); }
+        .wk-state { font-size:13px; color:var(--text-muted); }
+        .wk-times { display:flex; align-items:center; gap:8px; }
+        .wk-day.is-closed .wk-times { opacity:.4; }
+        .wk-times input[type="time"] { font-family:var(--font-ui); font-size:14px; padding:7px 9px; border:1px solid var(--border-strong); border-radius:var(--r-sm); background:var(--surface); color:var(--text); }
+        .wk-times input:focus { outline:none; border-color:var(--sea-primary); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+        .wk-dash { color:var(--text-faint); }
+
+        /* Segmented toggle (one-time change type) */
+        .seg { display:inline-flex; border:1px solid var(--border-strong); border-radius:var(--r-sm); overflow:hidden; background:var(--surface); }
+        .seg-opt { border:none; background:transparent; padding:10px 14px; font-family:var(--font-ui); font-size:14px; font-weight:500; color:var(--text-muted); cursor:pointer; transition:background .15s ease, color .15s ease; }
+        .seg-opt + .seg-opt { border-left:1px solid var(--border-strong); }
+        .seg-opt.is-on { background:var(--sea-primary); color:#fff; }
+        .seg-opt:not(.is-on):hover { background:var(--surface-2); color:var(--sea-primary-dark); }
+        .seg-opt:focus-visible { outline:none; box-shadow:0 0 0 3px var(--sea-primary-tint); }
+
+        /* One-time change chips */
+        .ov-chips { display:flex; flex-wrap:wrap; gap:8px; }
+        .ov-chip { display:inline-flex; align-items:center; gap:8px; font-size:13px; padding:6px 10px; border-radius:var(--r-pill); border:1px solid var(--border); background:var(--surface-2); color:var(--text); }
+        .ov-chip.ov-unavailable { background:var(--danger-bg); border-color:var(--danger-border); color:#8f3729; }
+        .ov-remove { background:transparent; border:none; cursor:pointer; color:var(--text-faint); font-size:13px; line-height:1; padding:0; }
+        .ov-remove:hover { color:var(--danger); }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/provider-nav :: nav('availability')}"></div>
+
+<main class="page">
+
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">My availability</h1>
+            <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
+        </div>
+    </div>
+
+    <div id="calendar-errors" th:if="${calendarErrors != null}" class="alert alert-danger" role="alert">
+        <div th:each="err : ${calendarErrors.values()}">
+            <span th:text="${err}">Error</span>
+        </div>
+    </div>
+
+    <!-- Saved one-time changes, seeded into the staged list on load. -->
+    <div class="staged-seed" style="display: none;" th:each="o : ${availabilityOverrides}"
+         th:attr="data-type=${o.type},data-date=${o.overrideDate},data-start=${o.startTime},data-end=${o.endTime}"></div>
+
+    <!-- Result: available times, updates live as the form below is edited. -->
+    <section>
+        <div class="section-head">
+            <h2>Available times</h2>
+            <span class="count-pill">updates as you edit</span>
+        </div>
+        <div class="list" id="availableTimes"></div>
+    </section>
+
+    <!-- Edit area, clearly separated from the result above. -->
+    <div class="edit-head">
+        <h2>Edit availability</h2>
+        <p>Add, change, or remove your available time below, then save.</p>
+    </div>
+
+    <form id="calendarForm" th:action="@{/provider/calendar}" method="post"
+          th:attr="data-preview-url=@{/provider/calendar/preview}" autocomplete="off">
+
+        <input id="providerTimezone" type="hidden" name="providerTimezone">
+
+        <section>
+            <div class="section-head">
+                <h2>Period</h2>
+            </div>
+            <div class="card">
+                <div class="avail-controls">
+                    <div class="field">
+                        <label for="planningFrom">From</label>
+                        <input id="planningFrom" type="date" name="planningFrom" th:value="${planningFrom}" required autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="planningTo">To</label>
+                        <input id="planningTo" type="date" name="planningTo" th:value="${planningTo}" required autocomplete="off">
+                    </div>
+                </div>
+                <p class="hint" id="timezoneHint" style="margin-top:var(--s-3);"></p>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-head">
+                <h2>Weekly hours</h2>
+            </div>
+            <div class="card">
+                <div class="wk-day">
+                    <span class="wk-name">Monday</span>
+                    <label class="wk-switch">
+                        <input type="checkbox" class="wk-toggle" data-day="monday" aria-label="Monday open or closed">
+                        <span class="wk-track"><span class="wk-knob"></span></span>
+                        <span class="wk-state">Closed</span>
+                    </label>
+                    <span class="wk-times">
+                        <input id="monday-start" name="mondayStart" type="time" th:value="${calendarForm.mondayStart}" autocomplete="off">
+                        <span class="wk-dash">–</span>
+                        <input id="monday-end" name="mondayEnd" type="time" th:value="${calendarForm.mondayEnd}" autocomplete="off">
+                    </span>
+                </div>
+                <div class="wk-day">
+                    <span class="wk-name">Tuesday</span>
+                    <label class="wk-switch">
+                        <input type="checkbox" class="wk-toggle" data-day="tuesday" aria-label="Tuesday open or closed">
+                        <span class="wk-track"><span class="wk-knob"></span></span>
+                        <span class="wk-state">Closed</span>
+                    </label>
+                    <span class="wk-times">
+                        <input id="tuesday-start" name="tuesdayStart" type="time" th:value="${calendarForm.tuesdayStart}" autocomplete="off">
+                        <span class="wk-dash">–</span>
+                        <input id="tuesday-end" name="tuesdayEnd" type="time" th:value="${calendarForm.tuesdayEnd}" autocomplete="off">
+                    </span>
+                </div>
+                <div class="wk-day">
+                    <span class="wk-name">Wednesday</span>
+                    <label class="wk-switch">
+                        <input type="checkbox" class="wk-toggle" data-day="wednesday" aria-label="Wednesday open or closed">
+                        <span class="wk-track"><span class="wk-knob"></span></span>
+                        <span class="wk-state">Closed</span>
+                    </label>
+                    <span class="wk-times">
+                        <input id="wednesday-start" name="wednesdayStart" type="time" th:value="${calendarForm.wednesdayStart}" autocomplete="off">
+                        <span class="wk-dash">–</span>
+                        <input id="wednesday-end" name="wednesdayEnd" type="time" th:value="${calendarForm.wednesdayEnd}" autocomplete="off">
+                    </span>
+                </div>
+                <div class="wk-day">
+                    <span class="wk-name">Thursday</span>
+                    <label class="wk-switch">
+                        <input type="checkbox" class="wk-toggle" data-day="thursday" aria-label="Thursday open or closed">
+                        <span class="wk-track"><span class="wk-knob"></span></span>
+                        <span class="wk-state">Closed</span>
+                    </label>
+                    <span class="wk-times">
+                        <input id="thursday-start" name="thursdayStart" type="time" th:value="${calendarForm.thursdayStart}" autocomplete="off">
+                        <span class="wk-dash">–</span>
+                        <input id="thursday-end" name="thursdayEnd" type="time" th:value="${calendarForm.thursdayEnd}" autocomplete="off">
+                    </span>
+                </div>
+                <div class="wk-day">
+                    <span class="wk-name">Friday</span>
+                    <label class="wk-switch">
+                        <input type="checkbox" class="wk-toggle" data-day="friday" aria-label="Friday open or closed">
+                        <span class="wk-track"><span class="wk-knob"></span></span>
+                        <span class="wk-state">Closed</span>
+                    </label>
+                    <span class="wk-times">
+                        <input id="friday-start" name="fridayStart" type="time" th:value="${calendarForm.fridayStart}" autocomplete="off">
+                        <span class="wk-dash">–</span>
+                        <input id="friday-end" name="fridayEnd" type="time" th:value="${calendarForm.fridayEnd}" autocomplete="off">
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-head">
+                <h2>One-time changes</h2>
+            </div>
+            <div class="card">
+                <div class="avail-controls">
+                    <div class="field">
+                        <label>Type</label>
+                        <div class="seg" id="overrideType" data-value="AVAILABLE" role="group" aria-label="Change type">
+                            <button type="button" class="seg-opt is-on" data-val="AVAILABLE" onclick="setOverrideType(this)">Available</button>
+                            <button type="button" class="seg-opt" data-val="UNAVAILABLE" onclick="setOverrideType(this)">Unavailable</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="overrideDate">Date</label>
+                        <input id="overrideDate" type="date" th:min="${today}">
+                    </div>
+                    <div class="field">
+                        <label for="overrideStartTime">From</label>
+                        <select id="overrideStartTime"><option value="">Start</option></select>
+                    </div>
+                    <div class="field">
+                        <label for="overrideEndTime">To</label>
+                        <select id="overrideEndTime"><option value="">End</option></select>
+                    </div>
+                </div>
+
+                <p class="hint" style="margin:var(--s-2) 0 var(--s-4);">Pick a date and time range — the change is added automatically.</p>
+
+                <div id="stagedOverridesEmpty" class="empty" style="padding:var(--s-6) var(--s-4);"><p>No one-time changes.</p></div>
+                <div class="ov-chips" id="stagedOverridesBody"></div>
+                <div id="stagedOverridesInputs" style="display: none;"></div>
+            </div>
+        </section>
+
+        <div class="form-actions" style="justify-content:flex-start;">
+            <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+    </form>
+
+</main>
+
+</body>
+</html>

@@ -163,9 +163,9 @@ class ProviderAdminFlowMvcTest {
         assertThat(savedUser.get().getEmail()).isEqualTo(email);
         assertThat(savedUser.get().getRole()).isEqualTo(UserRole.PROVIDER);
 
-        mockMvc.perform(get("/provider").session((MockHttpSession) registrationSession))
+        mockMvc.perform(get("/provider/clients").session((MockHttpSession) registrationSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString("My clients")))
                 .andExpect(content().string(containsString("Successful Provider")));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) registrationSession))
@@ -182,9 +182,9 @@ class ProviderAdminFlowMvcTest {
         HttpSession loginSession = loginResult.getRequest().getSession(false);
         assertThat(loginSession).isNotNull();
 
-        mockMvc.perform(get("/provider").session((MockHttpSession) loginSession))
+        mockMvc.perform(get("/provider/clients").session((MockHttpSession) loginSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wellnara: Provider")))
+                .andExpect(content().string(containsString("My clients")))
                 .andExpect(content().string(containsString("Successful Provider")));
     }
 

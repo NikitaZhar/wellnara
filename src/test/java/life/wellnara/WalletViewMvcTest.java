@@ -62,14 +62,15 @@ class WalletViewMvcTest {
     }
 
     @Test
-    @DisplayName("Client is forbidden from the provider wallet page")
+    @DisplayName("Client cannot open the provider wallet page and is redirected home")
     void clientForbiddenFromWalletPage() throws Exception {
         User provider = provider("prov-wallet-deny");
         User client = linkedClient(provider, "client-wallet-deny");
 
         mockMvc.perform(get("/provider/clients/{clientId}/wallet", client.getId())
                         .session(authenticatedSession(client)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/home"));
     }
 
     @Test
@@ -82,7 +83,7 @@ class WalletViewMvcTest {
         mockMvc.perform(get("/provider/clients/{clientId}/wallet", client.getId())
                         .session(authenticatedSession(stranger)))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=clients"));
+                .andExpect(redirectedUrl("/provider/clients"));
     }
 
     @Test

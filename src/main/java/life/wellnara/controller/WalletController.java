@@ -29,7 +29,7 @@ import java.math.BigDecimal;
 public class WalletController {
 
     private static final String WALLET_VIEW = "provider-client-wallet";
-    private static final String CLIENTS_REDIRECT = "redirect:/provider?section=clients";
+    private static final String CLIENTS_REDIRECT = "redirect:/provider/clients";
 
     private final WalletCommandService walletCommandService;
     private final WalletQueryService walletQueryService;

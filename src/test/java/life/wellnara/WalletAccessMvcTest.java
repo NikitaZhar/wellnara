@@ -67,7 +67,7 @@ class WalletAccessMvcTest {
     }
 
     @Test
-    @DisplayName("Client is forbidden from the provider top-up route")
+    @DisplayName("Client cannot use the provider top-up route and is redirected home")
     void clientForbiddenFromTopUp() throws Exception {
         User provider = provider("prov-mvc-deny");
         User client = linkedClient(provider, "client-mvc-deny");
@@ -75,7 +75,8 @@ class WalletAccessMvcTest {
         mockMvc.perform(post("/provider/clients/{clientId}/wallet/top-up", client.getId()).with(csrf())
                         .session(authenticatedSession(client))
                         .param("amount", "10.00"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/home"));
 
         assertThat(walletRepository.findByClient(client)).isEmpty();
     }

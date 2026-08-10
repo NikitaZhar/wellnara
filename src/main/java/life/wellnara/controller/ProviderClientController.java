@@ -29,12 +29,12 @@ public class ProviderClientController {
 	 *
 	 * @param clientId client identifier
 	 * @param currentUser authenticated provider
-	 * @return redirect to provider page
+	 * @return redirect to the clients page
 	 */
 	@PostMapping("/provider/clients/{clientId}/delete")
 	public String deleteClient(@PathVariable Long clientId, @CurrentUser User currentUser) {
 		providerClientService.deleteClient(currentUser, clientId);
 
-		return "redirect:/provider";
+		return "redirect:/provider/clients";
 	}
 }

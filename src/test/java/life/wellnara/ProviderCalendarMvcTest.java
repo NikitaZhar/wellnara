@@ -81,7 +81,7 @@ class ProviderCalendarMvcTest {
                         .param("wednesdayStart", "14:00")
                         .param("wednesdayEnd", "18:00"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=calendar"));
+                .andExpect(redirectedUrl("/provider/availability"));
 
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 
@@ -118,7 +118,7 @@ class ProviderCalendarMvcTest {
                         .param("tuesdayStart", "00:00")
                         .param("tuesdayEnd", "00:00"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider?section=calendar"));
+                .andExpect(redirectedUrl("/provider/availability"));
 
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 

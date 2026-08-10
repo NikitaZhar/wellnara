@@ -117,7 +117,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId()).with(csrf())
 				.session(providerTwoSession))
 				.andExpect(status().is3xxRedirection())
-				.andExpect(redirectedUrl("/provider"));
+				.andExpect(redirectedUrl("/provider/clients"));
 
 		assertThat(userRepository.findById(client.getId())).isPresent();
 		assertThat(providerClientLinkRepository.findByProviderAndClientId(providerOne, client.getId())).isPresent();
@@ -141,7 +141,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 				.param("pricePerSession", "45.00")
 				.param("durationMinutes", "60"))
 		.andExpect(status().is3xxRedirection())
-		.andExpect(redirectedUrl("/provider?section=offerings"));
+		.andExpect(redirectedUrl("/provider/offerings"));
 
 		List<Offering> offerings = offeringRepository.findAllByProvider(provider);
 
@@ -183,7 +183,7 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 
 		MockHttpSession providerOneSession = authenticatedSession(providerOne);
 
-		mockMvc.perform(get("/provider").session(providerOneSession))
+		mockMvc.perform(get("/provider/offerings").session(providerOneSession))
 		.andExpect(status().isOk())
 		.andExpect(content().string(containsString("Own Offering")))
 		.andExpect(content().string(not(containsString("Foreign Offering"))));
