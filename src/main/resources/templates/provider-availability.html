@@ -352,10 +352,14 @@
         .avail-ranges { display:flex; flex-wrap:wrap; gap:6px; }
         .avail-range { font-size:13px; font-weight:500; color:var(--sea-primary-dark); background:var(--sea-primary-tint); border-radius:var(--r-sm); padding:3px 9px; }
 
-        /* Edit section intro */
-        .edit-head { margin:var(--s-8) 0 var(--s-2); }
-        .edit-head h2 { font-family:var(--font-ui); font-size:16px; font-weight:600; margin:0; }
-        .edit-head p { color:var(--text-muted); font-size:14px; margin:4px 0 0; }
+        /* Heading hierarchy: sections > groups > sub-labels */
+        .av-section { font-family:var(--font-display); font-size:20px; font-weight:500; color:var(--text); margin:var(--s-8) 0 var(--s-1); }
+        .av-section-cap { color:var(--text-muted); font-size:14px; margin:0 0 var(--s-3); }
+        .av-group { display:flex; align-items:center; gap:8px; margin:var(--s-6) 0 2px; }
+        .av-group h3 { font-family:var(--font-ui); font-size:16px; font-weight:600; margin:0; }
+        .av-ic { width:18px; height:18px; color:var(--sea-primary); flex:none; }
+        .av-group-cap { color:var(--text-muted); font-size:13px; margin:0 0 var(--s-3); }
+        .av-sub { font-family:var(--font-ui); font-size:13px; font-weight:600; color:var(--text-muted); margin:var(--s-4) 0 var(--s-2); }
 
         /* Period / one-time controls row */
         .avail-controls { display:flex; gap:var(--s-3); align-items:flex-end; flex-wrap:wrap; }
@@ -420,29 +424,27 @@
          th:attr="data-type=${o.type},data-date=${o.overrideDate},data-start=${o.startTime},data-end=${o.endTime}"></div>
 
     <!-- Result: available times, updates live as the form below is edited. -->
-    <section>
-        <div class="section-head">
-            <h2>Available times</h2>
-            <span class="count-pill">updates as you edit</span>
-        </div>
-        <div class="list" id="availableTimes"></div>
-    </section>
+    <h2 class="av-section">Available times</h2>
+    <p class="av-section-cap">Updates live as you edit below.</p>
+    <div class="list" id="availableTimes"></div>
 
     <!-- Edit area, clearly separated from the result above. -->
-    <div class="edit-head">
-        <h2>Edit availability</h2>
-        <p>Add, change, or remove your available time below, then save.</p>
-    </div>
+    <h2 class="av-section">Edit availability</h2>
+    <p class="av-section-cap">Add, change, or remove your available time below, then save.</p>
 
     <form id="calendarForm" th:action="@{/provider/calendar}" method="post"
           th:attr="data-preview-url=@{/provider/calendar/preview}" autocomplete="off">
 
         <input id="providerTimezone" type="hidden" name="providerTimezone">
 
+        <div class="av-group">
+            <svg class="av-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <h3>Recurring hours</h3>
+        </div>
+        <p class="av-group-cap">Repeats every week until you change it.</p>
+
         <section>
-            <div class="section-head">
-                <h2>Period</h2>
-            </div>
+            <p class="av-sub">Period</p>
             <div class="card">
                 <div class="avail-controls">
                     <div class="field">
@@ -459,9 +461,7 @@
         </section>
 
         <section>
-            <div class="section-head">
-                <h2>Weekly hours</h2>
-            </div>
+            <p class="av-sub">Weekly hours</p>
             <div class="card">
                 <div class="wk-day">
                     <span class="wk-name">Monday</span>
@@ -532,9 +532,11 @@
         </section>
 
         <section>
-            <div class="section-head">
-                <h2>One-time changes</h2>
+            <div class="av-group">
+                <svg class="av-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 9h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM12 14h.01"/></svg>
+                <h3>One-time changes</h3>
             </div>
+            <p class="av-group-cap">Applies to a single date — overrides your weekly hours.</p>
             <div class="card">
                 <div class="avail-controls">
                     <div class="field">
