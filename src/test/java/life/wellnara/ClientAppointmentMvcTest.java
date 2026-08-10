@@ -112,7 +112,7 @@ class ClientAppointmentMvcTest {
                         .param("selectedDate", "2026-06-01")
                         .param("selectedTime", "10:00"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client"));
+                .andExpect(redirectedUrl("/client/appointments"));
 
         assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
                 .hasSize(1);

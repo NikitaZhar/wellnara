@@ -177,7 +177,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client?section=calendar"));
+                .andExpect(redirectedUrl("/client/appointments"));
 
         Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(acknowledged.isAcknowledged()).isTrue();
@@ -200,7 +200,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/cancel", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client?section=calendar"));
+                .andExpect(redirectedUrl("/client/appointments"));
 
         Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);

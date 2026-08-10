@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Offerings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+</head>
+<body>
+
+<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/client-nav :: nav('offerings')}"></div>
+
+<main class="page">
+
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Offerings</h1>
+            <p class="page-sub">Your provider: <span style="color:var(--text); font-weight:500;" th:text="${providerName} ?: '—'">Provider</span></p>
+        </div>
+    </div>
+
+    <section>
+        <div class="section-head">
+            <h2>Available offerings</h2>
+            <span class="count-pill" th:text="${#lists.size(offerings)}">0</span>
+        </div>
+
+        <div th:if="${#lists.isEmpty(offerings)}" class="empty">
+            <p>No offerings available yet.</p>
+        </div>
+
+        <div class="list" th:if="${not #lists.isEmpty(offerings)}">
+            <a class="list-row" style="text-decoration:none; color:inherit;"
+               th:each="offering : ${offerings}"
+               th:href="@{/client/offerings/{offeringId}(offeringId=${offering.id})}">
+                <div class="who">
+                    <p class="name" th:text="${offering.name}">Offering name</p>
+                    <p class="email" th:text="${offering.description}">Description</p>
+                </div>
+                <span class="amount">
+                    <span th:text="${offering.pricePerSession}">0.00</span>
+                    <span th:text="${offering.currency}">EUR</span> ·
+                    <span th:text="${offering.durationMinutes}">0</span> min
+                </span>
+                <span class="link-arrow" aria-hidden="true">→</span>
+            </a>
+        </div>
+    </section>
+
+</main>
+
+</body>
+</html>

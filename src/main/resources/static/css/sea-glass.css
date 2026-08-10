@@ -225,16 +225,16 @@ a { color:var(--sea-primary-dark); }
 /* Right-aligned form actions row */
 .form-actions { display:flex; justify-content:flex-end; gap:var(--s-2); margin-top:var(--s-2); }
 
-/* Provider section navigation — real links under the app header,
-   active item underlined. Aligned with the page content width. */
-.provider-nav { display:flex; gap:var(--s-1); flex-wrap:wrap; max-width:880px; margin:0 auto; padding:0 var(--s-6); border-bottom:1px solid var(--border); }
-.provider-nav-link { display:inline-flex; align-items:center; gap:7px; padding:12px var(--s-3); font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s ease, border-color .15s ease; }
-.provider-nav-link svg { width:16px; height:16px; flex:none; }
-.provider-nav-link:hover { color:var(--sea-primary-dark); }
-.provider-nav-link.is-active { color:var(--sea-primary-dark); border-bottom-color:var(--sea-primary); }
-.provider-nav-link:focus-visible { outline:none; border-radius:var(--r-sm); box-shadow:0 0 0 3px var(--sea-primary-tint); }
+/* Section navigation (provider and client cabinets) — real links under the
+   app header, active item underlined. Aligned with the page content width. */
+.section-nav { display:flex; gap:var(--s-1); flex-wrap:wrap; max-width:880px; margin:0 auto; padding:0 var(--s-6); border-bottom:1px solid var(--border); }
+.section-nav-link { display:inline-flex; align-items:center; gap:7px; padding:12px var(--s-3); font-size:14px; font-weight:500; color:var(--text-muted); text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s ease, border-color .15s ease; }
+.section-nav-link svg { width:16px; height:16px; flex:none; }
+.section-nav-link:hover { color:var(--sea-primary-dark); }
+.section-nav-link.is-active { color:var(--sea-primary-dark); border-bottom-color:var(--sea-primary); }
+.section-nav-link:focus-visible { outline:none; border-radius:var(--r-sm); box-shadow:0 0 0 3px var(--sea-primary-tint); }
 /* Home return sits before the section tabs, set off by a divider. */
-.provider-nav-home { margin-right:var(--s-2); padding-right:var(--s-4); border-right:1px solid var(--border); }
+.section-nav-home { margin-right:var(--s-2); padding-right:var(--s-4); border-right:1px solid var(--border); }
 
 /* Functional data table (calendar terms, weekly hours, staged changes).
    Used where the data is a grid of inputs/rows rather than records. */
@@ -250,8 +250,8 @@ a { color:var(--sea-primary-dark); }
   .app-header .wordmark { font-size:18px; }
   .page { padding:var(--s-6) var(--s-4) var(--s-12); }
   .inline-form .btn { width:100%; }
-  .provider-nav { padding:0 var(--s-4); gap:0; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
-  .provider-nav-link { white-space:nowrap; }
+  .section-nav { padding:0 var(--s-4); gap:0; overflow-x:auto; flex-wrap:nowrap; -webkit-overflow-scrolling:touch; }
+  .section-nav-link { white-space:nowrap; }
   .field-grid { grid-template-columns:1fr; }
 }
 

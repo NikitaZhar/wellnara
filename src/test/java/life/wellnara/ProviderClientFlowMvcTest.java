@@ -176,9 +176,9 @@ class ProviderClientFlowMvcTest {
         HttpSession loggedClientSession = loginResult.getRequest().getSession(false);
         assertThat(loggedClientSession).isNotNull();
 
-        mockMvc.perform(get("/client").session((MockHttpSession) loggedClientSession))
+        mockMvc.perform(get("/client/offerings").session((MockHttpSession) loggedClientSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wellnara Client")));
+                .andExpect(content().string(containsString("Offerings")));
 
         mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId()).with(csrf())
                         .session(providerSession))

@@ -1,115 +1,122 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
-<meta charset="UTF-8">
-<title>Wellnara Offering</title>
-
-<link rel="stylesheet" th:href="@{/css/provider.css}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Offering</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
 </head>
-
 <body>
 
-	<div class="page-header">
-		<h1>
-			Wellnara: Client - <span th:text="${clientName}"></span>
-		</h1>
+<div th:replace="~{fragments/app-header :: header('Client')}"></div>
 
-		<a class="logout-link" th:href="@{/auth/logout}">Logout</a>
-	</div>
+<main class="page">
 
-	<h2 th:text="${offering.name}"></h2>
+    <a class="back-link" th:href="@{/client/offerings}">← Back to offerings</a>
 
-	<p>
-		<strong>Description:</strong> <span th:text="${offering.description}"></span>
-	</p>
+    <div class="page-head">
+        <div>
+            <h1 class="page-title" th:text="${offering.name}">Offering</h1>
+            <p class="page-sub">
+                <span th:text="${offering.pricePerSession}">0.00</span>
+                <span th:text="${offering.currency}">EUR</span> ·
+                <span th:text="${offering.durationMinutes}">0</span> min
+            </p>
+        </div>
+    </div>
 
-	<p>
-		<strong>Price:</strong> <span th:text="${offering.pricePerSession}"></span> <span th:text="${offering.currency}"></span>
-	</p>
+    <div th:if="${appointmentError}" class="alert alert-danger" role="alert">
+        <p th:text="${appointmentError}" style="margin:0;"></p>
+    </div>
 
-	<p>
-		<strong>Duration:</strong> <span th:text="${offering.durationMinutes}"></span>
-		minutes
-	</p>
+    <section>
+        <div class="card">
+            <p style="margin:0; color:var(--text-muted); font-size:14px;">Description</p>
+            <p style="margin:4px 0 0;" th:text="${offering.description}">Description</p>
+        </div>
+    </section>
 
-	<!-- ===== AVAILABLE SLOTS ===== -->
+    <section>
+        <div class="section-head">
+            <h2>Available times</h2>
+        </div>
 
-	<div style="margin-top: 30px;">
-		<h3>Available slots</h3>
+        <div th:if="${#lists.isEmpty(calendarTerms)}" class="empty">
+            <p>No available times.</p>
+        </div>
 
-		<div th:if="${#lists.isEmpty(calendarTerms)}">
-			<p>No available slots</p>
-		</div>
+        <table class="data-table" th:if="${not #lists.isEmpty(calendarTerms)}">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Start</th>
+                    <th>End</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="term : ${calendarTerms}">
+                    <td th:text="${term.date}">2026-08-12</td>
+                    <td th:text="${term.date.dayOfWeek}">MONDAY</td>
+                    <td th:text="${term.startTime}">09:00</td>
+                    <td th:text="${term.endTime}">18:00</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
 
-		<table th:if="${not #lists.isEmpty(calendarTerms)}">
-			<thead>
-				<tr>
-					<th>Date</th>
-					<th>Day</th>
-					<th>Start</th>
-					<th>End</th>
-				</tr>
-			</thead>
+    <section>
+        <div class="section-head">
+            <h2>Book a slot</h2>
+        </div>
 
-			<tbody>
-				<tr th:each="term : ${calendarTerms}">
-					<td th:text="${term.date}"></td>
-					<td th:text="${term.date.dayOfWeek}"></td>
-					<td th:text="${term.startTime}"></td>
-					<td th:text="${term.endTime}"></td>
-				</tr>
-			</tbody>
-		</table>
-	</div>
+        <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
+            <p>No bookable times for this offering yet.</p>
+        </div>
 
-	<!-- ===== BOOKING ===== -->
+        <div class="card" th:if="${not #lists.isEmpty(bookableDateOptions)}">
+            <form th:action="@{/client/appointments}" method="post">
+                <input type="hidden" name="providerId" th:value="${offering.provider.id}">
+                <input type="hidden" name="offeringId" th:value="${offering.id}">
 
-	<form th:action="@{/client/appointments}" method="post"
-		th:if="${not #lists.isEmpty(bookableDateOptions)}">
+                <p style="margin:0 0 var(--s-4); font-size:14px; color:var(--text-muted);">
+                    You're booking
+                    <span style="color:var(--text); font-weight:500;" th:text="${offering.name}">Offering</span> ·
+                    <span style="color:var(--text); font-weight:500;">
+                        <span th:text="${offering.pricePerSession}">0.00</span>
+                        <span th:text="${offering.currency}">EUR</span></span> ·
+                    <span th:text="${offering.durationMinutes}">0</span> min
+                </p>
 
-		<input type="hidden" name="providerId"
-			th:value="${offering.provider.id}"> <input type="hidden"
-			name="offeringId" th:value="${offering.id}">
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="selectedDate">Date</label>
+                        <select id="selectedDate" name="selectedDate" required>
+                            <option th:each="option : ${bookableDateOptions}"
+                                    th:value="${option.date}" th:text="${option.date}"
+                                    th:data-times="${option.timesValue}"></option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="selectedTime">Time</label>
+                        <select id="selectedTime" name="selectedTime" required></select>
+                    </div>
+                </div>
 
-		<div style="margin-top: 30px;">
-			<h3>Select slot</h3>
+                <div class="form-actions" style="justify-content:flex-start;">
+                    <button type="submit" class="btn btn-primary">Send request</button>
+                    <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
 
-			<!-- DATE -->
-			<div>
-				<label for="selectedDate">Date:</label> <select id="selectedDate"
-					name="selectedDate" required>
-					<option th:each="option : ${bookableDateOptions}"
-						th:value="${option.date}" th:text="${option.date}"
-						th:data-times="${option.timesValue}"></option>
-				</select>
-			</div>
+</main>
 
-			<!-- TIME -->
-			<div style="margin-top: 10px;">
-				<label for="selectedTime">Time:</label> <select id="selectedTime"
-					name="selectedTime" required></select>
-			</div>
-		</div>
-
-		<div style="margin-top: 30px;">
-			<a th:href="@{/client}">
-				<button type="button">Cancel</button>
-			</a>
-
-			<button type="submit" style="margin-left: 10px;">Send
-				Request</button>
-		</div>
-
-	</form>
-
-	<div th:if="${#lists.isEmpty(bookableDateOptions)}"
-		style="margin-top: 30px;">
-		<p>No bookable times for this offering</p>
-	</div>
-
-	<!-- ===== SCRIPT ===== -->
-
-	<script>
+<script>
     function generateTimeOptions() {
         const dateSelect = document.getElementById('selectedDate');
         const timeSelect = document.getElementById('selectedTime');

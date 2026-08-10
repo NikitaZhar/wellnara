@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Appointments</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+    <style>
+        /* Action/notification rows (tokens only). */
+        .appt { padding:14px 16px; border-bottom:1px solid var(--border); }
+        .appt:last-child { border-bottom:none; }
+        .appt-head { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; }
+        .appt-title { font-size:15px; font-weight:500; color:var(--text); margin:0; }
+        .appt-meta { font-size:13px; color:var(--text-muted); margin:2px 0 0; }
+        .appt-actions { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; margin-top:10px; }
+        .appt-actions form { margin:0; }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/client-nav :: nav('appointments')}"></div>
+
+<main class="page">
+
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Appointments</h1>
+            <p class="page-sub">Signed in as <span th:text="${clientName}">Client</span></p>
+        </div>
+    </div>
+
+    <!-- Confirmed (scheduled) appointments — the client's committed calendar, shown first. -->
+    <section>
+        <div class="section-head">
+            <h2>Upcoming appointments</h2>
+            <span class="count-pill" th:text="${#lists.size(confirmedAppointments)}">0</span>
+        </div>
+
+        <div th:if="${#lists.isEmpty(confirmedAppointments)}" class="empty">
+            <p>No upcoming appointments.</p>
+        </div>
+
+        <div class="list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
+            <div class="appt" th:each="appointment : ${confirmedAppointments}">
+                <div class="appt-head">
+                    <p class="appt-title" th:text="${appointment.offeringName}">Offering</p>
+                    <span class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                </div>
+                <p class="appt-meta">
+                    <span th:text="${appointment.localDate}">Date</span>,
+                    <span th:text="${appointment.localTime}">Time</span>
+                </p>
+                <div class="appt-actions">
+                    <form th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+                          method="post"
+                          onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Requested terms and provider updates. -->
+    <section>
+        <div class="section-head">
+            <h2>Requests and updates</h2>
+            <span class="count-pill" th:text="${#lists.size(appointments)}">0</span>
+        </div>
+
+        <div th:if="${#lists.isEmpty(appointments)}" class="empty">
+            <p>No pending requests or updates.</p>
+        </div>
+
+        <div class="list" th:if="${not #lists.isEmpty(appointments)}">
+            <div class="appt" th:each="appointment : ${appointments}">
+                <div class="appt-head">
+                    <p class="appt-title" th:text="${appointment.offeringName}">Offering</p>
+                    <span class="badge"
+                          th:classappend="${appointment.status.name() == 'REQUESTED' ? 'badge-primary' : (appointment.status.name() == 'COMPLETED' ? 'badge-success' : 'badge-danger')}"
+                          th:text="${appointment.status}">STATUS</span>
+                </div>
+                <p class="appt-meta">
+                    <span th:text="${appointment.localDate}">Date</span>,
+                    <span th:text="${appointment.localTime}">Time</span>
+                </p>
+
+                <p class="appt-meta" th:if="${appointment.status.name() == 'REQUESTED'}">Request sent to your provider.</p>
+                <p class="appt-meta" th:if="${appointment.status.name() == 'COMPLETED'}">Appointment completed.</p>
+                <p class="appt-meta" th:if="${appointment.status.name() == 'CANCELLED' and appointment.rejectionReason != null}"
+                   th:text="${appointment.rejectionReason}">Reason</p>
+                <p class="appt-meta" th:if="${appointment.status.name() == 'CANCELLED' and appointment.rejectionReason == null}">Appointment cancelled by provider.</p>
+                <p class="appt-meta" th:if="${appointment.status.name() == 'CANCELLED'}">Please choose a new time.</p>
+
+                <div class="appt-actions">
+                    <form th:if="${appointment.status.name() == 'REQUESTED'}"
+                          th:action="@{/client/appointments/{appointmentId}/cancel-request(appointmentId=${appointment.id})}"
+                          method="post"
+                          onsubmit="return confirm('Cancel this appointment request?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Cancel request</button>
+                    </form>
+
+                    <a th:if="${appointment.status.name() == 'CANCELLED'}"
+                       class="btn btn-primary btn-sm" th:href="@{/client/offerings}">Choose a new time</a>
+
+                    <form th:if="${appointment.status.name() == 'CANCELLED' or appointment.status.name() == 'COMPLETED'}"
+                          th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+                          method="post"
+                          onsubmit="return confirm('Remove this message?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">OK</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+</body>
+</html>

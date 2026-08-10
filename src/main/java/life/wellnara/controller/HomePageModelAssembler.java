@@ -104,6 +104,7 @@ public class HomePageModelAssembler {
         List<Offering> availableOfferings = availableOfferingsOf(client);
 
         model.addAttribute("clientName", userProfileService.resolveDisplayName(client));
+        model.addAttribute("providerName", providerNameOf(client));
         model.addAttribute("pendingRequests", pendingRequests);
         model.addAttribute("pendingRequestCount", pendingRequests.size());
         model.addAttribute("upcomingAppointments", upcomingAppointments);
@@ -122,6 +123,19 @@ public class HomePageModelAssembler {
             return clientOfferingService.getOfferingsOfClientProvider(client);
         } catch (IllegalArgumentException noProviderLink) {
             return List.of();
+        }
+    }
+
+    /**
+     * Display name of the client's provider, or {@code null} when the client has
+     * no provider link yet. Home must always render, so a missing link is treated
+     * as "no provider" rather than an error.
+     */
+    private String providerNameOf(User client) {
+        try {
+            return userProfileService.resolveDisplayName(clientOfferingService.getProviderOfClient(client));
+        } catch (IllegalArgumentException noProviderLink) {
+            return null;
         }
     }
 }

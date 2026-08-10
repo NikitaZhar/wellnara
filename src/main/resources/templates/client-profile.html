@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wellnara — Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+</head>
+<body>
+
+<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/client-nav :: nav('profile')}"></div>
+
+<main class="page page-narrow">
+
+    <div class="page-head">
+        <div>
+            <h1 class="page-title">Profile</h1>
+            <p class="page-sub">Signed in as <span th:text="${clientName}">Client</span></p>
+        </div>
+    </div>
+
+    <div th:if="${param.profileUpdated != null}" class="alert alert-success" role="status">
+        <p style="margin:0;">Profile updated.</p>
+    </div>
+
+    <div th:if="${profileError}" class="alert alert-danger" role="alert">
+        <p th:text="${profileError}" style="margin:0;"></p>
+    </div>
+
+    <section>
+        <div class="section-head">
+            <h2>Account</h2>
+        </div>
+        <div class="card">
+            <p class="page-sub" style="margin:0;">Login: <span th:text="${clientLogin}" style="color:var(--text); font-weight:500;">login</span></p>
+            <p class="page-sub" style="margin:4px 0 0;">Email: <span th:text="${clientEmail}" style="color:var(--text); font-weight:500;">email</span></p>
+        </div>
+    </section>
+
+    <form th:action="@{/client/profile}" method="post">
+
+        <section>
+            <div class="section-head">
+                <h2>Personal details</h2>
+            </div>
+
+            <div class="card">
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="firstName">First name</label>
+                        <input id="firstName" type="text" name="firstName" th:value="${profileFirstName}" required>
+                    </div>
+                    <div class="field">
+                        <label for="lastName">Last name</label>
+                        <input id="lastName" type="text" name="lastName" th:value="${profileLastName}" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="phone">Phone (optional)</label>
+                    <input id="phone" type="tel" name="phone" th:value="${profilePhone}"
+                           autocomplete="tel" placeholder="+421904746337"
+                           pattern="\+[1-9]\d{1,14}"
+                           title="International format, e.g. +421904746337">
+                    <span class="hint">International format, e.g. +421904746337</span>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-head">
+                <h2>Password</h2>
+            </div>
+
+            <div class="card">
+                <p class="page-sub" style="margin:0 0 var(--s-4);">Fill in the three fields to change your password. Leave them blank to keep your current one.</p>
+
+                <div class="field">
+                    <label for="currentPassword">Current password</label>
+                    <input id="currentPassword" type="password" name="currentPassword" autocomplete="current-password">
+                </div>
+
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="newPassword">New password</label>
+                        <input id="newPassword" type="password" name="newPassword" autocomplete="new-password">
+                    </div>
+                    <div class="field">
+                        <label for="confirmNewPassword">Repeat new password</label>
+                        <input id="confirmNewPassword" type="password" name="confirmNewPassword" autocomplete="new-password">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+    </form>
+
+</main>
+
+</body>
+</html>
