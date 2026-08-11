@@ -129,7 +129,29 @@ public class ProviderCalendarService {
 		List<CalendarTerm> baseTerms = calendarGenerator.generate(
 				period, buildRules(period, form), applicationTimeService.currentDate(zone));
 
-		return availabilityOverrideApplier.apply(baseTerms, buildOverrides(provider, form));
+		List<CalendarTerm> terms = availabilityOverrideApplier.apply(baseTerms, buildOverrides(provider, form));
+
+		return removePastTerms(terms, zone);
+	}
+
+	/**
+	 * Drops calendar terms that already lie in the past: on the current day a term
+	 * whose start time has passed is removed, while terms on future dates are kept.
+	 * Shared by the saved-calendar and live-preview paths so the provider preview
+	 * shows exactly what a client could still book.
+	 *
+	 * @param terms        generated calendar terms
+	 * @param providerZone provider calendar timezone
+	 * @return terms with past ones removed
+	 */
+	List<CalendarTerm> removePastTerms(List<CalendarTerm> terms, ZoneId providerZone) {
+		LocalDate today = applicationTimeService.currentDate(providerZone);
+		LocalTime now = applicationTimeService.currentTime(providerZone);
+
+		return terms.stream()
+				.filter(term -> term.getDate().isAfter(today)
+						|| !term.getStartTime().isBefore(now))
+				.toList();
 	}
 
 	/**

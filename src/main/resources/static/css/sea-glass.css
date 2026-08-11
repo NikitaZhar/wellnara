@@ -28,7 +28,7 @@
   /* Semantic */
   --success:#3E8C6B; --success-bg:#E3F0E9;
   --warning:#B9862B; --warning-bg:#F7EDD8;
-  --danger:#C15B4E;  --danger-bg:#F7E5E1; --danger-border:#EEC4BB;
+  --danger:#C15B4E;  --danger-bg:#F7E5E1; --danger-border:#EEC4BB; --danger-dark:#8f3729;
 
   /* Radius */
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
@@ -105,7 +105,7 @@ a { color:var(--sea-primary-dark); }
 .alert { border-radius:var(--r-md); padding:var(--s-3) var(--s-4); font-size:14px; border:1px solid; margin:0 0 var(--s-3); }
 .alert-success { background:var(--success-bg); border-color:#BFE0CE; color:#245e44; }
 .alert-warning { background:var(--warning-bg); border-color:#E9D3A0; color:#7d5a12; }
-.alert-danger  { background:var(--danger-bg);  border-color:var(--danger-border); color:#8f3729; }
+.alert-danger  { background:var(--danger-bg);  border-color:var(--danger-border); color:var(--danger-dark); }
 
 /* Small button */
 .btn-sm { padding:7px 12px; font-size:14px; }

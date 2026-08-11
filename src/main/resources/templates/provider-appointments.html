@@ -115,7 +115,10 @@
                         <span th:text="${appointment.clientName}">Client</span> ·
                         <span th:text="${appointment.offeringName}">Offering</span>
                     </p>
-                    <span class="badge badge-primary" th:text="${appointment.status}">STATUS</span>
+                    <span th:if="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
+                          class="badge badge-warning">Needs outcome</span>
+                    <span th:unless="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
+                          class="badge badge-primary" th:text="${appointment.status}">STATUS</span>
                 </div>
                 <p class="appt-meta">
                     <span th:text="${appointment.localDate}">Date</span>,
@@ -128,6 +131,7 @@
 
                 <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}">
                     <button type="button" class="btn btn-secondary btn-sm"
+                            th:if="${!appointment.completable}"
                             data-reveal th:attr="data-target='cancel-' + ${appointment.id}">Cancel appointment</button>
 
                     <form th:if="${appointment.completable}"
@@ -145,7 +149,7 @@
                     </form>
                 </div>
 
-                <form class="reveal" style="display:none" th:if="${appointment.status.name() == 'SCHEDULED'}"
+                <form class="reveal" style="display:none" th:if="${appointment.status.name() == 'SCHEDULED' and !appointment.completable}"
                       th:id="'cancel-' + ${appointment.id}"
                       th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
                       method="post"

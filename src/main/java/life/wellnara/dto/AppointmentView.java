@@ -12,6 +12,7 @@ import java.time.LocalTime;
 public class AppointmentView {
 
 	private final Long id;
+	private final Long offeringId;
 	private final String clientName;
 	private final String offeringName;
 	private final LocalDate localDate;
@@ -20,8 +21,11 @@ public class AppointmentView {
 	private final CancellationInitiator cancellationInitiator;
 	private final String rejectionReason;
 	private boolean completable;
+	private boolean reschedulable;
+	private boolean cancelForfeitsPayment;
 
 	public AppointmentView(Long id,
+			Long offeringId,
 			String clientName,
 			String offeringName,
 			LocalDate localDate,
@@ -30,6 +34,7 @@ public class AppointmentView {
 			CancellationInitiator cancellationInitiator,
 			String rejectionReason) {
 		this.id = id;
+		this.offeringId = offeringId;
 		this.clientName = clientName;
 		this.offeringName = offeringName;
 		this.localDate = localDate;
@@ -41,6 +46,10 @@ public class AppointmentView {
 
 	public Long getId() {
 		return id;
+	}
+
+	public Long getOfferingId() {
+		return offeringId;
 	}
 
 	public String getClientName() {
@@ -77,5 +86,21 @@ public class AppointmentView {
 
 	public void setCompletable(boolean completable) {
 		this.completable = completable;
+	}
+
+	public boolean isReschedulable() {
+		return reschedulable;
+	}
+
+	public void setReschedulable(boolean reschedulable) {
+		this.reschedulable = reschedulable;
+	}
+
+	public boolean isCancelForfeitsPayment() {
+		return cancelForfeitsPayment;
+	}
+
+	public void setCancelForfeitsPayment(boolean cancelForfeitsPayment) {
+		this.cancelForfeitsPayment = cancelForfeitsPayment;
 	}
 }

@@ -171,14 +171,24 @@
 **Сделано:**
 - Направление Sea Glass выбрано и зафиксировано; гайд `wellnara-sea-glass-guide.html`.
 - `static/css/sea-glass.css` — токены + компоненты (кнопки, поля, алерты, бейджи,
-  шапка, список записей, иконочная кнопка, пустое состояние).
-- `templates/fragments/app-header.html` — переиспользуемая шапка `header(role)`.
-- `templates/login.html` — переоформлен (Sea Glass, hero-карточка, адаптивность).
-- `templates/admin.html` — переоформлен (шапка-фрагмент, карточка инвайта, список вместо таблицы).
+  шапка, список записей, иконочная кнопка, пустое состояние). Токен `--danger-dark`
+  (#8f3729) — тёмный текст на danger-фоне (используется в `.alert-danger` и chip
+  «Unavailable»).
+- `templates/fragments/` — переиспользуемая шапка `app-header :: header(role)`,
+  навигация кабинетов `client-nav`, `provider-nav`.
+- **Все экраны переоформлены** (Sea Glass, единая шапка/оболочка, адаптивность, токены):
+  - pre-auth: `login`, `client-register`, `provider-register` (hero-карточка, без общей шапки), `error`;
+  - провайдер: `provider-home`, `provider-clients`, `provider-offerings`,
+    `provider-appointments`, `provider-availability`, `provider-profile`,
+    `provider-client-wallet`, `offering-edit`;
+  - клиент: `client-home`, `client-offerings`, `client-offering`,
+    `client-appointments`, `client-profile`;
+  - `admin`.
 
-**Осталось переоформить:** `provider.html` (следующий на очереди), `provider-home.html`,
-`client.html`, `client-home.html`, `client-offering.html`, `offering-edit.html`,
-`provider-client-wallet.html`, `client-register.html`, `provider-register.html`, `error.html`.
+**Осталось переоформить:** — отдельных экранов не осталось. Ранний единый кабинет
+`provider.html`/`client.html` разбит на пофункциональные страницы (перечислены выше);
+списка из прежней версии этого раздела больше не существует. Дальнейшие правки UI —
+точечные (в рамках задач по функционалу), с соблюдением разделов 1–11.
 
 **Открытые решения (не блокируют UI-этап, но держим в уме):**
 - **Thymeleaf vs SPA (React).** Пока остаёмся на Thymeleaf; при переходе на SPA токены

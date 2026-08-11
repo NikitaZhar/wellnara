@@ -12,6 +12,7 @@ import life.wellnara.service.time.ApplicationTimeService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -174,10 +175,39 @@ public class AppointmentQueryService {
 						AppointmentStatus.SCHEDULED
 				);
 
-		return toViews(
+		List<AppointmentView> views = toViews(
 				appointments,
 				appointment -> applicationTimeService.resolveProviderCalendarZone(appointment.getProvider())
 		);
+
+		applyClientActionWindows(appointments, views);
+
+		return views;
+	}
+
+	/**
+	 * Marks, per confirmed appointment, whether the client may still reschedule it and
+	 * whether cancelling it now forfeits the payment. Reschedule is offered only at
+	 * least {@value AppointmentPolicy#RESCHEDULE_MIN_HOURS} hours before the start (and
+	 * always keeps the payment), while a cancellation within
+	 * {@value AppointmentPolicy#CANCEL_REFUND_THRESHOLD_HOURS} hours forfeits it. The
+	 * two lists are aligned by index.
+	 *
+	 * @param appointments source appointments
+	 * @param views        views to enrich, in the same order
+	 */
+	private void applyClientActionWindows(List<Appointment> appointments, List<AppointmentView> views) {
+		LocalDateTime nowUtc = applicationTimeService.currentUtcDateTime();
+
+		for (int i = 0; i < appointments.size(); i++) {
+			LocalDateTime startUtc = appointments.get(i).getStartDateTimeUtc();
+			AppointmentView view = views.get(i);
+
+			view.setReschedulable(
+					!startUtc.isBefore(nowUtc.plusHours(AppointmentPolicy.RESCHEDULE_MIN_HOURS)));
+			view.setCancelForfeitsPayment(
+					startUtc.isBefore(nowUtc.plusHours(AppointmentPolicy.CANCEL_REFUND_THRESHOLD_HOURS)));
+		}
 	}
 
 	/**

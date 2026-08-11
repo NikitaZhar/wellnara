@@ -43,6 +43,7 @@ public class AppointmentViewMapper {
 
 	    AppointmentView view = new AppointmentView(
 	            appointment.getId(),
+	            appointment.getOffering().getId(),
 	            clientName,
 	            appointment.getOffering().getName(),
 	            local.toLocalDate(),
@@ -52,13 +53,13 @@ public class AppointmentViewMapper {
 	            appointment.getRejectionReason()
 	    );
 
-	    LocalDateTime appointmentEnd = local.plusMinutes(
-	            appointment.getOffering().getDurationMinutes()
-	    );
-
-	    view.setCompletable(
-	    		!applicationTimeService.currentDateTime(displayZone).isBefore(appointmentEnd)
-	    );
+	    // The appointment start in the display timezone marks the boundary between the
+	    // two action windows: before it the provider may cancel; from it on the
+	    // provider records the outcome (Completed / No-show). There is no window in
+	    // which both are offered.
+	    LocalDateTime now = applicationTimeService.currentDateTime(displayZone);
+	    boolean started = !now.isBefore(local);
+	    view.setCompletable(started);
 
 	    return view;
 	}

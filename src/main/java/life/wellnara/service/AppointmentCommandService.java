@@ -40,8 +40,6 @@ import java.util.List;
 @Service
 public class AppointmentCommandService {
 
-	private static final int RELEASE_THRESHOLD_HOURS = 24;
-
 	private final AppointmentRepository appointmentRepository;
 	private final UserRepository userRepository;
 	private final OfferingRepository offeringRepository;
@@ -179,6 +177,7 @@ public class AppointmentCommandService {
 			boolean blockSlot) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be cancelled");
+		requireBeforeStart(appointment, "Scheduled appointment can only be cancelled before it starts");
 
 		if (blockSlot) {
 			blockSlot(provider, appointment);
@@ -208,6 +207,7 @@ public class AppointmentCommandService {
 	public void completeScheduledAppointment(User provider, Long appointmentId) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be completed");
+		requireStarted(appointment, "Appointment can only be completed once it has started");
 
 		appointment.complete();
 		settlementService.settle(appointment, appointment.getProvider());
@@ -223,6 +223,7 @@ public class AppointmentCommandService {
 	public void markAppointmentNoShow(User provider, Long appointmentId) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be marked as no-show");
+		requireStarted(appointment, "Appointment can only be marked as no-show once it has started");
 
 		appointment.markNoShow();
 		settlementService.settle(appointment, appointment.getProvider());
@@ -264,7 +265,7 @@ public class AppointmentCommandService {
 
 	/**
 	 * Cancels a scheduled appointment by client. The hold is released when the
-	 * cancellation is at least {@value #RELEASE_THRESHOLD_HOURS} hours before the
+	 * cancellation is at least {@value AppointmentPolicy#CANCEL_REFUND_THRESHOLD_HOURS} hours before the
 	 * start, and settled (service treated as delivered) when it is later than that.
 	 *
 	 * @param client        client who owns appointment
@@ -283,6 +284,32 @@ public class AppointmentCommandService {
 		} else {
 			settlementService.settle(appointment, appointment.getClient());
 		}
+	}
+
+	/**
+	 * Reschedules a scheduled appointment on the client's request: the current
+	 * booking is cancelled and its hold is <strong>always released</strong> (the
+	 * payment is never forfeited on a move), so it can back the new booking the
+	 * client places next. Allowed only at least
+	 * {@value AppointmentPolicy#RESCHEDULE_MIN_HOURS} hours before the start; closer
+	 * to the start only a plain cancellation is offered. The cancelled appointment is
+	 * kept as history.
+	 *
+	 * @param client        client who owns the appointment
+	 * @param appointmentId appointment identifier
+	 * @return identifier of the offering to re-book, so the caller can send the
+	 *         client to that offering's booking screen
+	 */
+	@Transactional
+	public Long rescheduleScheduledAppointmentByClient(User client, Long appointmentId) {
+		Appointment appointment = findClientAppointment(client, appointmentId);
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be rescheduled");
+		requireReschedulable(appointment);
+
+		appointment.cancel(CancellationInitiator.CLIENT, null, now());
+		settlementService.release(appointment, appointment.getClient());
+
+		return appointment.getOffering().getId();
 	}
 
 	/**
@@ -327,7 +354,15 @@ public class AppointmentCommandService {
 	// ===== Private helpers =====
 
 	private boolean isAtLeastThresholdBeforeStart(Appointment appointment, LocalDateTime now) {
-		return !appointment.getStartDateTimeUtc().isBefore(now.plusHours(RELEASE_THRESHOLD_HOURS));
+		return !appointment.getStartDateTimeUtc().isBefore(now.plusHours(AppointmentPolicy.CANCEL_REFUND_THRESHOLD_HOURS));
+	}
+
+	private void requireReschedulable(Appointment appointment) {
+		if (appointment.getStartDateTimeUtc().isBefore(now().plusHours(AppointmentPolicy.RESCHEDULE_MIN_HOURS))) {
+			throw new IllegalArgumentException(
+					"Appointment can only be rescheduled at least "
+							+ AppointmentPolicy.RESCHEDULE_MIN_HOURS + " hours before it starts");
+		}
 	}
 
 	private void blockSlot(User provider, Appointment appointment) {
@@ -372,6 +407,26 @@ public class AppointmentCommandService {
 
 	private void requireStatus(Appointment appointment, AppointmentStatus expected, String message) {
 		if (appointment.getStatus() != expected) {
+			throw new IllegalArgumentException(message);
+		}
+	}
+
+	/**
+	 * Requires that the appointment has not started yet (its start time is strictly
+	 * in the future relative to the current application time).
+	 */
+	private void requireBeforeStart(Appointment appointment, String message) {
+		if (!now().isBefore(appointment.getStartDateTimeUtc())) {
+			throw new IllegalArgumentException(message);
+		}
+	}
+
+	/**
+	 * Requires that the appointment has already started (its start time is now or in
+	 * the past relative to the current application time).
+	 */
+	private void requireStarted(Appointment appointment, String message) {
+		if (now().isBefore(appointment.getStartDateTimeUtc())) {
 			throw new IllegalArgumentException(message);
 		}
 	}

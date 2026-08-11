@@ -145,7 +145,10 @@ class AppointmentLifecycleMvcTest {
         linkClient(provider, client);
 
         Offering offering = createOffering(provider);
-        Appointment appointment = createAppointment(provider, client, offering);
+        // Already-started appointment (fixed clock is 06:00Z): outcome actions are
+        // only available from the start time onward.
+        Appointment appointment = appointmentRepository.save(
+                new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 5, 0)));
         appointment.schedule();
         appointmentRepository.save(appointment);
 
@@ -280,6 +283,32 @@ class AppointmentLifecycleMvcTest {
 
         Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(acknowledged.isAcknowledged()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should reschedule a scheduled appointment by client and redirect to the offering booking page")
+    void shouldRescheduleScheduledAppointmentByClientThroughMvc() throws Exception {
+        User provider = createUser("provider-client-reschedule", UserRole.PROVIDER);
+        User client = createUser("client-client-reschedule", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        // Far enough ahead (fixed clock is 06:00Z): reschedule needs at least 12h.
+        Appointment appointment = appointmentRepository.save(
+                new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 2, 8, 0)));
+        appointment.schedule();
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = authenticatedSession(client);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
+                        .session(clientSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client/offerings/" + offering.getId()));
+
+        Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.CLIENT);
     }
 
     private User createUser(String usernamePrefix, UserRole role) {

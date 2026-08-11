@@ -7,7 +7,6 @@ import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.repository.AppointmentRepository;
-import life.wellnara.service.time.ApplicationTimeService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,9 +41,6 @@ public class AppointmentAvailabilityService {
 	private final AppointmentRepository appointmentRepository;
 	private final ProviderCalendarService providerCalendarService;
 
-	private final ApplicationTimeService applicationTimeService;
-
-
 	private static final int BOOKING_STEP_MINUTES = 15;
 
 	/**
@@ -54,11 +50,9 @@ public class AppointmentAvailabilityService {
 	 * @param providerCalendarService service for provider calendar operations
 	 */
 	public AppointmentAvailabilityService(AppointmentRepository appointmentRepository,
-			ProviderCalendarService providerCalendarService,
-			ApplicationTimeService applicationTimeService) {
+			ProviderCalendarService providerCalendarService) {
 		this.appointmentRepository = appointmentRepository;
 		this.providerCalendarService = providerCalendarService;
-		this.applicationTimeService = applicationTimeService;
 	}
 
 	/**
@@ -79,7 +73,7 @@ public class AppointmentAvailabilityService {
 			result.addAll(excludeBlockingAppointments(term, blockingAppointments, providerZone));
 		}
 
-		return removePastCalendarTerms(result, providerZone);
+		return providerCalendarService.removePastTerms(result, providerZone);
 	}
 
 	/**
@@ -220,17 +214,6 @@ public class AppointmentAvailabilityService {
 	}
 
 	// ===== Private helpers =====
-
-	private List<CalendarTerm> removePastCalendarTerms(List<CalendarTerm> terms,
-			ZoneId providerZone) {
-		LocalDate today = applicationTimeService.currentDate(providerZone);
-		LocalTime now = applicationTimeService.currentTime(providerZone);
-
-		return terms.stream()
-				.filter(term -> term.getDate().isAfter(today)
-						|| !term.getStartTime().isBefore(now))
-				.toList();
-	}
 
 	private List<Appointment> getBlockingAppointments(User provider) {
 		return appointmentRepository.findAllByProviderIdAndStatusIn(

@@ -92,6 +92,10 @@ public class AppointmentService {
         commandService.cancelScheduledAppointmentByClient(client, appointmentId);
     }
 
+    public Long rescheduleScheduledAppointmentByClient(User client, Long appointmentId) {
+        return commandService.rescheduleScheduledAppointmentByClient(client, appointmentId);
+    }
+
     public void acknowledgeRejectedAppointment(User client, Long appointmentId) {
         commandService.acknowledgeRejectedAppointment(client, appointmentId);
     }

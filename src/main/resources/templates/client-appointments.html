@@ -55,7 +55,25 @@
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
                 <div class="appt-actions">
-                    <form th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+                    <!-- Reschedule: only far enough ahead; the current time is released and the payment is kept. -->
+                    <form th:if="${appointment.reschedulable}"
+                          th:action="@{/client/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
+                          method="post"
+                          onsubmit="return confirm('Reschedule this appointment? Your current time will be released so you can pick a new one. Your payment is kept.');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Reschedule</button>
+                    </form>
+
+                    <!-- Cancel within 24h: payment is not refunded, so warn before confirming. -->
+                    <form th:if="${appointment.cancelForfeitsPayment}"
+                          th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
+                          method="post"
+                          onsubmit="return confirm('If you cancel less than 24 hours before the appointment, your payment will not be refunded. Cancel anyway?');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+                    </form>
+
+                    <!-- Cancel 24h+ ahead: payment is refunded, plain confirmation. -->
+                    <form th:unless="${appointment.cancelForfeitsPayment}"
+                          th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
                           method="post"
                           onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
                         <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>

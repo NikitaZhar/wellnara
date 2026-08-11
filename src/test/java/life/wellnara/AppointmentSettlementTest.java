@@ -39,6 +39,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests the settlement rules table: which terminal transitions release the hold and
@@ -113,7 +114,7 @@ class AppointmentSettlementTest {
     @Test
     @DisplayName("Completing a scheduled appointment settles the hold")
     void completeSettles() {
-        Held h = heldMoney("complete", AppointmentStatus.SCHEDULED, NOW_UTC.plusDays(3));
+        Held h = heldMoney("complete", AppointmentStatus.SCHEDULED, NOW_UTC.minusHours(1));
 
         appointmentService.completeScheduledAppointment(h.provider, h.appointment.getId());
 
@@ -124,7 +125,7 @@ class AppointmentSettlementTest {
     @Test
     @DisplayName("Marking a no-show settles the hold")
     void noShowSettles() {
-        Held h = heldMoney("noshow", AppointmentStatus.SCHEDULED, NOW_UTC.plusDays(3));
+        Held h = heldMoney("noshow", AppointmentStatus.SCHEDULED, NOW_UTC.minusHours(1));
 
         appointmentService.markAppointmentNoShow(h.provider, h.appointment.getId());
 
@@ -171,7 +172,7 @@ class AppointmentSettlementTest {
     @Test
     @DisplayName("Settlement is idempotent: repeating it adds no second final entry")
     void settlementIsIdempotent() {
-        Held h = heldMoney("idempotent", AppointmentStatus.SCHEDULED, NOW_UTC.plusDays(3));
+        Held h = heldMoney("idempotent", AppointmentStatus.SCHEDULED, NOW_UTC.minusHours(1));
 
         appointmentService.completeScheduledAppointment(h.provider, h.appointment.getId());
         // replay the settle directly
@@ -196,6 +197,68 @@ class AppointmentSettlementTest {
         assertThat(ledgerCalculator.foldSessions(
                 walletEntryRepository.findAllByServicePackageOrderByIdAsc(h.servicePackage)).getAvailable())
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Completing before the appointment has started is rejected and keeps the hold")
+    void completeBeforeStartRejected() {
+        Held h = heldMoney("complete-early", AppointmentStatus.SCHEDULED, NOW_UTC.plusDays(3));
+
+        assertThatThrownBy(() ->
+                appointmentService.completeScheduledAppointment(h.provider, h.appointment.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(appointmentRepository.findById(h.appointment.getId()).orElseThrow().getStatus())
+                .isEqualTo(AppointmentStatus.SCHEDULED);
+        assertNoFinalEntry(h.wallet);
+        assertThat(available(h.wallet)).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("Provider cancelling after the appointment has started is rejected and keeps the hold")
+    void providerCancelAfterStartRejected() {
+        Held h = heldMoney("cancel-late", AppointmentStatus.SCHEDULED, NOW_UTC.minusHours(1));
+
+        assertThatThrownBy(() ->
+                appointmentService.cancelScheduledAppointment(h.provider, h.appointment.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(appointmentRepository.findById(h.appointment.getId()).orElseThrow().getStatus())
+                .isEqualTo(AppointmentStatus.SCHEDULED);
+        assertNoFinalEntry(h.wallet);
+        assertThat(available(h.wallet)).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("Client reschedule releases the hold (payment kept) and returns the offering to re-book")
+    void clientRescheduleReleasesAndReturnsOffering() {
+        // 13h ahead: inside the 12-24h window where a cancel would forfeit, but a
+        // reschedule keeps the payment.
+        Held h = heldMoney("reschedule", AppointmentStatus.SCHEDULED, NOW_UTC.plusHours(13));
+
+        Long offeringId = appointmentService.rescheduleScheduledAppointmentByClient(h.client, h.appointment.getId());
+
+        assertThat(offeringId).isEqualTo(h.appointment.getOffering().getId());
+        Appointment saved = appointmentRepository.findById(h.appointment.getId()).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.CLIENT);
+        assertFinalType(h.wallet, WalletEntryType.RELEASE);
+        assertThat(available(h.wallet)).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    @DisplayName("Client reschedule within 12h of the start is rejected and keeps the hold")
+    void clientRescheduleWithin12hRejected() {
+        Held h = heldMoney("reschedule-late", AppointmentStatus.SCHEDULED, NOW_UTC.plusHours(11));
+
+        assertThatThrownBy(() ->
+                appointmentService.rescheduleScheduledAppointmentByClient(h.client, h.appointment.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(appointmentRepository.findById(h.appointment.getId()).orElseThrow().getStatus())
+                .isEqualTo(AppointmentStatus.SCHEDULED);
+        assertNoFinalEntry(h.wallet);
+        assertThat(available(h.wallet)).isEqualByComparingTo("0.00");
     }
 
     // ===== helpers =====
@@ -253,6 +316,16 @@ class AppointmentSettlementTest {
             appointment.schedule();
         }
         return appointmentRepository.save(appointment);
+    }
+
+    private void assertNoFinalEntry(Wallet wallet) {
+        List<WalletEntry> finals = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet).stream()
+                .filter(entry -> entry.getType() == WalletEntryType.RELEASE
+                        || entry.getType() == WalletEntryType.SETTLE
+                        || entry.getType() == WalletEntryType.PACKAGE_RELEASE
+                        || entry.getType() == WalletEntryType.PACKAGE_CONSUME)
+                .toList();
+        assertThat(finals).isEmpty();
     }
 
     private void assertFinalType(Wallet wallet, WalletEntryType expected) {

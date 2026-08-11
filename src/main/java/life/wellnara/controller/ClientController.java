@@ -291,6 +291,24 @@ public class ClientController {
         return APPOINTMENTS_REDIRECT;
     }
 
+    /**
+     * Reschedules a scheduled appointment: releases the current booking (the payment
+     * is kept) and sends the client to that offering's booking screen to pick a new
+     * time. Offered only when the appointment is far enough ahead; the template hides
+     * the action otherwise and the service enforces the same window.
+     *
+     * @param appointmentId appointment identifier
+     * @param currentUser   authenticated client
+     * @return redirect to the offering booking page for the freed appointment
+     */
+    @PostMapping("/client/appointments/{appointmentId}/reschedule")
+    public String rescheduleScheduledAppointment(@PathVariable Long appointmentId,
+                                                 @CurrentUser User currentUser) {
+        Long offeringId = appointmentService.rescheduleScheduledAppointmentByClient(currentUser, appointmentId);
+
+        return "redirect:/client/offerings/" + offeringId;
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
