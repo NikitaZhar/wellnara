@@ -55,6 +55,10 @@
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
                 <div class="appt-actions">
+                    <!-- Read-only mirror into the client's own calendar; changes still happen here. -->
+                    <a class="btn btn-secondary btn-sm"
+                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Add to calendar</a>
+
                     <!-- Reschedule: only far enough ahead; the current time is released and the payment is kept. -->
                     <form th:if="${appointment.reschedulable}"
                           th:action="@{/client/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"

@@ -5,6 +5,7 @@ import life.wellnara.model.User;
 import life.wellnara.service.ClientInvitationService;
 import life.wellnara.service.email.InvitationNotificationService;
 import life.wellnara.web.CurrentUser;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +54,10 @@ public class ClientInvitationController {
             session.removeAttribute("clientInviteError");
         } catch (IllegalArgumentException exception) {
             session.setAttribute("clientInviteError", exception.getMessage());
+            session.removeAttribute("clientInviteSuccessMessage");
+        } catch (MailException exception) {
+            session.setAttribute("clientInviteError",
+                    "Invitation for " + email + " was created, but the email could not be sent. Try again shortly.");
             session.removeAttribute("clientInviteSuccessMessage");
         }
 

@@ -34,6 +34,7 @@ public class ProviderController {
     private final ProviderCalendarService providerCalendarService;
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
+    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
 
     /**
      * Creates provider controller.
@@ -41,13 +42,16 @@ public class ProviderController {
      * @param providerCalendarService service for provider calendar management
      * @param appointmentService service for appointment operations
      * @param providerPageModelAssembler assembler for provider page model
+     * @param calendarFeedModelAssembler assembler for the calendar feed section
      */
     public ProviderController(ProviderCalendarService providerCalendarService,
                               AppointmentService appointmentService,
-                              ProviderPageModelAssembler providerPageModelAssembler) {
+                              ProviderPageModelAssembler providerPageModelAssembler,
+                              CalendarFeedModelAssembler calendarFeedModelAssembler) {
         this.providerCalendarService = providerCalendarService;
         this.appointmentService = appointmentService;
         this.providerPageModelAssembler = providerPageModelAssembler;
+        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
     }
 
     /**
@@ -142,6 +146,7 @@ public class ProviderController {
     @GetMapping("/provider/profile")
     public String showProfile(@CurrentUser User currentUser, Model model) {
         providerPageModelAssembler.populateProfile(model, currentUser);
+        calendarFeedModelAssembler.populateFeed(model, currentUser);
 
         return PROFILE_VIEW;
     }

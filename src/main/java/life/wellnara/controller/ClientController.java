@@ -45,6 +45,7 @@ public class ClientController {
     private final UserProfileService userProfileService;
     private final AuthService authService;
     private final ClientPageModelAssembler clientPageModelAssembler;
+    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
 
     /**
      * Creates client controller.
@@ -61,13 +62,15 @@ public class ClientController {
                             ProviderCalendarService providerCalendarService,
                             UserProfileService userProfileService,
                             AuthService authService,
-                            ClientPageModelAssembler clientPageModelAssembler) {
+                            ClientPageModelAssembler clientPageModelAssembler,
+                            CalendarFeedModelAssembler calendarFeedModelAssembler) {
         this.clientOfferingService = clientOfferingService;
         this.appointmentService = appointmentService;
         this.providerCalendarService = providerCalendarService;
         this.userProfileService = userProfileService;
         this.authService = authService;
         this.clientPageModelAssembler = clientPageModelAssembler;
+        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
     }
 
     /**
@@ -120,6 +123,7 @@ public class ClientController {
     @GetMapping("/client/profile")
     public String showProfile(@CurrentUser User currentUser, Model model) {
         clientPageModelAssembler.populateProfile(model, currentUser);
+        calendarFeedModelAssembler.populateFeed(model, currentUser);
 
         return PROFILE_VIEW;
     }
@@ -237,6 +241,7 @@ public class ClientController {
             return "redirect:/client/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateProfile(model, currentUser);
+            calendarFeedModelAssembler.populateFeed(model, currentUser);
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);

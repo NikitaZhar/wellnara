@@ -25,6 +25,7 @@ public class ProfileController {
     private final UserProfileService userProfileService;
     private final AuthService authService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
+    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
 
     /**
      * Creates profile controller.
@@ -33,13 +34,17 @@ public class ProfileController {
      * @param authService                service for password verification and change
      * @param providerPageModelAssembler assembler for the provider profile model, used
      *                                   to re-render the profile page when the update fails
+     * @param calendarFeedModelAssembler assembler for the calendar feed section, used
+     *                                   to re-render the profile page when the update fails
      */
     public ProfileController(UserProfileService userProfileService,
                              AuthService authService,
-                             ProviderPageModelAssembler providerPageModelAssembler) {
+                             ProviderPageModelAssembler providerPageModelAssembler,
+                             CalendarFeedModelAssembler calendarFeedModelAssembler) {
         this.userProfileService = userProfileService;
         this.authService = authService;
         this.providerPageModelAssembler = providerPageModelAssembler;
+        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
     }
 
     /**
@@ -91,6 +96,7 @@ public class ProfileController {
             return "redirect:/provider/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
             providerPageModelAssembler.populateProfile(model, currentUser);
+            calendarFeedModelAssembler.populateFeed(model, currentUser);
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);

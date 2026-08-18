@@ -130,6 +130,10 @@
                 </p>
 
                 <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}">
+                    <!-- Read-only mirror into the provider's own calendar; changes still happen here. -->
+                    <a class="btn btn-secondary btn-sm"
+                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Add to calendar</a>
+
                     <button type="button" class="btn btn-secondary btn-sm"
                             th:if="${!appointment.completable}"
                             data-reveal th:attr="data-target='cancel-' + ${appointment.id}">Cancel appointment</button>

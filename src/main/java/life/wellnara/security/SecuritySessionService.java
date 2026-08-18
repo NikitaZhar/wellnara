@@ -51,6 +51,14 @@ public class SecuritySessionService {
      * @param response current response
      */
     public void establish(User user, HttpServletRequest request, HttpServletResponse response) {
+        // Rotate the session id on login to defeat session fixation: any session id an
+        // attacker may have planted before authentication is replaced with a fresh one.
+        if (request.getSession(false) == null) {
+            request.getSession(true);
+        } else {
+            request.changeSessionId();
+        }
+
         AuthenticatedUser principal =
                 new AuthenticatedUser(user.getId(), user.getUsername(), user.getRole());
         Authentication authentication = new UsernamePasswordAuthenticationToken(

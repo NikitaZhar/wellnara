@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.ProviderInvitationService;
 import life.wellnara.service.email.InvitationNotificationService;
+import org.springframework.mail.MailException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,12 @@ public class ProviderInvitationController {
         } catch (IllegalArgumentException exception) {
             session.removeAttribute("providerInviteSuccessMessage");
             model.addAttribute("inviteError", exception.getMessage());
+            model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
+            return "admin";
+        } catch (MailException exception) {
+            session.removeAttribute("providerInviteSuccessMessage");
+            model.addAttribute("inviteError",
+                    "Invitation for " + email + " was created, but the email could not be sent. Try again shortly.");
             model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
             return "admin";
         }

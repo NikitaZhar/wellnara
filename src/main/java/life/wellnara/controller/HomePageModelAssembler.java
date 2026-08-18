@@ -70,7 +70,9 @@ public class HomePageModelAssembler {
                 .toList();
 
         List<AppointmentView> upcomingAppointments =
-                appointmentService.getConfirmedAppointmentViewsOfProvider(provider);
+                appointmentService.getConfirmedAppointmentViewsOfProvider(provider).stream()
+                        .filter(view -> view.getStatus() == AppointmentStatus.SCHEDULED)
+                        .toList();
 
         long activeOfferingCount = offeringService.getOfferingsOfProvider(provider).stream()
                 .filter(Offering::isActive)

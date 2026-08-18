@@ -1,5 +1,7 @@
 package life.wellnara.service;
 
+import life.wellnara.event.AppointmentCancelledEvent;
+import life.wellnara.event.AppointmentScheduledEvent;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.AvailabilityOverrideType;
@@ -13,6 +15,7 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +53,7 @@ public class AppointmentCommandService {
 	private final ApplicationTimeService applicationTimeService;
 	private final WalletReservationService walletReservationService;
 	private final AppointmentSettlementService settlementService;
+	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -64,6 +68,7 @@ public class AppointmentCommandService {
 	 * @param applicationTimeService       service for current UTC time
 	 * @param walletReservationService     service that holds funds for a requested appointment
 	 * @param settlementService            service that releases or settles the appointment hold
+	 * @param eventPublisher               publisher of appointment calendar events
 	 */
 	public AppointmentCommandService(AppointmentRepository appointmentRepository,
 			UserRepository userRepository,
@@ -73,7 +78,8 @@ public class AppointmentCommandService {
 			AppointmentAvailabilityService availabilityService,
 			ApplicationTimeService applicationTimeService,
 			WalletReservationService walletReservationService,
-			AppointmentSettlementService settlementService) {
+			AppointmentSettlementService settlementService,
+			ApplicationEventPublisher eventPublisher) {
 		this.appointmentRepository = appointmentRepository;
 		this.userRepository = userRepository;
 		this.offeringRepository = offeringRepository;
@@ -83,6 +89,7 @@ public class AppointmentCommandService {
 		this.applicationTimeService = applicationTimeService;
 		this.walletReservationService = walletReservationService;
 		this.settlementService = settlementService;
+		this.eventPublisher = eventPublisher;
 	}
 
 	/**
@@ -136,6 +143,7 @@ public class AppointmentCommandService {
 		requireStatus(appointment, AppointmentStatus.REQUESTED, "Only requested appointment can be accepted");
 
 		appointment.schedule();
+		eventPublisher.publishEvent(new AppointmentScheduledEvent(appointment.getId()));
 	}
 
 	/**
@@ -184,6 +192,7 @@ public class AppointmentCommandService {
 		}
 		appointment.cancel(CancellationInitiator.PROVIDER, message, now());
 		settlementService.release(appointment, appointment.getProvider());
+		eventPublisher.publishEvent(new AppointmentCancelledEvent(appointment.getId()));
 	}
 
 	/**
@@ -284,6 +293,8 @@ public class AppointmentCommandService {
 		} else {
 			settlementService.settle(appointment, appointment.getClient());
 		}
+
+		eventPublisher.publishEvent(new AppointmentCancelledEvent(appointment.getId()));
 	}
 
 	/**
@@ -308,6 +319,7 @@ public class AppointmentCommandService {
 
 		appointment.cancel(CancellationInitiator.CLIENT, null, now());
 		settlementService.release(appointment, appointment.getClient());
+		eventPublisher.publishEvent(new AppointmentCancelledEvent(appointment.getId()));
 
 		return appointment.getOffering().getId();
 	}

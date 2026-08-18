@@ -68,6 +68,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/logout").permitAll()
                 .requestMatchers("/client/register", "/provider/register").permitAll()
                 .requestMatchers("/css/**", "/favicon.ico", "/error").permitAll()
+                // Публичный фид календаря: единственный доступ — по секретному токену в пути.
+                .requestMatchers("/calendar/**").permitAll()
                 // Разделы по ролям.
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/provider/**").hasRole("PROVIDER")

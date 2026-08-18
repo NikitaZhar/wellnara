@@ -14,7 +14,7 @@ import java.util.Locale;
 public final class CurrencyCodes {
 
     /** Currencies offered in the UI pickers (registration, provider profile). */
-    public static final List<String> SUPPORTED = List.of("EUR", "USD", "GBP", "CZK", "PLN", "CHF");
+    public static final List<String> SUPPORTED = List.of("EUR", "USD", "GBP", "CZK", "RUR", "CHF");
 
     /** Default pre-selected currency. */
     public static final String DEFAULT = "EUR";
