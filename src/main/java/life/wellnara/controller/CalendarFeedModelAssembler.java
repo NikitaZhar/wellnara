@@ -43,10 +43,17 @@ public class CalendarFeedModelAssembler {
     public void populateFeed(Model model, User user) {
         Optional<CalendarSubscription> activeSubscription = subscriptionService.findFor(user)
                 .filter(CalendarSubscription::isEnabled);
+        Optional<String> activeToken = activeSubscription.map(CalendarSubscription::getToken);
 
         model.addAttribute("calendarFeedEnabled", activeSubscription.isPresent());
-        model.addAttribute("calendarFeedUrl", activeSubscription
-                .map(subscription -> calendarLinkBuilder.feedUrl(subscription.getToken()))
+        model.addAttribute("calendarFeedUrl", activeToken
+                .map(calendarLinkBuilder::feedUrl)
+                .orElse(null));
+        model.addAttribute("calendarFeedWebcalUrl", activeToken
+                .map(calendarLinkBuilder::webcalFeedUrl)
+                .orElse(null));
+        model.addAttribute("calendarFeedGoogleUrl", activeToken
+                .map(calendarLinkBuilder::googleSubscribeUrl)
                 .orElse(null));
     }
 }

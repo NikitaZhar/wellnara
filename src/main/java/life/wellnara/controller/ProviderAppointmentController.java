@@ -17,6 +17,8 @@ public class ProviderAppointmentController {
 
     private static final String APPOINTMENTS_VIEW = "provider-appointments";
     private static final String APPOINTMENTS_REDIRECT = "redirect:/provider/appointments";
+    private static final String REQUESTS_VIEW = "provider-requests";
+    private static final String REQUESTS_REDIRECT = "redirect:/provider/requests";
 
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
@@ -45,7 +47,7 @@ public class ProviderAppointmentController {
     public String acceptAppointment(@PathVariable Long appointmentId,
                                     @CurrentUser User currentUser,
                                     Model model) {
-        return executeAppointmentAction(
+        return executeRequestAction(
                 currentUser,
                 model,
                 provider -> appointmentService.acceptAppointment(provider, appointmentId)
@@ -66,7 +68,7 @@ public class ProviderAppointmentController {
                                     @RequestParam String rejectionReason,
                                     @CurrentUser User currentUser,
                                     Model model) {
-        return executeAppointmentAction(
+        return executeRequestAction(
                 currentUser,
                 model,
                 provider -> appointmentService.rejectAppointment(
@@ -99,7 +101,7 @@ public class ProviderAppointmentController {
                                              @RequestParam(required = false, defaultValue = "false") boolean blockSlot,
                                              @CurrentUser User currentUser,
                                              Model model) {
-        return executeAppointmentAction(
+        return executeUpcomingAction(
                 currentUser,
                 model,
                 provider -> appointmentService.cancelScheduledAppointment(
@@ -123,7 +125,7 @@ public class ProviderAppointmentController {
     public String completeScheduledAppointment(@PathVariable Long appointmentId,
                                                @CurrentUser User currentUser,
                                                Model model) {
-        return executeAppointmentAction(
+        return executeUpcomingAction(
                 currentUser,
                 model,
                 provider -> appointmentService.completeScheduledAppointment(provider, appointmentId)
@@ -142,7 +144,7 @@ public class ProviderAppointmentController {
     public String markAppointmentNoShow(@PathVariable Long appointmentId,
                                         @CurrentUser User currentUser,
                                         Model model) {
-        return executeAppointmentAction(
+        return executeUpcomingAction(
                 currentUser,
                 model,
                 provider -> appointmentService.markAppointmentNoShow(provider, appointmentId)
@@ -161,7 +163,7 @@ public class ProviderAppointmentController {
     public String acknowledgeAppointmentNotification(@PathVariable Long appointmentId,
                                                      @CurrentUser User currentUser,
                                                      Model model) {
-        return executeAppointmentAction(
+        return executeUpcomingAction(
                 currentUser,
                 model,
                 provider -> appointmentService.acknowledgeProviderAppointmentNotification(
@@ -171,16 +173,34 @@ public class ProviderAppointmentController {
         );
     }
 
+    /**
+     * Runs a request-list action (accept / reject) and keeps the provider on the
+     * requests page, re-rendering it with the error on failure.
+     */
+    private String executeRequestAction(User currentUser, Model model, ProviderAppointmentAction action) {
+        return executeAppointmentAction(currentUser, model, action, REQUESTS_REDIRECT, REQUESTS_VIEW);
+    }
+
+    /**
+     * Runs an upcoming-list action (cancel / complete / no-show / acknowledge) and
+     * keeps the provider on the upcoming page, re-rendering it with the error on failure.
+     */
+    private String executeUpcomingAction(User currentUser, Model model, ProviderAppointmentAction action) {
+        return executeAppointmentAction(currentUser, model, action, APPOINTMENTS_REDIRECT, APPOINTMENTS_VIEW);
+    }
+
     private String executeAppointmentAction(User currentUser,
                                             Model model,
-                                            ProviderAppointmentAction action) {
+                                            ProviderAppointmentAction action,
+                                            String redirect,
+                                            String errorView) {
         try {
             action.execute(currentUser);
-            return APPOINTMENTS_REDIRECT;
+            return redirect;
         } catch (IllegalArgumentException exception) {
             providerPageModelAssembler.populateAppointments(model, currentUser);
             model.addAttribute("appointmentActionError", exception.getMessage());
-            return APPOINTMENTS_VIEW;
+            return errorView;
         }
     }
 

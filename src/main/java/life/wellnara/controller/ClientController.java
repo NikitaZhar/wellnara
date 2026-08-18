@@ -6,6 +6,7 @@ import life.wellnara.service.AuthService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.UserProfileService;
+import life.wellnara.service.calendar.AppointmentCalendarLinkService;
 import life.wellnara.web.CurrentUser;
 
 import org.springframework.stereotype.Controller;
@@ -35,9 +36,11 @@ public class ClientController {
 
     private static final String OFFERINGS_VIEW = "client-offerings";
     private static final String APPOINTMENTS_VIEW = "client-appointments";
+    private static final String REQUESTS_VIEW = "client-requests";
     private static final String PROFILE_VIEW = "client-profile";
     private static final String OFFERING_VIEW = "client-offering";
     private static final String APPOINTMENTS_REDIRECT = "redirect:/client/appointments";
+    private static final String REQUESTS_REDIRECT = "redirect:/client/requests";
 
     private final ClientOfferingService clientOfferingService;
     private final AppointmentService appointmentService;
@@ -46,16 +49,19 @@ public class ClientController {
     private final AuthService authService;
     private final ClientPageModelAssembler clientPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
+    private final AppointmentCalendarLinkService appointmentCalendarLinkService;
 
     /**
      * Creates client controller.
      *
-     * @param clientOfferingService    service for client access to provider offerings
-     * @param appointmentService       service for appointment requests
-     * @param providerCalendarService  service for provider calendar operations
-     * @param userProfileService       service for user personal data
-     * @param authService              service for password verification and change
-     * @param clientPageModelAssembler assembler for client page model
+     * @param clientOfferingService          service for client access to provider offerings
+     * @param appointmentService             service for appointment requests
+     * @param providerCalendarService        service for provider calendar operations
+     * @param userProfileService             service for user personal data
+     * @param authService                    service for password verification and change
+     * @param clientPageModelAssembler       assembler for client page model
+     * @param calendarFeedModelAssembler     assembler for the calendar feed section
+     * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
      */
     public ClientController(ClientOfferingService clientOfferingService,
                             AppointmentService appointmentService,
@@ -63,7 +69,8 @@ public class ClientController {
                             UserProfileService userProfileService,
                             AuthService authService,
                             ClientPageModelAssembler clientPageModelAssembler,
-                            CalendarFeedModelAssembler calendarFeedModelAssembler) {
+                            CalendarFeedModelAssembler calendarFeedModelAssembler,
+                            AppointmentCalendarLinkService appointmentCalendarLinkService) {
         this.clientOfferingService = clientOfferingService;
         this.appointmentService = appointmentService;
         this.providerCalendarService = providerCalendarService;
@@ -71,6 +78,7 @@ public class ClientController {
         this.authService = authService;
         this.clientPageModelAssembler = clientPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
+        this.appointmentCalendarLinkService = appointmentCalendarLinkService;
     }
 
     /**
@@ -109,8 +117,25 @@ public class ClientController {
     @GetMapping("/client/appointments")
     public String showAppointments(@CurrentUser User currentUser, Model model) {
         clientPageModelAssembler.populateAppointments(model, currentUser);
+        calendarFeedModelAssembler.populateFeed(model, currentUser);
+        model.addAttribute("calendarAddLinks", appointmentCalendarLinkService.scheduledLinksFor(currentUser));
 
         return APPOINTMENTS_VIEW;
+    }
+
+    /**
+     * Shows the requests page: the client's pending requests and provider
+     * notifications (accepted/rejected/completed updates).
+     *
+     * @param currentUser authenticated client
+     * @param model       MVC model
+     * @return requests page view name
+     */
+    @GetMapping("/client/requests")
+    public String showRequests(@CurrentUser User currentUser, Model model) {
+        clientPageModelAssembler.populateAppointments(model, currentUser);
+
+        return REQUESTS_VIEW;
     }
 
     /**
@@ -184,7 +209,7 @@ public class ClientController {
                     startDateTimeUtc
             );
 
-            return APPOINTMENTS_REDIRECT;
+            return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
             model.addAttribute("appointmentError", exception.getMessage());
@@ -263,7 +288,7 @@ public class ClientController {
                                          @CurrentUser User currentUser) {
         appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
 
-        return APPOINTMENTS_REDIRECT;
+        return REQUESTS_REDIRECT;
     }
 
     /**
@@ -278,7 +303,7 @@ public class ClientController {
                                            @CurrentUser User currentUser) {
         appointmentService.cancelPendingAppointmentByClient(currentUser, appointmentId);
 
-        return APPOINTMENTS_REDIRECT;
+        return REQUESTS_REDIRECT;
     }
 
     /**

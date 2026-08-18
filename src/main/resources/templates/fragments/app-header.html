@@ -21,6 +21,26 @@
         <span class="badge badge-primary" th:text="${role}">Role</span>
         <a th:href="@{/auth/logout}" class="btn btn-secondary btn-sm">Log out</a>
     </div>
+
+    <!--
+      Guard against accidental value changes: a focused <input type="number"> changes its
+      value when the mouse wheel scrolls over it, which silently turned a 100 top-up into
+      99.88 (12 wheel steps of 0.01). Blurring on wheel cancels that; the page still scrolls.
+    -->
+    <script>
+        (function () {
+            function guard() {
+                document.querySelectorAll('input[type=number]').forEach(function (input) {
+                    input.addEventListener('wheel', function () { this.blur(); });
+                });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', guard);
+            } else {
+                guard();
+            }
+        })();
+    </script>
 </header>
 
 </body>

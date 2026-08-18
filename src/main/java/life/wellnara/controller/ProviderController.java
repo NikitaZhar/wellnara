@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpSession;
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ProviderCalendarService;
+import life.wellnara.service.calendar.AppointmentCalendarLinkService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,6 +29,7 @@ public class ProviderController {
     private static final String CLIENTS_VIEW = "provider-clients";
     private static final String OFFERINGS_VIEW = "provider-offerings";
     private static final String APPOINTMENTS_VIEW = "provider-appointments";
+    private static final String REQUESTS_VIEW = "provider-requests";
     private static final String AVAILABILITY_VIEW = "provider-availability";
     private static final String PROFILE_VIEW = "provider-profile";
 
@@ -35,6 +37,7 @@ public class ProviderController {
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
+    private final AppointmentCalendarLinkService appointmentCalendarLinkService;
 
     /**
      * Creates provider controller.
@@ -43,15 +46,18 @@ public class ProviderController {
      * @param appointmentService service for appointment operations
      * @param providerPageModelAssembler assembler for provider page model
      * @param calendarFeedModelAssembler assembler for the calendar feed section
+     * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
      */
     public ProviderController(ProviderCalendarService providerCalendarService,
                               AppointmentService appointmentService,
                               ProviderPageModelAssembler providerPageModelAssembler,
-                              CalendarFeedModelAssembler calendarFeedModelAssembler) {
+                              CalendarFeedModelAssembler calendarFeedModelAssembler,
+                              AppointmentCalendarLinkService appointmentCalendarLinkService) {
         this.providerCalendarService = providerCalendarService;
         this.appointmentService = appointmentService;
         this.providerPageModelAssembler = providerPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
+        this.appointmentCalendarLinkService = appointmentCalendarLinkService;
     }
 
     /**
@@ -111,8 +117,27 @@ public class ProviderController {
         appointmentService.expireStaleAppointmentRequests();
 
         providerPageModelAssembler.populateAppointments(model, currentUser);
+        calendarFeedModelAssembler.populateFeed(model, currentUser);
+        model.addAttribute("calendarAddLinks", appointmentCalendarLinkService.scheduledLinksFor(currentUser));
 
         return APPOINTMENTS_VIEW;
+    }
+
+    /**
+     * Shows the appointment requests page: the provider's pending requests to
+     * accept or reject. Expires stale requests first, so the list is current.
+     *
+     * @param currentUser authenticated provider
+     * @param model       MVC model
+     * @return requests page view name
+     */
+    @GetMapping("/provider/requests")
+    public String showRequests(@CurrentUser User currentUser, Model model) {
+        appointmentService.expireStaleAppointmentRequests();
+
+        providerPageModelAssembler.populateAppointments(model, currentUser);
+
+        return REQUESTS_VIEW;
     }
 
     /**

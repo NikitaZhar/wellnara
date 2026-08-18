@@ -29,6 +29,10 @@
         .block-check input { accent-color:var(--sea-primary); width:16px; height:16px; }
         /* Keep anchored sections clear of the sticky header when jumped to. */
         section[id] { scroll-margin-top:88px; }
+        /* Inline "add to calendar" options. */
+        .cal-lead { font-size:13px; color:var(--text-muted); align-self:center; margin-right:2px; }
+        /* Second action row (manage) — visually separated from the calendar row above. */
+        .appt-manage { margin-top:8px; padding-top:10px; border-top:1px dashed var(--border); }
     </style>
 </head>
 <body>
@@ -49,63 +53,21 @@
         <p th:text="${appointmentActionError}" style="margin:0;"></p>
     </div>
 
-    <section id="pending">
-        <div class="section-head">
-            <h2>Pending appointments</h2>
-            <span class="count-pill" th:text="${#lists.size(appointments)}">0</span>
-        </div>
-
-        <div th:if="${#lists.isEmpty(appointments)}" class="empty">
-            <p>No appointment requests.</p>
-        </div>
-
-        <div class="list" th:if="${not #lists.isEmpty(appointments)}">
-            <div class="appt" th:each="appointment : ${appointments}">
-                <div class="appt-head">
-                    <p class="appt-title">
-                        <span th:text="${appointment.clientName}">Client</span> ·
-                        <span th:text="${appointment.offeringName}">Offering</span>
-                    </p>
-                    <span class="badge badge-primary" th:text="${appointment.status}">STATUS</span>
-                </div>
-                <p class="appt-meta">
-                    <span th:text="${appointment.localDate}">Date</span>,
-                    <span th:text="${appointment.localTime}">Time</span>
-                </p>
-
-                <div class="appt-actions">
-                    <form th:action="@{/provider/appointments/{appointmentId}/accept(appointmentId=${appointment.id})}"
-                          method="post"
-                          onsubmit="return confirm('Accept this appointment request?');">
-                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
-                    </form>
-
-                    <button type="button" class="btn btn-secondary btn-sm"
-                            data-reveal th:attr="data-target='reject-' + ${appointment.id}">Reject</button>
-                </div>
-
-                <form class="reveal" style="display:none" th:id="'reject-' + ${appointment.id}"
-                      th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
-                      method="post"
-                      onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
-                    <textarea name="rejectionReason" placeholder="Reason for rejection" rows="2" required maxlength="1000"></textarea>
-                    <div class="reveal-actions">
-                        <button type="submit" class="btn btn-secondary btn-sm">Confirm reject</button>
-                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='reject-' + ${appointment.id}">Back</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </section>
-
     <section id="confirmed">
         <div class="section-head">
-            <h2>Confirmed appointments</h2>
+            <h2>Upcoming appointments</h2>
             <span class="count-pill" th:text="${#lists.size(confirmedAppointments)}">0</span>
         </div>
 
+        <!-- One-time nudge: only when there is something to sync and sync is not set up yet. Disappears once enabled. -->
+        <div th:if="${not calendarFeedEnabled and not #lists.isEmpty(confirmedAppointments)}"
+             class="card" style="display:flex; align-items:center; justify-content:space-between; gap:var(--s-3); margin-bottom:var(--s-4); background:var(--surface-2);">
+            <p class="page-sub" style="margin:0;">Get your confirmed sessions in your own calendar automatically — no need to add each one by hand.</p>
+            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/provider/profile#calendar-feed}" href="/provider/profile#calendar-feed">Sync my calendar</a>
+        </div>
+
         <div th:if="${#lists.isEmpty(confirmedAppointments)}" class="empty">
-            <p>No confirmed appointments.</p>
+            <p>No upcoming appointments.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
@@ -129,10 +91,19 @@
                     Appointment cancelled by client.
                 </p>
 
-                <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}">
-                    <!-- Read-only mirror into the provider's own calendar; changes still happen here. -->
+                <!-- Row 1: add this session to an external calendar. -->
+                <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}"
+                     th:with="addLinks=${calendarAddLinks != null ? calendarAddLinks.get(appointment.id) : null}">
+                    <span class="cal-lead">Add to calendar:</span>
+                    <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.google()}" target="_blank" rel="noopener">Google</a>
+                    <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.outlook()}" target="_blank" rel="noopener">Outlook</a>
                     <a class="btn btn-secondary btn-sm"
-                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Add to calendar</a>
+                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Apple / .ics</a>
+                </div>
+
+                <!-- Row 2: record the outcome / cancel the appointment (separate from the calendar actions above). -->
+                <div class="appt-actions appt-manage" th:if="${appointment.status.name() == 'SCHEDULED'}">
+                    <span class="cal-lead">Manage appointment:</span>
 
                     <button type="button" class="btn btn-secondary btn-sm"
                             th:if="${!appointment.completable}"

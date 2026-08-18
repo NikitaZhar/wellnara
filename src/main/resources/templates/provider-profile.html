@@ -41,44 +41,6 @@
         </div>
     </section>
 
-    <section>
-        <div class="section-head">
-            <h2>Calendar feed</h2>
-        </div>
-        <div class="card">
-            <p class="page-sub" style="margin:0 0 var(--s-4);">
-                Subscribe your calendar (Google, Apple, Outlook) to see your confirmed sessions automatically.
-            </p>
-
-            <!-- Feed on: show the URL and let the user rotate or turn it off. -->
-            <div th:if="${calendarFeedEnabled}">
-                <div class="field">
-                    <label for="calendarFeedUrl">Feed URL</label>
-                    <input id="calendarFeedUrl" type="text" th:value="${calendarFeedUrl}" readonly onclick="this.select()">
-                    <span class="hint">Add this URL in your calendar app as a subscription. Keep it private — anyone with the link can see your sessions.</span>
-                </div>
-                <div class="form-actions" style="margin-top:var(--s-3);">
-                    <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;"
-                          onsubmit="return confirm('Generate a new link? The current link will stop working.');">
-                        <button class="btn btn-secondary btn-sm" type="submit">Regenerate link</button>
-                    </form>
-                    <form th:action="@{/profile/calendar/disable}" method="post" style="margin:0;"
-                          onsubmit="return confirm('Turn off the calendar feed? The link will stop working.');">
-                        <button class="btn btn-secondary btn-sm" type="submit">Turn off</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Feed off or never set up: offer to enable it. -->
-            <div th:unless="${calendarFeedEnabled}">
-                <p class="page-sub" style="margin:0 0 var(--s-3);">The calendar feed is off.</p>
-                <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;">
-                    <button class="btn btn-primary btn-sm" type="submit">Enable calendar feed</button>
-                </form>
-            </div>
-        </div>
-    </section>
-
     <form th:action="@{/provider/profile}" method="post">
 
         <section>
@@ -147,6 +109,52 @@
             <button class="btn btn-primary" type="submit">Save</button>
         </div>
     </form>
+
+    <section id="calendar-feed">
+        <div class="section-head">
+            <h2>Sync with your calendar</h2>
+        </div>
+        <div class="card">
+            <p class="page-sub" style="margin:0 0 var(--s-4);">
+                Subscribe once and your confirmed sessions appear in your calendar automatically — new bookings
+                and changes keep syncing on their own, on your phone, tablet and computer.
+            </p>
+
+            <!-- Feed on: one add button per calendar family, plus a copyable link for anything else. -->
+            <div th:if="${calendarFeedEnabled}">
+                <div class="form-actions" style="justify-content:flex-start; margin:0 0 var(--s-4);">
+                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedGoogleUrl}" target="_blank" rel="noopener">Subscribe in Google Calendar</a>
+                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedWebcalUrl}">Subscribe in Apple Calendar / Outlook</a>
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            th:attr="data-url=${calendarFeedUrl}"
+                            onclick="const u=this.getAttribute('data-url');navigator.clipboard&amp;&amp;navigator.clipboard.writeText(u);this.textContent='Link copied';">Copy link</button>
+                </div>
+
+                <div style="margin-top:var(--s-6); padding-top:var(--s-4); border-top:1px solid var(--border);">
+                    <div class="form-actions" style="justify-content:space-between; align-items:center; margin:0;">
+                        <p class="page-sub" style="margin:0;">Lost your link or think it leaked? Reset it to get a new one — the old link stops working.</p>
+                        <div style="display:flex; gap:var(--s-2);">
+                            <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;"
+                                  onsubmit="return confirm('Reset the link? Your current link stops working and you will need to add the calendar again everywhere you use it. Only do this if the link may have leaked.');">
+                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);">Reset link</button>
+                            </form>
+                            <form th:action="@{/profile/calendar/disable}" method="post" style="margin:0;"
+                                  onsubmit="return confirm('Turn off calendar sync? The link will stop working until you turn it back on.');">
+                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);">Turn off</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feed off or never set up: offer to enable it. -->
+            <div th:unless="${calendarFeedEnabled}">
+                <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;">
+                    <button class="btn btn-primary btn-sm" type="submit">Sync with my calendar</button>
+                </form>
+            </div>
+        </div>
+    </section>
 
 </main>
 
