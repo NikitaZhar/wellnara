@@ -69,10 +69,11 @@ public class HomePageModelAssembler {
                 .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
                 .toList();
 
+        // Mirror the internal /provider/appointments page: confirmed sessions plus
+        // undismissed client-cancellation notices, each shown with its own badge —
+        // so the Home panel and the detail page hold the same rows and count.
         List<AppointmentView> upcomingAppointments =
-                appointmentService.getConfirmedAppointmentViewsOfProvider(provider).stream()
-                        .filter(view -> view.getStatus() == AppointmentStatus.SCHEDULED)
-                        .toList();
+                appointmentService.getConfirmedAppointmentViewsOfProvider(provider);
 
         long activeOfferingCount = offeringService.getOfferingsOfProvider(provider).stream()
                 .filter(Offering::isActive)
@@ -95,10 +96,11 @@ public class HomePageModelAssembler {
      * @param client authenticated client
      */
     public void populateClientHome(Model model, User client) {
-        List<AppointmentView> pendingRequests = appointmentService
-                .getAppointmentViewsOfClient(client).stream()
-                .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
-                .toList();
+        // Mirror the internal "Requests and updates" page: every open request or
+        // provider update (REQUESTED, CANCELLED, COMPLETED) is shown on Home, each
+        // with its own status badge — not just the still-pending REQUESTED ones.
+        List<AppointmentView> requestUpdates =
+                appointmentService.getAppointmentViewsOfClient(client);
 
         List<AppointmentView> upcomingAppointments =
                 appointmentService.getConfirmedAppointmentViewsOfClient(client);
@@ -107,8 +109,8 @@ public class HomePageModelAssembler {
 
         model.addAttribute("clientName", userProfileService.resolveDisplayName(client));
         model.addAttribute("providerName", providerNameOf(client));
-        model.addAttribute("pendingRequests", pendingRequests);
-        model.addAttribute("pendingRequestCount", pendingRequests.size());
+        model.addAttribute("requestUpdates", requestUpdates);
+        model.addAttribute("requestUpdateCount", requestUpdates.size());
         model.addAttribute("upcomingAppointments", upcomingAppointments);
         model.addAttribute("availableOfferings", availableOfferings);
         model.addAttribute("availableOfferingCount", availableOfferings.size());

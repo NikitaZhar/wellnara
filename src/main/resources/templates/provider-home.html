@@ -34,15 +34,21 @@
                 <div th:if="${#lists.isEmpty(pendingRequests)}" class="empty">
                     <p>No pending requests.</p>
                 </div>
-                <div class="item" th:each="req : ${pendingRequests}">
-                    <p class="primary">
-                        <span th:text="${req.clientName}">Client</span> ·
-                        <span th:text="${req.offeringName}">Offering</span>
-                    </p>
-                    <p class="secondary">
-                        <span th:text="${req.localDate}">Date</span>,
-                        <span th:text="${req.localTime}">Time</span>
-                    </p>
+                <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
+                <div class="list-scroll" th:if="${not #lists.isEmpty(pendingRequests)}">
+                    <div class="item" th:each="req : ${pendingRequests}">
+                        <div class="item-head">
+                            <p class="primary">
+                                <span th:text="${req.clientName}">Client</span> ·
+                                <span th:text="${req.offeringName}">Offering</span>
+                            </p>
+                            <span class="badge badge-primary" th:text="${req.status}">REQUESTED</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${req.localDate}">Date</span>,
+                            <span th:text="${req.localTime}">Time</span>
+                        </p>
+                    </div>
                 </div>
             </div>
             <div class="panel-foot">
@@ -59,15 +65,23 @@
                 <div th:if="${#lists.isEmpty(upcomingAppointments)}" class="empty">
                     <p>No upcoming appointments.</p>
                 </div>
-                <div class="item" th:each="appointment : ${upcomingAppointments}">
-                    <p class="primary">
-                        <span th:text="${appointment.clientName}">Client</span> ·
-                        <span th:text="${appointment.offeringName}">Offering</span>
-                    </p>
-                    <p class="secondary">
-                        <span th:text="${appointment.localDate}">Date</span>,
-                        <span th:text="${appointment.localTime}">Time</span>
-                    </p>
+                <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
+                <div class="list-scroll" th:if="${not #lists.isEmpty(upcomingAppointments)}">
+                    <div class="item" th:each="appointment : ${upcomingAppointments}">
+                        <div class="item-head">
+                            <p class="primary">
+                                <span th:text="${appointment.clientName}">Client</span> ·
+                                <span th:text="${appointment.offeringName}">Offering</span>
+                            </p>
+                            <span class="badge"
+                                  th:classappend="${appointment.status.name() == 'SCHEDULED' ? 'badge-success' : 'badge-danger'}"
+                                  th:text="${appointment.status}">SCHEDULED</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${appointment.localDate}">Date</span>,
+                            <span th:text="${appointment.localTime}">Time</span>
+                        </p>
+                    </div>
                 </div>
             </div>
             <div class="panel-foot">

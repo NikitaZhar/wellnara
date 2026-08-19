@@ -181,6 +181,13 @@ a { color:var(--sea-primary-dark); }
 .item .secondary { font-size:13px; color:var(--text-muted); margin:2px 0 0; }
 .panel .empty { padding:var(--s-8) var(--s-6); }
 
+/* Item header: title + status badge on one line */
+.item-head { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; }
+.item-head .primary { flex:1 1 auto; }
+
+/* Scrollable panel list: two rows stay visible, the rest scroll into view */
+.list-scroll { --list-row:66px; max-height:calc(var(--list-row) * 2); overflow-y:auto; }
+
 /* Link with trailing arrow */
 .link-arrow { color:var(--sea-primary-dark); font-weight:500; font-size:14px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
 .link-arrow:hover { text-decoration:underline; }

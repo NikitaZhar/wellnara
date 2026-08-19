@@ -41,12 +41,18 @@
                 <div th:if="${#lists.isEmpty(upcomingAppointments)}" class="empty">
                     <p>No upcoming appointments.</p>
                 </div>
-                <div class="item" th:each="appointment : ${upcomingAppointments}">
-                    <p class="primary" th:text="${appointment.offeringName}">Offering</p>
-                    <p class="secondary">
-                        <span th:text="${appointment.localDate}">Date</span>,
-                        <span th:text="${appointment.localTime}">Time</span>
-                    </p>
+                <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
+                <div class="list-scroll" th:if="${not #lists.isEmpty(upcomingAppointments)}">
+                    <div class="item" th:each="appointment : ${upcomingAppointments}">
+                        <div class="item-head">
+                            <p class="primary" th:text="${appointment.offeringName}">Offering</p>
+                            <span class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${appointment.localDate}">Date</span>,
+                            <span th:text="${appointment.localTime}">Time</span>
+                        </p>
+                    </div>
                 </div>
             </div>
             <div class="panel-foot">
@@ -57,19 +63,26 @@
         <section class="panel">
             <div class="panel-head">
                 <h2>My requests</h2>
-                <span class="count-pill" th:text="${pendingRequestCount}">0</span>
+                <span class="count-pill" th:text="${requestUpdateCount}">0</span>
             </div>
             <div class="panel-body">
-                <div th:if="${#lists.isEmpty(pendingRequests)}" class="empty">
-                    <p>No requests awaiting confirmation.</p>
+                <div th:if="${#lists.isEmpty(requestUpdates)}" class="empty">
+                    <p>No requests or updates.</p>
                 </div>
-                <div class="item" th:each="req : ${pendingRequests}">
-                    <p class="primary" th:text="${req.offeringName}">Offering</p>
-                    <p class="secondary">
-                        <span th:text="${req.localDate}">Date</span>,
-                        <span th:text="${req.localTime}">Time</span> ·
-                        <span th:text="${req.status}">Status</span>
-                    </p>
+                <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
+                <div class="list-scroll" th:if="${not #lists.isEmpty(requestUpdates)}">
+                    <div class="item" th:each="req : ${requestUpdates}">
+                        <div class="item-head">
+                            <p class="primary" th:text="${req.offeringName}">Offering</p>
+                            <span class="badge"
+                                  th:classappend="${req.status.name() == 'REQUESTED' ? 'badge-primary' : (req.status.name() == 'COMPLETED' ? 'badge-success' : 'badge-danger')}"
+                                  th:text="${req.status}">STATUS</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${req.localDate}">Date</span>,
+                            <span th:text="${req.localTime}">Time</span>
+                        </p>
+                    </div>
                 </div>
             </div>
             <div class="panel-foot">

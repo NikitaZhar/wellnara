@@ -79,8 +79,10 @@
                     </p>
                     <span th:if="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
                           class="badge badge-warning">Needs outcome</span>
-                    <span th:unless="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
-                          class="badge badge-primary" th:text="${appointment.status}">STATUS</span>
+                    <span th:if="${appointment.status.name() == 'SCHEDULED' and !appointment.completable}"
+                          class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                    <span th:if="${appointment.status.name() == 'CANCELLED'}"
+                          class="badge badge-danger" th:text="${appointment.status}">CANCELLED</span>
                 </div>
                 <p class="appt-meta">
                     <span th:text="${appointment.localDate}">Date</span>,
