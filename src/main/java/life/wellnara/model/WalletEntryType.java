@@ -40,7 +40,10 @@ public enum WalletEntryType {
     PACKAGE_RELEASE(WalletLedgerKind.SESSION),
 
     /** A held package session is finally consumed: {@code heldSessions -= sessionCount}. */
-    PACKAGE_CONSUME(WalletLedgerKind.SESSION);
+    PACKAGE_CONSUME(WalletLedgerKind.SESSION),
+
+    /** Unused package sessions are voided on a provider refund: {@code availableSessions -= sessionCount}. */
+    PACKAGE_REVOKE(WalletLedgerKind.SESSION);
 
     private final WalletLedgerKind kind;
 

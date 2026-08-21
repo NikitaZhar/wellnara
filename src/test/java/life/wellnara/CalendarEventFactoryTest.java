@@ -3,6 +3,7 @@ package life.wellnara;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
+import life.wellnara.model.User;
 import life.wellnara.service.calendar.CalendarAudience;
 import life.wellnara.service.calendar.CalendarEvent;
 import life.wellnara.service.calendar.CalendarEventFactory;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +80,64 @@ class CalendarEventFactoryTest {
         CalendarEvent event = factory.create(appointment, CalendarAudience.CLIENT);
 
         assertThat(event.sequence()).isZero();
+    }
+
+    @Test
+    @DisplayName("Provider event covers the prep/wrap buffers and notes the real session time")
+    void providerEventCoversBuffersWithNote() {
+        when(applicationTimeService.currentUtcDateTime()).thenReturn(GENERATED_AT);
+        Appointment appointment = appointmentWithBuffers(90, 15, 15, ZoneOffset.UTC);
+
+        CalendarEvent event = factory.create(appointment, CalendarAudience.PROVIDER);
+
+        // Block spans [start - prep, end + wrap].
+        assertThat(event.start()).isEqualTo(START.minusMinutes(15).toInstant(ZoneOffset.UTC));
+        assertThat(event.end()).isEqualTo(START.plusMinutes(90).plusMinutes(15).toInstant(ZoneOffset.UTC));
+        assertThat(event.description())
+                .contains("Session 13:00–14:30")
+                .contains("Prep 15 min before")
+                .contains("Wrap-up 15 min after")
+                .contains("https://app.wellnara.life/provider/appointments");
+    }
+
+    @Test
+    @DisplayName("Client event ignores the buffers and stays the session alone")
+    void clientEventIgnoresBuffers() {
+        when(applicationTimeService.currentUtcDateTime()).thenReturn(GENERATED_AT);
+        Appointment appointment = appointmentWithBuffers(90, 15, 15, ZoneOffset.UTC);
+
+        CalendarEvent event = factory.create(appointment, CalendarAudience.CLIENT);
+
+        assertThat(event.start()).isEqualTo(START.toInstant(ZoneOffset.UTC));
+        assertThat(event.end()).isEqualTo(START.plusMinutes(90).toInstant(ZoneOffset.UTC));
+        assertThat(event.description())
+                .doesNotContain("Session")
+                .doesNotContain("Prep")
+                .contains("https://app.wellnara.life/client/appointments");
+    }
+
+    private Appointment appointmentWithBuffers(int durationMinutes,
+                                               int prepMinutes,
+                                               int wrapMinutes,
+                                               ZoneId providerZone) {
+        Offering offering = mock(Offering.class);
+        when(offering.getName()).thenReturn("Deep Tissue Massage");
+        when(offering.getDurationMinutes()).thenReturn(durationMinutes);
+        when(offering.getPrepMinutes()).thenReturn(prepMinutes);
+        when(offering.getWrapMinutes()).thenReturn(wrapMinutes);
+
+        User provider = mock(User.class);
+
+        Appointment appointment = mock(Appointment.class);
+        when(appointment.getId()).thenReturn(77L);
+        when(appointment.getVersion()).thenReturn(1L);
+        when(appointment.getStatus()).thenReturn(AppointmentStatus.SCHEDULED);
+        when(appointment.getStartDateTimeUtc()).thenReturn(START);
+        when(appointment.getOffering()).thenReturn(offering);
+        when(appointment.getProvider()).thenReturn(provider);
+        when(applicationTimeService.resolveProviderCalendarZone(provider)).thenReturn(providerZone);
+
+        return appointment;
     }
 
     private Appointment appointment(Long id, Long version, AppointmentStatus status, int durationMinutes) {

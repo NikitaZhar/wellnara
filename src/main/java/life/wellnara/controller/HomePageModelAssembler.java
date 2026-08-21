@@ -1,6 +1,7 @@
 package life.wellnara.controller;
 
 import life.wellnara.dto.AppointmentView;
+import life.wellnara.dto.ClientPackageView;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
@@ -115,6 +116,17 @@ public class HomePageModelAssembler {
         model.addAttribute("availableOfferings", availableOfferings);
         model.addAttribute("availableOfferingCount", availableOfferings.size());
         model.addAttribute("wallet", walletQueryService.getWalletOfClient(client));
+        model.addAttribute("bookablePackages", bookablePackagesOf(client));
+    }
+
+    /**
+     * Active packages with at least one session the client can still book,
+     * powering the Home reminder on the offerings card.
+     */
+    private List<ClientPackageView> bookablePackagesOf(User client) {
+        return walletQueryService.getActivePackagesOfClient(client).stream()
+                .filter(ClientPackageView::canBookNext)
+                .toList();
     }
 
     /**

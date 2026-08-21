@@ -96,6 +96,7 @@ public class WalletLedgerCalculator {
                     held -= count;
                 }
                 case PACKAGE_CONSUME -> held -= count;
+                case PACKAGE_REVOKE -> available -= count;
                 default -> throw unexpected(entry.getType());
             }
         }

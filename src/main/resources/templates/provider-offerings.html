@@ -55,6 +55,32 @@
                         <input id="durationMinutes" type="number" name="durationMinutes" min="1" placeholder="60" required>
                     </div>
                 </div>
+                <div class="buffer-row">
+                    <div class="field">
+                        <label for="prepMinutes">Prep before (min)</label>
+                        <input id="prepMinutes" type="number" name="prepMinutes" min="0" value="0">
+                    </div>
+                    <div class="field">
+                        <label for="wrapMinutes">Wrap-up after (min)</label>
+                        <input id="wrapMinutes" type="number" name="wrapMinutes" min="0" value="15">
+                    </div>
+                </div>
+                <p class="hint" style="margin:0 0 var(--s-3);">Only you see this — kept free on your calendar around the session.</p>
+                <div class="buffer-row">
+                    <div class="field">
+                        <label for="packagePricePerSession">Package price / session</label>
+                        <input id="packagePricePerSession" type="number" name="packagePricePerSession" min="0" step="0.01" placeholder="—">
+                    </div>
+                    <div class="field">
+                        <label for="minPackageSessions">Min sessions</label>
+                        <input id="minPackageSessions" type="number" name="minPackageSessions" min="1" placeholder="—">
+                    </div>
+                    <div class="field">
+                        <label for="maxPackageSessions">Max sessions</label>
+                        <input id="maxPackageSessions" type="number" name="maxPackageSessions" min="1" placeholder="—">
+                    </div>
+                </div>
+                <p class="hint" style="margin:0 0 var(--s-3);">Optional — set a per-session price to sell this service as a package. Leave blank to disable.</p>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Create</button>
                 </div>

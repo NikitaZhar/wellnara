@@ -1,12 +1,16 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.PackagePricing;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.service.OfferingService;
 import life.wellnara.web.CurrentUser;
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,6 +29,17 @@ public class OfferingController {
 
 	private final OfferingService offeringService;
 	private final ProviderPageModelAssembler providerPageModelAssembler;
+
+	/**
+	 * Treats blank optional form fields (e.g. unset package pricing) as {@code null}
+	 * so numeric request parameters bind cleanly instead of failing conversion.
+	 *
+	 * @param binder the request data binder
+	 */
+	@InitBinder
+	void trimEmptyToNull(WebDataBinder binder) {
+		binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
+	}
 
 	/**
 	 * Creates offering controller.
@@ -58,6 +73,11 @@ public class OfferingController {
 	                             @RequestParam String description,
 	                             @RequestParam BigDecimal pricePerSession,
 	                             @RequestParam Integer durationMinutes,
+	                             @RequestParam(defaultValue = "0") int prepMinutes,
+	                             @RequestParam(defaultValue = "15") int wrapMinutes,
+	                             @RequestParam(required = false) BigDecimal packagePricePerSession,
+	                             @RequestParam(required = false) Integer minPackageSessions,
+	                             @RequestParam(required = false) Integer maxPackageSessions,
 	                             @CurrentUser User currentUser,
 	                             Model model) {
 	    try {
@@ -66,7 +86,10 @@ public class OfferingController {
 	                name,
 	                description,
 	                pricePerSession,
-	                durationMinutes
+	                durationMinutes,
+	                prepMinutes,
+	                wrapMinutes,
+	                new PackagePricing(packagePricePerSession, minPackageSessions, maxPackageSessions)
 	        );
 	        return OFFERINGS_REDIRECT;
 	    } catch (IllegalArgumentException exception) {
@@ -111,6 +134,11 @@ public class OfferingController {
 			@RequestParam String description,
 			@RequestParam BigDecimal pricePerSession,
 			@RequestParam Integer durationMinutes,
+			@RequestParam(defaultValue = "0") int prepMinutes,
+			@RequestParam(defaultValue = "0") int wrapMinutes,
+			@RequestParam(required = false) BigDecimal packagePricePerSession,
+			@RequestParam(required = false) Integer minPackageSessions,
+			@RequestParam(required = false) Integer maxPackageSessions,
 			@CurrentUser User currentUser,
 			Model model) {
 		try {
@@ -120,7 +148,10 @@ public class OfferingController {
 					name,
 					description,
 					pricePerSession,
-					durationMinutes
+					durationMinutes,
+					prepMinutes,
+					wrapMinutes,
+					new PackagePricing(packagePricePerSession, minPackageSessions, maxPackageSessions)
 					);
 			return OFFERINGS_REDIRECT;
 		} catch (IllegalArgumentException exception) {

@@ -299,7 +299,8 @@ class AppointmentSettlementTest {
         Offering offering = offering(provider);
         Wallet wallet = walletRepository.save(new Wallet(client, provider, "EUR", NOW_UTC));
         ServicePackage pkg = servicePackageRepository.save(new ServicePackage(
-                wallet, offering, 1, PRICE, "EUR", provider, NOW_UTC, null));
+                wallet, offering, 1, PRICE, "EUR", provider, NOW_UTC, null,
+                life.wellnara.model.PackageStatus.ACTIVE));
         walletEntryRepository.save(WalletEntry.session(
                 wallet, WalletEntryType.PACKAGE_GRANT, 1, pkg, null, provider, NOW_UTC, null));
 

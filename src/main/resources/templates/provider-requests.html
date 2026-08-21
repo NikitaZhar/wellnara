@@ -45,6 +45,38 @@
         <p th:text="${appointmentActionError}" style="margin:0;"></p>
     </div>
 
+    <section th:if="${not #lists.isEmpty(packageRequests)}" style="margin-bottom:var(--s-6);">
+        <div class="section-head">
+            <h2>Package requests</h2>
+            <span class="count-pill" th:text="${#lists.size(packageRequests)}">0</span>
+        </div>
+        <div class="list">
+            <div class="appt" th:each="req : ${packageRequests}">
+                <div class="appt-head">
+                    <p class="appt-title">
+                        <span th:text="${req.clientName}">Client</span> ·
+                        Package: <span th:text="${req.offeringName}">Offering</span>
+                    </p>
+                    <span class="badge badge-primary">REQUESTED</span>
+                </div>
+                <p class="appt-meta">
+                    <span th:text="${req.sessions}">0</span> sessions ·
+                    <span th:text="${req.price}">0.00</span> <span th:text="${req.currency}">EUR</span>
+                </p>
+                <div class="appt-actions">
+                    <form th:action="@{/provider/packages/{id}/accept(id=${req.packageId})}" method="post"
+                          onsubmit="return confirm('Approve this package? The reserved amount will be charged.');">
+                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                    </form>
+                    <form th:action="@{/provider/packages/{id}/reject(id=${req.packageId})}" method="post"
+                          onsubmit="return confirm('Decline this package? The reserved amount is released.');">
+                        <button type="submit" class="btn btn-secondary btn-sm">Reject</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section>
         <div class="section-head">
             <h2>Pending appointments</h2>
@@ -68,6 +100,8 @@
                     <span th:text="${appointment.localDate}">Date</span>,
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
+                <p class="appt-meta" th:if="${packageLabels.containsKey(appointment.id)}"
+                   th:text="${packageLabels.get(appointment.id)}">Package: Service · 6 of 10 left</p>
 
                 <div class="appt-actions">
                     <form th:action="@{/provider/appointments/{appointmentId}/accept(appointmentId=${appointment.id})}"

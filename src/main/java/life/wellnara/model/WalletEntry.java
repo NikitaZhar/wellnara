@@ -129,6 +129,34 @@ public class WalletEntry {
     }
 
     /**
+     * Creates a money-ledger entry tied to a service package (its purchase
+     * reservation lifecycle: {@code HOLD} on request, {@code SETTLE} on approval,
+     * {@code RELEASE} on rejection) rather than to an appointment.
+     *
+     * @param wallet         target wallet
+     * @param type           a money type ({@link WalletEntryType#isMoney()} must be true)
+     * @param amount         monetary amount in the wallet currency (positive)
+     * @param servicePackage package the entry belongs to
+     * @param createdBy      user who caused the entry
+     * @param createdAt      creation timestamp in UTC
+     * @param comment        optional free-text note
+     * @return a new, unsaved money entry tied to the package
+     * @throws IllegalArgumentException if {@code type} is not a money type
+     */
+    public static WalletEntry packageMoney(Wallet wallet,
+                                           WalletEntryType type,
+                                           BigDecimal amount,
+                                           ServicePackage servicePackage,
+                                           User createdBy,
+                                           LocalDateTime createdAt,
+                                           String comment) {
+        if (!type.isMoney()) {
+            throw new IllegalArgumentException("Not a money entry type: " + type);
+        }
+        return new WalletEntry(wallet, type, amount, null, servicePackage, null, createdBy, createdAt, comment);
+    }
+
+    /**
      * Creates a session-ledger entry for a service package.
      *
      * @param wallet target wallet

@@ -15,6 +15,7 @@ import life.wellnara.repository.UserRepository;
 import life.wellnara.repository.WalletEntryRepository;
 import life.wellnara.repository.WalletRepository;
 import life.wellnara.service.WalletCommandService;
+import life.wellnara.service.WalletQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import life.wellnara.dto.ClientPackageView;
+import life.wellnara.dto.ClientWalletView;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,6 +42,9 @@ class WalletCommandServiceTest {
 
     @Autowired
     private WalletCommandService walletCommandService;
+
+    @Autowired
+    private WalletQueryService walletQueryService;
 
     @Autowired
     private UserRepository userRepository;
@@ -90,13 +97,13 @@ class WalletCommandServiceTest {
     }
 
     @Test
-    @DisplayName("Granting a package creates a ServicePackage and a PACKAGE_GRANT entry")
-    void grantPackageCreatesPackageAndEntry() {
+    @DisplayName("Selling a package creates a ServicePackage and a PACKAGE_GRANT entry")
+    void sellPackageCreatesPackageAndEntry() {
         User provider = provider("prov-pkg", "EUR");
         User client = linkedClient(provider, "client-pkg");
-        Offering offering = offering(provider);
+        Offering offering = packageableOffering(provider);
 
-        walletCommandService.grantPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("500.00"), "intro");
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("400.00"), "intro");
 
         Wallet wallet = walletRepository.findByClient(client).orElseThrow();
 
@@ -149,21 +156,152 @@ class WalletCommandServiceTest {
     }
 
     @Test
-    @DisplayName("A package cannot be granted for another provider's offering")
-    void grantPackageRejectsForeignOffering() {
+    @DisplayName("A package cannot be sold for another provider's offering")
+    void sellPackageRejectsForeignOffering() {
         User provider = provider("prov-own", "EUR");
         User other = provider("prov-other", "EUR");
         User client = linkedClient(provider, "client-foreign");
-        Offering foreignOffering = offering(other);
+        Offering foreignOffering = packageableOffering(other);
 
         assertThatThrownBy(() ->
-                walletCommandService.grantPackage(
-                        provider, client.getId(), foreignOffering.getId(), 5, new BigDecimal("100.00"), null))
+                walletCommandService.sellPackage(
+                        provider, client.getId(), foreignOffering.getId(), 5, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Offering");
     }
 
+    @Test
+    @DisplayName("A non-packageable service cannot be sold as a package")
+    void sellPackageRejectsNonPackageableOffering() {
+        User provider = provider("prov-nonpkg", "EUR");
+        User client = linkedClient(provider, "client-nonpkg");
+        Offering offering = offering(provider);
+
+        assertThatThrownBy(() ->
+                walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 5, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not sold as a package");
+    }
+
+    @Test
+    @DisplayName("Package session count must be within the offering's min/max")
+    void sellPackageRejectsSessionsOutOfRange() {
+        User provider = provider("prov-range", "EUR");
+        User client = linkedClient(provider, "client-range");
+        Offering offering = packageableOffering(provider);
+
+        assertThatThrownBy(() ->
+                walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 2, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("between 3 and 10");
+    }
+
+    @Test
+    @DisplayName("Requesting a package holds the price and grants no sessions until approved")
+    void requestPackageHoldsMoneyPendingApproval() {
+        User provider = provider("prov-req", "EUR");
+        User client = linkedClient(provider, "client-req");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
+
+        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+
+        ClientWalletView view = walletQueryService.getWalletOfClient(client);
+        assertThat(view.getAvailable()).isEqualByComparingTo("100.00");
+        assertThat(view.getHeld()).isEqualByComparingTo("400.00");
+        assertThat(walletQueryService.getActivePackagesOfClient(client)).isEmpty();
+        assertThat(walletQueryService.getPendingPackageRequestsForProvider(provider)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("Approving a package settles the held price and grants the sessions")
+    void acceptPackageGrantsSessionsAndSettles() {
+        User provider = provider("prov-acc", "EUR");
+        User client = linkedClient(provider, "client-acc");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+        Long packageId = onlyPackageId(client);
+
+        walletCommandService.acceptPackageRequest(provider, packageId);
+
+        ClientWalletView view = walletQueryService.getWalletOfClient(client);
+        assertThat(view.getAvailable()).isEqualByComparingTo("100.00");
+        assertThat(view.getHeld()).isEqualByComparingTo("0.00");
+        List<ClientPackageView> packages = walletQueryService.getActivePackagesOfClient(client);
+        assertThat(packages).hasSize(1);
+        assertThat(packages.get(0).getRemaining()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("Declining a package releases the held price and grants nothing")
+    void rejectPackageReleasesMoney() {
+        User provider = provider("prov-rej", "EUR");
+        User client = linkedClient(provider, "client-rej");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+        Long packageId = onlyPackageId(client);
+
+        walletCommandService.rejectPackageRequest(provider, packageId);
+
+        assertThat(walletQueryService.getWalletOfClient(client).getAvailable()).isEqualByComparingTo("500.00");
+        assertThat(walletQueryService.getActivePackagesOfClient(client)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Requesting a package is rejected when the wallet lacks the funds")
+    void requestPackageRejectsInsufficientFunds() {
+        User provider = provider("prov-req-poor", "EUR");
+        User client = linkedClient(provider, "client-req-poor");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("100.00"), null);
+
+        assertThatThrownBy(() -> walletCommandService.requestPackage(client, offering.getId(), 10, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Insufficient funds");
+    }
+
+    @Test
+    @DisplayName("Refund credits the wallet and voids the package's unused sessions")
+    void refundCreditsWalletAndVoidsSessions() {
+        User provider = provider("prov-refund", "EUR");
+        User client = linkedClient(provider, "client-refund");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("400.00"), null);
+
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        Long packageId = servicePackageRepository.findAllByWallet(wallet).get(0).getId();
+
+        walletCommandService.refundPackage(provider, packageId, new BigDecimal("400.00"), "refund");
+
+        assertThat(walletQueryService.getWalletOfClient(client).getAvailable()).isEqualByComparingTo("400.00");
+        assertThat(walletQueryService.getActivePackagesOfClient(client)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("A package can only be refunded by the provider that owns the wallet")
+    void refundRejectsForeignProvider() {
+        User provider = provider("prov-refund-own", "EUR");
+        User other = provider("prov-refund-other", "EUR");
+        User client = linkedClient(provider, "client-refund-own");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 5, null, null);
+
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        Long packageId = servicePackageRepository.findAllByWallet(wallet).get(0).getId();
+
+        assertThatThrownBy(() -> walletCommandService.refundPackage(other, packageId, new BigDecimal("100.00"), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not belong to provider");
+    }
+
     // ===== helpers =====
+
+    private Long onlyPackageId(User client) {
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        return servicePackageRepository.findAllByWallet(wallet).get(0).getId();
+    }
 
     private User provider(String username, String currency) {
         User user = newUser(username, UserRole.PROVIDER);
@@ -194,5 +332,13 @@ class WalletCommandServiceTest {
     private Offering offering(User provider) {
         return offeringRepository.save(
                 new Offering(provider, "Consultation", "desc", new BigDecimal("50.00"), 60));
+    }
+
+    private Offering packageableOffering(User provider) {
+        Offering offering = new Offering(provider, "Massage", "desc", new BigDecimal("50.00"), 60);
+        offering.setPackagePricePerSession(new BigDecimal("40.00"));
+        offering.setMinPackageSessions(3);
+        offering.setMaxPackageSessions(10);
+        return offeringRepository.save(offering);
     }
 }

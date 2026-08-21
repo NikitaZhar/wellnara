@@ -1,15 +1,20 @@
 package life.wellnara.service;
 
+import life.wellnara.dto.ClientPackageView;
 import life.wellnara.dto.ClientWalletView;
 import life.wellnara.dto.PackageRemainder;
 import life.wellnara.dto.WalletHistoryRow;
+import life.wellnara.model.ServicePackage;
 import life.wellnara.model.SessionBalance;
 import life.wellnara.model.User;
 import life.wellnara.model.Wallet;
 import life.wellnara.model.WalletBalance;
 import life.wellnara.model.WalletEntry;
 import life.wellnara.model.WalletEntryType;
+import life.wellnara.dto.PackageRequestView;
+import life.wellnara.model.PackageStatus;
 import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.ServicePackageRepository;
 import life.wellnara.repository.WalletEntryRepository;
 import life.wellnara.repository.WalletRepository;
 import life.wellnara.service.time.ApplicationTimeService;
@@ -23,7 +28,9 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +59,7 @@ public class WalletQueryService {
     private final WalletRepository walletRepository;
     private final WalletEntryRepository walletEntryRepository;
     private final ProviderClientLinkRepository providerClientLinkRepository;
+    private final ServicePackageRepository servicePackageRepository;
     private final WalletLedgerCalculator ledgerCalculator;
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
@@ -62,6 +70,7 @@ public class WalletQueryService {
      * @param walletRepository             repository for wallets
      * @param walletEntryRepository        repository for wallet ledger entries
      * @param providerClientLinkRepository repository for provider-client links
+     * @param servicePackageRepository     repository for service packages
      * @param ledgerCalculator             folds the ledger into money and session balances
      * @param userProfileService           resolves a client display name for the provider page
      * @param applicationTimeService       resolves the provider timezone for localised timestamps
@@ -69,15 +78,50 @@ public class WalletQueryService {
     public WalletQueryService(WalletRepository walletRepository,
                               WalletEntryRepository walletEntryRepository,
                               ProviderClientLinkRepository providerClientLinkRepository,
+                              ServicePackageRepository servicePackageRepository,
                               WalletLedgerCalculator ledgerCalculator,
                               UserProfileService userProfileService,
                               ApplicationTimeService applicationTimeService) {
         this.walletRepository = walletRepository;
         this.walletEntryRepository = walletEntryRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
+        this.servicePackageRepository = servicePackageRepository;
         this.ledgerCalculator = ledgerCalculator;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
+    }
+
+    /**
+     * Pending package requests awaiting the provider's approval.
+     *
+     * @param provider authenticated provider
+     * @return package requests with the client name, oldest first
+     */
+    @Transactional(readOnly = true)
+    public List<PackageRequestView> getPendingPackageRequestsForProvider(User provider) {
+        return servicePackageRepository
+                .findAllByWallet_ProviderAndStatusOrderByCreatedAtAsc(provider, PackageStatus.REQUESTED).stream()
+                .map(pkg -> toRequestView(pkg, userProfileService.resolveDisplayName(pkg.getWallet().getClient())))
+                .toList();
+    }
+
+    /**
+     * The client's own package requests still awaiting approval.
+     *
+     * @param client authenticated client
+     * @return package requests, oldest first
+     */
+    @Transactional(readOnly = true)
+    public List<PackageRequestView> getPendingPackageRequestsOfClient(User client) {
+        return servicePackageRepository
+                .findAllByWallet_ClientAndStatusOrderByCreatedAtAsc(client, PackageStatus.REQUESTED).stream()
+                .map(pkg -> toRequestView(pkg, null))
+                .toList();
+    }
+
+    private PackageRequestView toRequestView(ServicePackage pkg, String clientName) {
+        return new PackageRequestView(pkg.getId(), clientName, pkg.getOffering().getName(),
+                pkg.getTotalSessions(), pkg.getPrice(), pkg.getCurrency());
     }
 
     /**
@@ -96,6 +140,72 @@ public class WalletQueryService {
         return walletRepository.findByClient(client)
                 .map(wallet -> buildView(wallet, null, null))
                 .orElseGet(() -> emptyView(providerCurrencyOf(client), null, null));
+    }
+
+    /**
+     * Lists the client's active packages, one row per offering (aggregated across
+     * every package the client holds for that service), keeping only offerings that
+     * still have sessions left (available or already booked). Reuses the same
+     * session fold as the wallet view, so remaining counts cannot diverge.
+     *
+     * @param client authenticated client
+     * @return active packages, or an empty list when the client has no wallet or none remain
+     */
+    @Transactional(readOnly = true)
+    public List<ClientPackageView> getActivePackagesOfClient(User client) {
+        return walletRepository.findByClient(client)
+                .map(this::buildActivePackages)
+                .orElseGet(List::of);
+    }
+
+    /**
+     * Package context for a provider's appointment requests: for each appointment
+     * covered by a package (it has a {@code PACKAGE_HOLD}), a short label naming the
+     * package and its remaining sessions. Appointments paid with money are absent.
+     *
+     * @param appointmentIds appointment identifiers to describe
+     * @return map of appointment id to a display label
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, String> packageLabelsForAppointments(Collection<Long> appointmentIds) {
+        if (appointmentIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> labels = new HashMap<>();
+        for (WalletEntry hold : walletEntryRepository
+                .findAllByAppointment_IdInAndType(appointmentIds, WalletEntryType.PACKAGE_HOLD)) {
+            var servicePackage = hold.getServicePackage();
+            int remaining = ledgerCalculator
+                    .foldSessions(walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage))
+                    .getAvailable();
+            String label = "Package: " + servicePackage.getOffering().getName()
+                    + " · " + remaining + " of " + servicePackage.getTotalSessions() + " left";
+            labels.put(hold.getAppointment().getId(), label);
+        }
+        return labels;
+    }
+
+    private List<ClientPackageView> buildActivePackages(Wallet wallet) {
+        List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
+
+        Map<Long, PackageAccumulator> byOfferingId = new LinkedHashMap<>();
+        for (List<WalletEntry> packageEntries : groupSessionEntriesByPackage(entries).values()) {
+            SessionBalance balance = ledgerCalculator.foldSessions(packageEntries);
+            var servicePackage = packageEntries.get(0).getServicePackage();
+            var offering = servicePackage.getOffering();
+            byOfferingId
+                    .computeIfAbsent(offering.getId(),
+                            id -> new PackageAccumulator(offering.getId(), offering.getName(), offering.isActive()))
+                    .add(servicePackage.getTotalSessions(), balance.getAvailable(), balance.getHeld());
+        }
+
+        List<ClientPackageView> views = new ArrayList<>();
+        for (PackageAccumulator accumulator : byOfferingId.values()) {
+            if (accumulator.hasSessionsLeft()) {
+                views.add(accumulator.toView());
+            }
+        }
+        return views;
     }
 
     /**
@@ -156,6 +266,23 @@ public class WalletQueryService {
 
     // ===== Private helpers =====
 
+    /**
+     * Groups a wallet's session-ledger entries by their package id, preserving
+     * insertion order. Money entries are skipped. Shared by the wallet-remainder
+     * and active-package projections so the grouping lives in one place.
+     */
+    private Map<Long, List<WalletEntry>> groupSessionEntriesByPackage(List<WalletEntry> entries) {
+        Map<Long, List<WalletEntry>> byPackageId = new LinkedHashMap<>();
+        for (WalletEntry entry : entries) {
+            if (entry.getType().isSession()) {
+                byPackageId
+                        .computeIfAbsent(entry.getServicePackage().getId(), id -> new ArrayList<>())
+                        .add(entry);
+            }
+        }
+        return byPackageId;
+    }
+
     private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName) {
         List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
         WalletBalance money = ledgerCalculator.foldMoney(wallet.getCurrency(), entries);
@@ -182,23 +309,15 @@ public class WalletQueryService {
      * only packages that still owe the client at least one session.
      */
     private List<PackageRemainder> buildPackageRemainders(List<WalletEntry> entries) {
-        Map<Long, List<WalletEntry>> sessionEntriesByPackageId = new LinkedHashMap<>();
-        for (WalletEntry entry : entries) {
-            if (entry.getType().isSession()) {
-                sessionEntriesByPackageId
-                        .computeIfAbsent(entry.getServicePackage().getId(), id -> new ArrayList<>())
-                        .add(entry);
-            }
-        }
-
         List<PackageRemainder> remainders = new ArrayList<>();
-        for (List<WalletEntry> packageEntries : sessionEntriesByPackageId.values()) {
+        for (List<WalletEntry> packageEntries : groupSessionEntriesByPackage(entries).values()) {
             SessionBalance sessions = ledgerCalculator.foldSessions(packageEntries);
             if (sessions.getTotal() <= 0) {
                 continue;
             }
-            String offeringName = packageEntries.get(0).getServicePackage().getOffering().getName();
-            remainders.add(new PackageRemainder(offeringName, sessions.getAvailable(), sessions.getHeld()));
+            ServicePackage servicePackage = packageEntries.get(0).getServicePackage();
+            remainders.add(new PackageRemainder(servicePackage.getId(),
+                    servicePackage.getOffering().getName(), sessions.getAvailable(), sessions.getHeld()));
         }
         return remainders;
     }
@@ -241,7 +360,7 @@ public class WalletQueryService {
     private String labelOf(WalletEntryType type) {
         return switch (type) {
             case TOP_UP -> "Top-up";
-            case HOLD -> "Reserved for appointment";
+            case HOLD -> "Reserved";
             case RELEASE -> "Reservation released";
             case SETTLE -> "Charged";
             case ADJUSTMENT -> "Adjustment";
@@ -249,6 +368,7 @@ public class WalletQueryService {
             case PACKAGE_HOLD -> "Package session reserved";
             case PACKAGE_RELEASE -> "Package session released";
             case PACKAGE_CONSUME -> "Package session used";
+            case PACKAGE_REVOKE -> "Package sessions voided";
         };
     }
 
@@ -256,5 +376,38 @@ public class WalletQueryService {
         return providerClientLinkRepository.findByClient(client)
                 .map(link -> link.getProvider().getCurrency())
                 .orElse(null);
+    }
+
+    /**
+     * Accumulates several packages of the same offering into one client-facing row.
+     */
+    private static final class PackageAccumulator {
+
+        private final Long offeringId;
+        private final String offeringName;
+        private final boolean offeringActive;
+        private int total;
+        private int remaining;
+        private int pending;
+
+        private PackageAccumulator(Long offeringId, String offeringName, boolean offeringActive) {
+            this.offeringId = offeringId;
+            this.offeringName = offeringName;
+            this.offeringActive = offeringActive;
+        }
+
+        private void add(int grantedTotal, int available, int held) {
+            this.total += grantedTotal;
+            this.remaining += available;
+            this.pending += held;
+        }
+
+        private boolean hasSessionsLeft() {
+            return remaining + pending > 0;
+        }
+
+        private ClientPackageView toView() {
+            return new ClientPackageView(offeringId, offeringName, offeringActive, total, remaining, pending);
+        }
     }
 }

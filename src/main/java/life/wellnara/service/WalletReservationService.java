@@ -2,6 +2,7 @@ package life.wellnara.service;
 
 import life.wellnara.model.Appointment;
 import life.wellnara.model.Offering;
+import life.wellnara.model.PackageStatus;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.User;
 import life.wellnara.model.Wallet;
@@ -131,6 +132,7 @@ public class WalletReservationService {
 
     private Optional<ServicePackage> findCoveringPackage(Wallet wallet, Offering offering) {
         return servicePackageRepository.findAllByWallet(wallet).stream()
+                .filter(servicePackage -> servicePackage.getStatus() == PackageStatus.ACTIVE)
                 .filter(servicePackage -> servicePackage.getOffering().getId().equals(offering.getId()))
                 .filter(this::hasAvailableSession)
                 .findFirst();

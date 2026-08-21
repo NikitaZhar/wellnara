@@ -87,8 +87,11 @@ public class AppointmentAvailabilityService {
 	public List<BookableDateOption> getBookableDateOptions(User provider, Offering offering) {
 		Map<LocalDate, List<LocalTime>> timesByDate = new TreeMap<>();
 
+		ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+		List<Appointment> blocking = getBlockingAppointments(provider);
+
 		for (CalendarTerm term : getFreeCalendarTerms(provider)) {
-			List<LocalTime> times = getBookableTimesForTerm(term, offering);
+			List<LocalTime> times = bookableStartsInTerm(term, offering, blocking, providerZone);
 
 			if (!times.isEmpty()) {
 				timesByDate
@@ -130,42 +133,25 @@ public class AppointmentAvailabilityService {
 				.filter(term -> term.getDate().equals(date))
 				.toList();
 
+		List<Appointment> blocking = getBlockingAppointments(provider);
 		List<LocalTime> result = new ArrayList<>();
 
 		for (CalendarTerm term : terms) {
-			LocalTime latestStart = term.getEndTime()
-					.minusMinutes(offering.getDurationMinutes());
-
-			if (latestStart.isBefore(term.getStartTime())) {
-				continue;
-			}
-
-			for (LocalTime current = term.getStartTime();
-					!current.isAfter(latestStart);
-					current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
-
-				LocalDateTime startUtc = LocalDateTime.of(date, current)
-						.atZone(providerZone)
-						.withZoneSameInstant(ZoneOffset.UTC)
-						.toLocalDateTime();
-
-				LocalDateTime endUtc = startUtc.plusMinutes(offering.getDurationMinutes());
-
-				if (!hasConflict(getBlockingAppointments(provider), startUtc, endUtc)) {
-					result.add(current);
-				}
-			}
+			result.addAll(bookableStartsInTerm(term, offering, blocking, providerZone));
 		}
 
 		return result;
 	}
 
 	/**
-	 * Returns possible booking start times inside one free calendar term.
+	 * Returns start times where the session duration fits inside one free term,
+	 * ignoring cross-appointment conflicts. Kept for callers that only need the
+	 * coarse fit; the booking paths use the conflict- and buffer-aware
+	 * {@link #bookableStartsInTerm} instead.
 	 *
 	 * @param term     free calendar term
 	 * @param offering selected offering
-	 * @return possible booking start times
+	 * @return possible booking start times by duration fit
 	 */
 	public List<LocalTime> getBookableTimesForTerm(CalendarTerm term, Offering offering) {
 		List<LocalTime> result = new ArrayList<>();
@@ -188,6 +174,52 @@ public class AppointmentAvailabilityService {
 	}
 
 	/**
+	 * Enumerates conflict-free booking start times for one offering inside a free
+	 * term, honouring the provider-only prep/wrap buffers of both the candidate
+	 * session and any existing appointments.
+	 *
+	 * @param term        free calendar term
+	 * @param offering    offering being booked
+	 * @param blocking    provider's blocking appointments (requested + scheduled)
+	 * @param providerZone provider calendar timezone
+	 * @return conflict-free start times inside the term
+	 */
+	private List<LocalTime> bookableStartsInTerm(CalendarTerm term,
+			Offering offering,
+			List<Appointment> blocking,
+			ZoneId providerZone) {
+		List<LocalTime> result = new ArrayList<>();
+
+		LocalTime latestStart = term.getEndTime()
+				.minusMinutes(offering.getDurationMinutes());
+
+		if (latestStart.isBefore(term.getStartTime())) {
+			return result;
+		}
+
+		for (LocalTime current = term.getStartTime();
+				!current.isAfter(latestStart);
+				current = current.plusMinutes(BOOKING_STEP_MINUTES)) {
+
+			LocalDateTime startUtc = LocalDateTime.of(term.getDate(), current)
+					.atZone(providerZone)
+					.withZoneSameInstant(ZoneOffset.UTC)
+					.toLocalDateTime();
+
+			LocalDateTime paddedStart = startUtc.minusMinutes(offering.getPrepMinutes());
+			LocalDateTime paddedEnd = startUtc
+					.plusMinutes(offering.getDurationMinutes())
+					.plusMinutes(offering.getWrapMinutes());
+
+			if (!hasConflict(blocking, paddedStart, paddedEnd)) {
+				result.add(current);
+			}
+		}
+
+		return result;
+	}
+
+	/**
 	 * Throws if the requested time slot conflicts with any active appointment.
 	 *
 	 * @param provider         provider whose appointments are checked
@@ -198,16 +230,16 @@ public class AppointmentAvailabilityService {
 	public void validateNoConflicts(User provider,
 			Offering offering,
 			LocalDateTime startDateTimeUtc) {
-		LocalDateTime end = startDateTimeUtc.plusMinutes(offering.getDurationMinutes());
+		LocalDateTime paddedStart = startDateTimeUtc.minusMinutes(offering.getPrepMinutes());
+		LocalDateTime paddedEnd = startDateTimeUtc
+				.plusMinutes(offering.getDurationMinutes())
+				.plusMinutes(offering.getWrapMinutes());
 
 		List<Appointment> blocking = getBlockingAppointments(provider);
 
 		for (Appointment existing : blocking) {
-			LocalDateTime existingStart = existing.getStartDateTimeUtc();
-			LocalDateTime existingEnd = existingStart
-					.plusMinutes(existing.getOffering().getDurationMinutes());
-
-			if (overlaps(startDateTimeUtc, end, existingStart, existingEnd)) {
+			if (overlaps(paddedStart, paddedEnd,
+					paddedStartUtc(existing), paddedEndUtc(existing))) {
 				throw new IllegalArgumentException("Time slot is already booked");
 			}
 		}
@@ -225,6 +257,11 @@ public class AppointmentAvailabilityService {
 				);
 	}
 
+	/**
+	 * Conflict check against existing appointments. {@code start}/{@code end} are
+	 * the candidate's already-padded footprint; each existing appointment is
+	 * padded here with its own prep/wrap buffers.
+	 */
 	private boolean hasConflict(List<Appointment> appointments,
 			LocalDateTime start,
 			LocalDateTime end) {
@@ -232,10 +269,28 @@ public class AppointmentAvailabilityService {
 				.anyMatch(existing -> overlaps(
 						start,
 						end,
-						existing.getStartDateTimeUtc(),
-						existing.getStartDateTimeUtc()
-						.plusMinutes(existing.getOffering().getDurationMinutes())
+						paddedStartUtc(existing),
+						paddedEndUtc(existing)
 						));
+	}
+
+	/**
+	 * Start of an existing appointment's padded footprint in UTC: the session
+	 * start moved earlier by the offering's preparation buffer.
+	 */
+	private LocalDateTime paddedStartUtc(Appointment appointment) {
+		return appointment.getStartDateTimeUtc()
+				.minusMinutes(appointment.getOffering().getPrepMinutes());
+	}
+
+	/**
+	 * End of an existing appointment's padded footprint in UTC: the session end
+	 * moved later by the offering's wrap-up buffer.
+	 */
+	private LocalDateTime paddedEndUtc(Appointment appointment) {
+		return appointment.getStartDateTimeUtc()
+				.plusMinutes(appointment.getOffering().getDurationMinutes())
+				.plusMinutes(appointment.getOffering().getWrapMinutes());
 	}
 
 	private boolean overlaps(LocalDateTime firstStart,
@@ -255,15 +310,21 @@ public class AppointmentAvailabilityService {
 				.filter(appointment ->
 				isAppointmentOnDate(appointment, term.getDate(), providerZone))
 				.sorted(Comparator.comparing(appointment ->
-				toProviderLocalDateTime(appointment, providerZone).toLocalTime()))
+				toProviderLocalDateTime(appointment, providerZone).toLocalTime()
+						.minusMinutes(appointment.getOffering().getPrepMinutes())))
 				.toList();
 
 		for (Appointment appointment : appointmentsOnTermDate) {
 			LocalDateTime appointmentStartLocal =
 					toProviderLocalDateTime(appointment, providerZone);
-			LocalTime appointmentStart = appointmentStartLocal.toLocalTime();
-			LocalTime appointmentEnd = appointmentStart
-					.plusMinutes(appointment.getOffering().getDurationMinutes());
+			// Carve out the padded footprint: prep before the session and wrap
+			// after it are the provider's own reserved time, so nothing else may
+			// be booked into them.
+			LocalTime appointmentStart = appointmentStartLocal.toLocalTime()
+					.minusMinutes(appointment.getOffering().getPrepMinutes());
+			LocalTime appointmentEnd = appointmentStartLocal.toLocalTime()
+					.plusMinutes(appointment.getOffering().getDurationMinutes())
+					.plusMinutes(appointment.getOffering().getWrapMinutes());
 
 			if (!overlaps(
 					LocalDateTime.of(term.getDate(), term.getStartTime()),

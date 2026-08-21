@@ -90,7 +90,7 @@ class AppointmentLifecycleMvcTest {
                         .session(providerSession)
                         .param("rejectionReason", "Requested time is not suitable"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/appointments"));
+                .andExpect(redirectedUrl("/provider/requests"));
 
         Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
 
@@ -119,7 +119,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/provider/appointments/{appointmentId}/accept", appointment.getId()).with(csrf())
                         .session(providerSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/appointments"));
+                .andExpect(redirectedUrl("/provider/requests"));
 
         Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.SCHEDULED);
@@ -180,7 +180,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client/appointments"));
+                .andExpect(redirectedUrl("/client/requests"));
 
         Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(acknowledged.isAcknowledged()).isTrue();

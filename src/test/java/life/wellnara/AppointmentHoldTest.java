@@ -185,7 +185,8 @@ class AppointmentHoldTest {
     private ServicePackage grantPackage(Fixture f, int sessions) {
         Wallet wallet = getOrCreateWallet(f);
         ServicePackage pkg = servicePackageRepository.save(new ServicePackage(
-                wallet, f.offering, sessions, PRICE, wallet.getCurrency(), f.provider, LocalDateTime.now(), null));
+                wallet, f.offering, sessions, PRICE, wallet.getCurrency(), f.provider, LocalDateTime.now(), null,
+                life.wellnara.model.PackageStatus.ACTIVE));
         walletEntryRepository.save(WalletEntry.session(
                 wallet, WalletEntryType.PACKAGE_GRANT, sessions, pkg, null, f.provider, LocalDateTime.now(), null));
         return pkg;

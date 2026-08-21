@@ -1,11 +1,13 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.ClientPackageView;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.UserProfileService;
+import life.wellnara.service.WalletQueryService;
 
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
@@ -24,6 +26,7 @@ public class ClientPageModelAssembler {
     private final ClientOfferingService clientOfferingService;
     private final AppointmentService appointmentService;
     private final UserProfileService userProfileService;
+    private final WalletQueryService walletQueryService;
 
     /**
      * Creates client page model assembler.
@@ -31,13 +34,16 @@ public class ClientPageModelAssembler {
      * @param clientOfferingService service for client access to provider offerings
      * @param appointmentService    service for appointment queries
      * @param userProfileService    service for user personal data
+     * @param walletQueryService    service for the client's active packages
      */
     public ClientPageModelAssembler(ClientOfferingService clientOfferingService,
                                     AppointmentService appointmentService,
-                                    UserProfileService userProfileService) {
+                                    UserProfileService userProfileService,
+                                    WalletQueryService walletQueryService) {
         this.clientOfferingService = clientOfferingService;
         this.appointmentService = appointmentService;
         this.userProfileService = userProfileService;
+        this.walletQueryService = walletQueryService;
     }
 
     /**
@@ -51,6 +57,8 @@ public class ClientPageModelAssembler {
         model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
         model.addAttribute("providerName",
                 userProfileService.resolveDisplayName(clientOfferingService.getProviderOfClient(client)));
+        model.addAttribute("activePackages", walletQueryService.getActivePackagesOfClient(client));
+        model.addAttribute("pendingPackages", walletQueryService.getPendingPackageRequestsOfClient(client));
         addClientName(model, client);
     }
 
@@ -102,7 +110,20 @@ public class ClientPageModelAssembler {
         model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
         model.addAttribute("bookableDateOptions",
                 appointmentService.getBookableDateOptions(provider, offering));
+        model.addAttribute("packageSessionsLeft", packageSessionsLeftFor(client, offeringId));
         addClientName(model, client);
+    }
+
+    /**
+     * Sessions the client can still book from a package covering this offering; 0
+     * when none. Drives the "this booking uses a package session" note.
+     */
+    private int packageSessionsLeftFor(User client, Long offeringId) {
+        return walletQueryService.getActivePackagesOfClient(client).stream()
+                .filter(pkg -> pkg.getOfferingId().equals(offeringId))
+                .mapToInt(ClientPackageView::getRemaining)
+                .findFirst()
+                .orElse(0);
     }
 
     private void addClientName(Model model, User client) {

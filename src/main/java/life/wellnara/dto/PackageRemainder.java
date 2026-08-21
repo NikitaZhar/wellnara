@@ -10,6 +10,7 @@ package life.wellnara.dto;
  */
 public class PackageRemainder {
 
+    private final Long packageId;
     private final String offeringName;
     private final int available;
     private final int held;
@@ -17,14 +18,20 @@ public class PackageRemainder {
     /**
      * Creates a package remainder row.
      *
+     * @param packageId    identifier of the package (for provider actions such as refund)
      * @param offeringName offering the package sessions apply to
      * @param available    sessions still bookable
      * @param held         sessions reserved against pending appointments
      */
-    public PackageRemainder(String offeringName, int available, int held) {
+    public PackageRemainder(Long packageId, String offeringName, int available, int held) {
+        this.packageId = packageId;
         this.offeringName = offeringName;
         this.available = available;
         this.held = held;
+    }
+
+    public Long getPackageId() {
+        return packageId;
     }
 
     public String getOfferingName() {

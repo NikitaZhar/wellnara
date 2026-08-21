@@ -2,6 +2,8 @@ package life.wellnara.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,12 +16,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * A package of pre-paid sessions granted by a provider to a client's wallet.
+ * A package of pre-paid sessions on a client's wallet: which offering the sessions
+ * are for, how many, and at what price. Immutable except for its {@link #status}
+ * lifecycle ({@code REQUESTED → ACTIVE|REJECTED}).
  *
- * <p>This is the immutable grant record: which offering the sessions are for,
- * how many were granted, and at what price. The <em>remaining</em> session count
- * is not stored here — it is a fold over the package's {@code PACKAGE_*}
- * {@link WalletEntry} rows (grant minus holds and consumptions).
+ * <p>A provider-granted package (offline-paid) is {@code ACTIVE} from the start; a
+ * client-requested one starts {@code REQUESTED} with its price held and becomes
+ * {@code ACTIVE} on approval. The <em>remaining</em> session count is not stored —
+ * it is a fold over the package's {@code PACKAGE_*} {@link WalletEntry} rows.
  */
 @Entity
 @Table(name = "service_packages")
@@ -58,6 +62,11 @@ public class ServicePackage {
     @Column(length = 1000, updatable = false)
     private String comment;
 
+    /** Lifecycle status; only {@link PackageStatus#ACTIVE} packages cover bookings. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private PackageStatus status;
+
     /**
      * Required by JPA.
      */
@@ -65,16 +74,17 @@ public class ServicePackage {
     }
 
     /**
-     * Creates a service package grant.
+     * Creates a service package.
      *
-     * @param wallet wallet the package is granted to
+     * @param wallet wallet the package belongs to
      * @param offering offering the sessions apply to
-     * @param totalSessions number of sessions granted (must be positive)
-     * @param price total price paid, in the wallet currency
+     * @param totalSessions number of sessions (must be positive)
+     * @param price total price, in the wallet currency
      * @param currency ISO 4217 currency code (equals the wallet currency)
-     * @param createdBy provider who granted the package
+     * @param createdBy user who created the package (provider grant, or client request)
      * @param createdAt creation timestamp in UTC (supplied by the time service)
      * @param comment optional free-text note
+     * @param status initial lifecycle status
      */
     public ServicePackage(Wallet wallet,
                           Offering offering,
@@ -83,7 +93,8 @@ public class ServicePackage {
                           String currency,
                           User createdBy,
                           LocalDateTime createdAt,
-                          String comment) {
+                          String comment,
+                          PackageStatus status) {
         this.wallet = wallet;
         this.offering = offering;
         this.totalSessions = totalSessions;
@@ -92,6 +103,33 @@ public class ServicePackage {
         this.createdBy = createdBy;
         this.createdAt = createdAt;
         this.comment = comment;
+        this.status = status;
+    }
+
+    /**
+     * Approves a requested package: {@code REQUESTED → ACTIVE}.
+     *
+     * @throws IllegalStateException if the package is not awaiting approval
+     */
+    public void activate() {
+        requireRequested();
+        this.status = PackageStatus.ACTIVE;
+    }
+
+    /**
+     * Declines a requested package: {@code REQUESTED → REJECTED}.
+     *
+     * @throws IllegalStateException if the package is not awaiting approval
+     */
+    public void reject() {
+        requireRequested();
+        this.status = PackageStatus.REJECTED;
+    }
+
+    private void requireRequested() {
+        if (status != PackageStatus.REQUESTED) {
+            throw new IllegalStateException("Package is not awaiting approval");
+        }
     }
 
     public Long getId() {
@@ -128,5 +166,9 @@ public class ServicePackage {
 
     public String getComment() {
         return comment;
+    }
+
+    public PackageStatus getStatus() {
+        return status;
     }
 }

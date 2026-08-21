@@ -7,7 +7,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 
 /**
@@ -56,8 +59,18 @@ public class CalendarEventFactory {
         Objects.requireNonNull(appointment, "appointment is required");
         Objects.requireNonNull(audience, "audience is required");
 
-        Instant start = appointment.getStartDateTimeUtc().toInstant(ZoneOffset.UTC);
-        Instant end = start.plus(Duration.ofMinutes(appointment.getOffering().getDurationMinutes()));
+        int prepMinutes = appointment.getOffering().getPrepMinutes();
+        int wrapMinutes = appointment.getOffering().getWrapMinutes();
+        boolean forProvider = audience == CalendarAudience.PROVIDER;
+
+        Instant sessionStart = appointment.getStartDateTimeUtc().toInstant(ZoneOffset.UTC);
+        Instant sessionEnd = sessionStart
+                .plus(Duration.ofMinutes(appointment.getOffering().getDurationMinutes()));
+
+        // The provider's calendar block also covers their prep/wrap buffers; the
+        // client's event is the booked session alone.
+        Instant start = forProvider ? sessionStart.minus(Duration.ofMinutes(prepMinutes)) : sessionStart;
+        Instant end = forProvider ? sessionEnd.plus(Duration.ofMinutes(wrapMinutes)) : sessionEnd;
 
         return new CalendarEvent(
                 uid(appointment),
@@ -66,7 +79,7 @@ public class CalendarEventFactory {
                 start,
                 end,
                 appointment.getOffering().getName(),
-                description(audience),
+                description(appointment, audience, forProvider, prepMinutes, wrapMinutes),
                 status(appointment.getStatus()));
     }
 
@@ -80,8 +93,55 @@ public class CalendarEventFactory {
         return version == null ? 0L : version;
     }
 
-    private String description(CalendarAudience audience) {
-        return "Manage this appointment in Wellnara: " + linkBuilder.appointmentsLink(audience);
+    private String description(Appointment appointment,
+                              CalendarAudience audience,
+                              boolean forProvider,
+                              int prepMinutes,
+                              int wrapMinutes) {
+        String manageLine = "Manage this appointment in Wellnara: " + linkBuilder.appointmentsLink(audience);
+
+        if (!forProvider || (prepMinutes == 0 && wrapMinutes == 0)) {
+            return manageLine;
+        }
+
+        return bufferNote(appointment, prepMinutes, wrapMinutes) + "\n\n" + manageLine;
+    }
+
+    /**
+     * Human-readable note placed on the provider's padded calendar block that
+     * spells out the actual session time and the prep/wrap buffers around it.
+     *
+     * @param appointment appointment being mirrored
+     * @param prepMinutes preparation buffer before the session
+     * @param wrapMinutes wrap-up buffer after the session
+     * @return description note in the provider's calendar timezone
+     */
+    private String bufferNote(Appointment appointment, int prepMinutes, int wrapMinutes) {
+        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(appointment.getProvider());
+        DateTimeFormatter timeFormat = DateTimeFormatter.ofPattern("HH:mm");
+
+        LocalDateTime sessionStartLocal = appointment.getStartDateTimeUtc()
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(providerZone)
+                .toLocalDateTime();
+        LocalDateTime sessionEndLocal = sessionStartLocal
+                .plusMinutes(appointment.getOffering().getDurationMinutes());
+
+        StringBuilder note = new StringBuilder()
+                .append("Session ")
+                .append(sessionStartLocal.format(timeFormat))
+                .append("–")
+                .append(sessionEndLocal.format(timeFormat))
+                .append('.');
+
+        if (prepMinutes > 0) {
+            note.append(" Prep ").append(prepMinutes).append(" min before.");
+        }
+        if (wrapMinutes > 0) {
+            note.append(" Wrap-up ").append(wrapMinutes).append(" min after.");
+        }
+
+        return note.toString();
     }
 
     private CalendarEventStatus status(AppointmentStatus appointmentStatus) {

@@ -53,10 +53,16 @@
                         <p class="primary" th:text="${pkg.offeringName}">Offering</p>
                         <p class="secondary">
                             Available <span th:text="${pkg.available}">0</span> ·
-                            Held <span th:text="${pkg.held}">0</span>
+                            Held <span th:text="${pkg.held}">0</span> ·
+                            <span th:text="${pkg.total}">0</span> total
                         </p>
                     </div>
-                    <span class="amount"><span th:text="${pkg.total}">0</span> total</span>
+                    <form th:action="@{/provider/clients/{clientId}/packages/{packageId}/refund(clientId=${clientId},packageId=${pkg.packageId})}"
+                          method="post" class="inline-form" style="gap:var(--s-2); align-items:flex-end; margin:0;"
+                          onsubmit="return confirm('Refund this package? Unused sessions will be voided.');">
+                        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Refund" style="width:110px;" required>
+                        <button type="submit" class="btn btn-secondary btn-sm">Refund</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -79,6 +85,36 @@
             <button type="submit" class="btn btn-primary">Top up</button>
         </form>
     </section>
+
+    <!-- Sell package (only when the provider has packageable services) -->
+    <div th:if="${not #lists.isEmpty(packageableOfferings)}">
+        <div class="section-head">
+            <h2>Sell package</h2>
+        </div>
+        <section class="card">
+            <form th:action="@{/provider/clients/{clientId}/packages(clientId=${clientId})}" method="post" class="inline-form">
+                <div class="field">
+                    <label for="pkgOffering">Service</label>
+                    <select id="pkgOffering" name="offeringId" required>
+                        <option th:each="o : ${packageableOfferings}" th:value="${o.id}" th:text="${o.name}">Service</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="pkgSessions">Sessions</label>
+                    <input id="pkgSessions" type="number" name="sessions" min="1" placeholder="e.g. 10" required>
+                </div>
+                <div class="field">
+                    <label for="pkgPrice">Total price (optional)</label>
+                    <input id="pkgPrice" type="number" name="price" step="0.01" min="0.01" placeholder="package price">
+                </div>
+                <div class="field">
+                    <label for="pkgComment">Comment (optional)</label>
+                    <input id="pkgComment" type="text" name="comment" placeholder="e.g. bank transfer">
+                </div>
+                <button type="submit" class="btn btn-primary">Sell package</button>
+            </form>
+        </section>
+    </div>
 
     <!-- Payment history -->
     <div class="section-head">

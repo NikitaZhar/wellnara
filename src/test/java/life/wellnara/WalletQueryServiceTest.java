@@ -1,5 +1,8 @@
 package life.wellnara;
 
+import java.util.List;
+
+import life.wellnara.dto.ClientPackageView;
 import life.wellnara.dto.ClientWalletView;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
@@ -85,7 +88,7 @@ class WalletQueryServiceTest {
         User client = linkedClient(provider, "client-pkg-view");
         Offering offering = offering(provider);
 
-        walletCommandService.grantPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("500.00"), null);
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("400.00"), null);
 
         ClientWalletView view = walletQueryService.getWalletOfClient(client);
 
@@ -176,8 +179,44 @@ class WalletQueryServiceTest {
         return user;
     }
 
+    @Test
+    @DisplayName("Active packages aggregate multiple grants of the same offering into one row")
+    void activePackagesAggregateByOffering() {
+        User provider = provider("prov-agg", "EUR");
+        User client = linkedClient(provider, "client-agg");
+        Offering offering = offering(provider);
+
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, null, null);
+        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 5, null, null);
+
+        List<ClientPackageView> packages = walletQueryService.getActivePackagesOfClient(client);
+
+        assertThat(packages).hasSize(1);
+        ClientPackageView view = packages.get(0);
+        assertThat(view.getOfferingId()).isEqualTo(offering.getId());
+        assertThat(view.getTotal()).isEqualTo(15);
+        assertThat(view.getRemaining()).isEqualTo(15);
+        assertThat(view.getPending()).isZero();
+        assertThat(view.canBookNext()).isTrue();
+    }
+
+    @Test
+    @DisplayName("A client with no wallet has no active packages")
+    void activePackagesEmptyWithoutWallet() {
+        User client = userRepository.save(newUser("client-no-wallet", UserRole.CLIENT));
+
+        assertThat(walletQueryService.getActivePackagesOfClient(client)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Package labels are empty when no appointments are given")
+    void packageLabelsEmptyForNoAppointments() {
+        assertThat(walletQueryService.packageLabelsForAppointments(List.of())).isEmpty();
+    }
+
     private Offering offering(User provider) {
-        return offeringRepository.save(
-                new Offering(provider, "Consultation", "desc", new BigDecimal("50.00"), 60));
+        Offering offering = new Offering(provider, "Consultation", "desc", new BigDecimal("50.00"), 60);
+        offering.setPackagePricePerSession(new BigDecimal("40.00"));
+        return offeringRepository.save(offering);
     }
 }

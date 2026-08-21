@@ -23,6 +23,45 @@
         </div>
     </div>
 
+    <section th:if="${not #lists.isEmpty(pendingPackages)}" style="margin-bottom:var(--s-6);">
+        <div class="section-head">
+            <h2>Package requests</h2>
+        </div>
+        <div class="list">
+            <div class="item row-between" th:each="req : ${pendingPackages}">
+                <div class="who">
+                    <p class="primary" th:text="${req.offeringName}">Service</p>
+                    <p class="secondary">
+                        <span th:text="${req.sessions}">0</span> sessions ·
+                        <span th:text="${req.price}">0.00</span> <span th:text="${req.currency}">EUR</span> reserved
+                    </p>
+                </div>
+                <span class="badge badge-primary">Awaiting approval</span>
+            </div>
+        </div>
+    </section>
+
+    <section th:if="${not #lists.isEmpty(activePackages)}" style="margin-bottom:var(--s-6);">
+        <div class="section-head">
+            <h2>My packages</h2>
+            <span class="count-pill" th:text="${#lists.size(activePackages)}">0</span>
+        </div>
+        <div class="list">
+            <div class="item row-between" th:each="pkg : ${activePackages}">
+                <div class="who">
+                    <p class="primary" th:text="${pkg.offeringName}">Service</p>
+                    <p class="secondary">
+                        <span th:text="${pkg.remaining}">0</span> of <span th:text="${pkg.total}">0</span> left
+                        <span th:if="${pkg.pending > 0}"> · <span th:text="${pkg.pending}">0</span> booked</span>
+                    </p>
+                </div>
+                <a th:if="${pkg.canBookNext()}" class="btn btn-primary btn-sm"
+                   th:href="@{/client/offerings/{offeringId}(offeringId=${pkg.offeringId})}">Book next</a>
+                <span th:unless="${pkg.canBookNext()}" class="badge badge-primary">All booked</span>
+            </div>
+        </div>
+    </section>
+
     <section>
         <div class="section-head">
             <h2>Available offerings</h2>

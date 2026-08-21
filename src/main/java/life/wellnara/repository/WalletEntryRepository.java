@@ -5,10 +5,12 @@ import life.wellnara.model.ServicePackage;
 import life.wellnara.model.User;
 import life.wellnara.model.Wallet;
 import life.wellnara.model.WalletEntry;
+import life.wellnara.model.WalletEntryType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -40,6 +42,17 @@ public interface WalletEntryRepository extends JpaRepository<WalletEntry, Long> 
      * @return entries ordered by id
      */
     List<WalletEntry> findAllByAppointmentOrderByIdAsc(Appointment appointment);
+
+    /**
+     * Returns the entries of the given type tied to any of the appointments, used
+     * to attach package context (a {@code PACKAGE_HOLD}) to the provider's
+     * appointment requests.
+     *
+     * @param appointmentIds appointment identifiers
+     * @param type           entry type to match
+     * @return matching entries
+     */
+    List<WalletEntry> findAllByAppointment_IdInAndType(Collection<Long> appointmentIds, WalletEntryType type);
 
     /**
      * Loads every ledger entry of every wallet held with the given provider, in a

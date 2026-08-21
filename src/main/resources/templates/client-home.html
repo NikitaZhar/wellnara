@@ -97,6 +97,14 @@
         <div>
             <p class="nc-title">Offerings from <span th:text="${providerName} ?: 'your provider'">your provider</span></p>
             <p class="nc-sub"><span th:text="${availableOfferingCount}">0</span> available</p>
+            <p class="nc-sub" th:if="${#lists.size(bookablePackages) == 1}"
+               style="color:var(--sea-primary-dark); font-weight:500;">
+                <span th:text="${bookablePackages[0].offeringName}">Service</span> —
+                <span th:text="${bookablePackages[0].remaining}">0</span> session(s) left in your package
+            </p>
+            <p class="nc-sub" th:if="${#lists.size(bookablePackages) > 1}"
+               style="color:var(--sea-primary-dark); font-weight:500;"
+               th:text="'You have ' + ${#lists.size(bookablePackages)} + ' active packages'">You have active packages</p>
         </div>
         <span class="nc-go">Browse →</span>
     </a>

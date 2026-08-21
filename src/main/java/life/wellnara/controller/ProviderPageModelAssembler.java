@@ -1,5 +1,6 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.AppointmentView;
 import life.wellnara.dto.ClientRow;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.model.ProviderClientLink;
@@ -99,9 +100,13 @@ public class ProviderPageModelAssembler {
      * @param provider authenticated provider
      */
     public void populateAppointments(Model model, User provider) {
-        model.addAttribute("appointments", appointmentService.getAppointmentViewsOfProvider(provider));
+        List<AppointmentView> requests = appointmentService.getAppointmentViewsOfProvider(provider);
+        model.addAttribute("appointments", requests);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
+                requests.stream().map(AppointmentView::getId).toList()));
         model.addAttribute("confirmedAppointments",
                 appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
+        model.addAttribute("packageRequests", walletQueryService.getPendingPackageRequestsForProvider(provider));
         addProviderName(model, provider);
     }
 

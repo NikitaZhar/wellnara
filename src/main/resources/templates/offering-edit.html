@@ -49,6 +49,34 @@
                 <input id="durationMinutes" type="number" name="durationMinutes" min="1" th:value="${offering.durationMinutes}" required>
             </div>
 
+            <div class="buffer-row">
+                <div class="field">
+                    <label for="prepMinutes">Prep before (min)</label>
+                    <input id="prepMinutes" type="number" name="prepMinutes" min="0" th:value="${offering.prepMinutes}">
+                </div>
+                <div class="field">
+                    <label for="wrapMinutes">Wrap-up after (min)</label>
+                    <input id="wrapMinutes" type="number" name="wrapMinutes" min="0" th:value="${offering.wrapMinutes}">
+                </div>
+            </div>
+            <p class="hint" style="margin:0 0 var(--s-4);">Only you see this — kept free on your calendar around the session.</p>
+
+            <div class="buffer-row">
+                <div class="field">
+                    <label for="packagePricePerSession">Package price / session</label>
+                    <input id="packagePricePerSession" type="number" name="packagePricePerSession" min="0" step="0.01" placeholder="—" th:value="${offering.packagePricePerSession}">
+                </div>
+                <div class="field">
+                    <label for="minPackageSessions">Min sessions</label>
+                    <input id="minPackageSessions" type="number" name="minPackageSessions" min="1" placeholder="—" th:value="${offering.minPackageSessions}">
+                </div>
+                <div class="field">
+                    <label for="maxPackageSessions">Max sessions</label>
+                    <input id="maxPackageSessions" type="number" name="maxPackageSessions" min="1" placeholder="—" th:value="${offering.maxPackageSessions}">
+                </div>
+            </div>
+            <p class="hint" style="margin:0 0 var(--s-4);">Optional — set a per-session price to sell this service as a package. Leave blank to disable.</p>
+
             <div style="display:flex; gap:12px; margin-top:8px;">
                 <button type="submit" class="btn btn-primary">Update offering</button>
                 <a class="btn btn-secondary" th:href="@{/provider/offerings}">Cancel</a>

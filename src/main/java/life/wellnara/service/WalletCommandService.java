@@ -4,7 +4,9 @@ import life.wellnara.model.Offering;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.model.PackageStatus;
 import life.wellnara.model.Wallet;
+import life.wellnara.service.wallet.WalletLedgerCalculator;
 import life.wellnara.model.WalletEntry;
 import life.wellnara.model.WalletEntryType;
 import life.wellnara.repository.OfferingRepository;
@@ -46,6 +48,7 @@ public class WalletCommandService {
     private final OfferingRepository offeringRepository;
     private final ProviderClientLinkRepository providerClientLinkRepository;
     private final ApplicationTimeService applicationTimeService;
+    private final WalletLedgerCalculator ledgerCalculator;
 
     /**
      * Creates wallet command service.
@@ -64,7 +67,8 @@ public class WalletCommandService {
                                 UserRepository userRepository,
                                 OfferingRepository offeringRepository,
                                 ProviderClientLinkRepository providerClientLinkRepository,
-                                ApplicationTimeService applicationTimeService) {
+                                ApplicationTimeService applicationTimeService,
+                                WalletLedgerCalculator ledgerCalculator) {
         this.walletRepository = walletRepository;
         this.walletEntryRepository = walletEntryRepository;
         this.servicePackageRepository = servicePackageRepository;
@@ -72,6 +76,7 @@ public class WalletCommandService {
         this.offeringRepository = offeringRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.applicationTimeService = applicationTimeService;
+        this.ledgerCalculator = ledgerCalculator;
     }
 
     /**
@@ -95,37 +100,177 @@ public class WalletCommandService {
     }
 
     /**
-     * Grants a package of pre-paid sessions to a client's wallet.
+     * Sells a package of pre-paid sessions of a packageable offering to a client's
+     * wallet. Payment is handled outside the system (as for a top-up), so no money
+     * ledger entry is written — only the session grant.
      *
-     * @param provider      provider granting the package
+     * @param provider      provider selling the package
      * @param clientId      client who receives the package
-     * @param offeringId    offering the sessions apply to (must belong to the provider)
-     * @param totalSessions number of sessions granted (positive)
-     * @param price         total price paid, in the provider currency (positive)
+     * @param offeringId    offering the sessions apply to (must belong to the provider and be packageable)
+     * @param sessions      number of sessions (within the offering's min/max)
+     * @param priceOverride total price, or {@code null} to use the offering's package price
      * @param comment       optional free-text note
-     * @throws IllegalArgumentException if any actor/offering check or amount/count check fails
+     * @throws IllegalArgumentException if any actor/offering check fails, the offering
+     *                                  is not packageable, the count is out of range, or
+     *                                  the price is not positive
      */
     @Transactional
-    public void grantPackage(User provider,
-                             Long clientId,
-                             Long offeringId,
-                             int totalSessions,
-                             BigDecimal price,
-                             String comment) {
+    public void sellPackage(User provider,
+                            Long clientId,
+                            Long offeringId,
+                            int sessions,
+                            BigDecimal priceOverride,
+                            String comment) {
         User managedProvider = requireProvider(provider);
         User client = requireLinkedClient(managedProvider, clientId);
         Offering offering = requireProviderOffering(managedProvider, offeringId);
-        requirePositiveSessions(totalSessions);
-        BigDecimal money = requirePositiveMoney(price);
+        requirePackageable(offering);
+        requireSessionsInRange(offering, sessions);
+        BigDecimal price = requirePositiveMoney(
+                priceOverride != null ? priceOverride : offering.packagePriceFor(sessions));
 
         Wallet wallet = getOrCreateWallet(managedProvider, client);
         ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
-                wallet, offering, totalSessions, money, wallet.getCurrency(), managedProvider, now(), comment));
+                wallet, offering, sessions, price, wallet.getCurrency(), managedProvider, now(), comment, PackageStatus.ACTIVE));
         walletEntryRepository.save(WalletEntry.session(
-                wallet, WalletEntryType.PACKAGE_GRANT, totalSessions, servicePackage, null, managedProvider, now(), comment));
+                wallet, WalletEntryType.PACKAGE_GRANT, sessions, servicePackage, null, managedProvider, now(), comment));
+    }
+
+    /**
+     * Refunds a package to the client: credits the wallet with the given amount and
+     * voids the package's still-unused sessions so they cannot be booked after the
+     * refund. Sessions already booked (held) are left to run their course.
+     *
+     * <p>This is the only path that returns money against a package, and it is
+     * provider-initiated — a client can never turn package sessions back into money.
+     *
+     * @param provider     provider issuing the refund
+     * @param packageId    package being refunded (must belong to the provider)
+     * @param refundAmount amount credited to the client's wallet (positive)
+     * @param comment      optional free-text note
+     * @throws IllegalArgumentException if the package is not found, does not belong
+     *                                  to the provider, or the amount is not positive
+     */
+    @Transactional
+    public void refundPackage(User provider, Long packageId, BigDecimal refundAmount, String comment) {
+        User managedProvider = requireProvider(provider);
+        ServicePackage servicePackage = servicePackageRepository.findById(packageId)
+                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+        Wallet wallet = servicePackage.getWallet();
+        requireProviderOwnsWallet(managedProvider, wallet);
+        if (servicePackage.getStatus() != PackageStatus.ACTIVE) {
+            throw new IllegalArgumentException("Only an active package can be refunded");
+        }
+        BigDecimal money = requirePositiveMoney(refundAmount);
+
+        int unusedSessions = ledgerCalculator
+                .foldSessions(walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage))
+                .getAvailable();
+
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.ADJUSTMENT, money, null, managedProvider, now(), comment));
+        if (unusedSessions > 0) {
+            walletEntryRepository.save(WalletEntry.session(
+                    wallet, WalletEntryType.PACKAGE_REVOKE, unusedSessions, servicePackage, null, managedProvider, now(), comment));
+        }
+    }
+
+    /**
+     * A client requests a package of a packageable offering. The price is the
+     * offering's package price for the chosen count (fixed by the provider). The
+     * price is <em>reserved</em> on the client's wallet (a money HOLD) and the
+     * package awaits provider approval — no sessions are granted yet. Mirrors an
+     * appointment request.
+     *
+     * @param client     client requesting the package
+     * @param offeringId packageable offering the sessions apply to
+     * @param sessions   number of sessions (within the offering's min/max)
+     * @param comment    optional free-text note
+     * @throws IllegalArgumentException if the client has no provider or wallet, the
+     *                                  offering is not packageable, the count is out
+     *                                  of range, or the wallet lacks the funds
+     */
+    @Transactional
+    public void requestPackage(User client, Long offeringId, int sessions, String comment) {
+        User provider = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Client is not linked to a provider"))
+                .getProvider();
+        Offering offering = requireProviderOffering(provider, offeringId);
+        requirePackageable(offering);
+        requireSessionsInRange(offering, sessions);
+        BigDecimal price = offering.packagePriceFor(sessions);
+
+        Wallet wallet = walletRepository.findByClient(client)
+                .orElseThrow(() -> new IllegalArgumentException("Insufficient funds for this package"));
+        BigDecimal available = ledgerCalculator
+                .foldMoney(wallet.getCurrency(), walletEntryRepository.findAllByWalletOrderByIdAsc(wallet))
+                .getAvailable();
+        if (available.compareTo(price) < 0) {
+            throw new IllegalArgumentException("Insufficient funds for this package");
+        }
+
+        ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
+                wallet, offering, sessions, price, wallet.getCurrency(), client, now(), comment, PackageStatus.REQUESTED));
+        walletEntryRepository.save(WalletEntry.packageMoney(
+                wallet, WalletEntryType.HOLD, price, servicePackage, client, now(), comment));
+    }
+
+    /**
+     * Provider approves a requested package: the held price is settled (spent) and
+     * the sessions are granted. Mirrors accepting an appointment request.
+     *
+     * @param provider  provider approving the request (must own the wallet)
+     * @param packageId requested package identifier
+     * @throws IllegalArgumentException if the package is not found or not the provider's
+     * @throws IllegalStateException    if the package is not awaiting approval
+     */
+    @Transactional
+    public void acceptPackageRequest(User provider, Long packageId) {
+        User managedProvider = requireProvider(provider);
+        ServicePackage servicePackage = requireOwnedPackage(managedProvider, packageId);
+
+        servicePackage.activate();
+        Wallet wallet = servicePackage.getWallet();
+        walletEntryRepository.save(WalletEntry.packageMoney(
+                wallet, WalletEntryType.SETTLE, servicePackage.getPrice(), servicePackage, managedProvider, now(), null));
+        walletEntryRepository.save(WalletEntry.session(
+                wallet, WalletEntryType.PACKAGE_GRANT, servicePackage.getTotalSessions(), servicePackage, null, managedProvider, now(), null));
+    }
+
+    /**
+     * Provider declines a requested package: the held price is released back to the
+     * client. Mirrors rejecting an appointment request.
+     *
+     * @param provider  provider declining the request (must own the wallet)
+     * @param packageId requested package identifier
+     * @throws IllegalArgumentException if the package is not found or not the provider's
+     * @throws IllegalStateException    if the package is not awaiting approval
+     */
+    @Transactional
+    public void rejectPackageRequest(User provider, Long packageId) {
+        User managedProvider = requireProvider(provider);
+        ServicePackage servicePackage = requireOwnedPackage(managedProvider, packageId);
+
+        servicePackage.reject();
+        Wallet wallet = servicePackage.getWallet();
+        walletEntryRepository.save(WalletEntry.packageMoney(
+                wallet, WalletEntryType.RELEASE, servicePackage.getPrice(), servicePackage, managedProvider, now(), null));
     }
 
     // ===== Private helpers =====
+
+    private ServicePackage requireOwnedPackage(User provider, Long packageId) {
+        ServicePackage servicePackage = servicePackageRepository.findById(packageId)
+                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+        requireProviderOwnsWallet(provider, servicePackage.getWallet());
+        return servicePackage;
+    }
+
+    private void requireProviderOwnsWallet(User provider, Wallet wallet) {
+        if (!wallet.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Wallet does not belong to provider");
+        }
+    }
 
     private Wallet getOrCreateWallet(User provider, User client) {
         return walletRepository.findByClient(client)
@@ -181,9 +326,18 @@ public class WalletCommandService {
         return amount;
     }
 
-    private void requirePositiveSessions(int totalSessions) {
-        if (totalSessions <= 0) {
-            throw new IllegalArgumentException("Package must grant at least one session");
+    private void requirePackageable(Offering offering) {
+        if (!offering.isPackageable()) {
+            throw new IllegalArgumentException("This service is not sold as a package");
+        }
+    }
+
+    private void requireSessionsInRange(Offering offering, int sessions) {
+        int min = offering.effectiveMinPackageSessions();
+        int max = offering.effectiveMaxPackageSessions();
+        if (sessions < min || sessions > max) {
+            throw new IllegalArgumentException(
+                    "Package sessions must be between " + min + " and " + max);
         }
     }
 
