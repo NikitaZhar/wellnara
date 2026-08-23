@@ -5,18 +5,17 @@ import java.math.BigDecimal;
 /**
  * Optional package (abonnement) pricing for an offering, as entered on the
  * offering form. All fields are nullable: a {@code null} per-session price means
- * the service is not sold as a package; {@code null} min/max fall back to the
- * offering's defaults.
+ * the service is sold only at the standard single-session price; a {@code null}
+ * maximum falls back to the offering's default cap.
  *
  * @param pricePerSession discounted per-session price inside a package, or {@code null}
- * @param minSessions     minimum sessions a package may contain, or {@code null}
  * @param maxSessions     maximum sessions a package may contain, or {@code null}
  */
-public record PackagePricing(BigDecimal pricePerSession, Integer minSessions, Integer maxSessions) {
+public record PackagePricing(BigDecimal pricePerSession, Integer maxSessions) {
 
-    /** Empty pricing — the service is not sold as a package. */
+    /** Empty pricing — the service is not sold with a package discount. */
     public static PackagePricing none() {
-        return new PackagePricing(null, null, null);
+        return new PackagePricing(null, null);
     }
 
     /**

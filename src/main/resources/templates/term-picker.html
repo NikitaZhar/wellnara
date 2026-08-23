@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Reusable slot picker: a Date select and a Time select whose options follow the
+  chosen date. It renders only the two fields (plus their script); the enclosing
+  form supplies the action, any hidden inputs and the submit button. Used both to
+  pick the first session when buying a package and to book each next session of an
+  existing package. One picker per page (fixed field ids).
+
+  Parameter: bookableDateOptions — the provider's bookable dates, each carrying a
+  comma-separated `timesValue` of the times free on that date.
+-->
+<th:block th:fragment="picker(bookableDateOptions)">
+    <div class="field-grid">
+        <div class="field">
+            <label for="selectedDate">Date</label>
+            <select id="selectedDate" name="selectedDate" required>
+                <option th:each="option : ${bookableDateOptions}"
+                        th:value="${option.date}" th:text="${option.date}"
+                        th:data-times="${option.timesValue}"></option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="selectedTime">Time</label>
+            <select id="selectedTime" name="selectedTime" required></select>
+        </div>
+    </div>
+
+    <script>
+        function generateTimeOptions() {
+            const dateSelect = document.getElementById('selectedDate');
+            const timeSelect = document.getElementById('selectedTime');
+
+            if (!dateSelect || !timeSelect || dateSelect.options.length === 0) {
+                return;
+            }
+
+            const selectedOption = dateSelect.options[dateSelect.selectedIndex];
+            const timesValue = selectedOption.dataset.times;
+
+            timeSelect.innerHTML = '';
+
+            if (!timesValue) {
+                return;
+            }
+
+            timesValue.split(',')
+                .map(time => time.trim())
+                .filter(time => time.length > 0)
+                .forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.text = time;
+                    timeSelect.appendChild(option);
+                });
+        }
+
+        window.addEventListener('DOMContentLoaded', generateTimeOptions);
+        document.getElementById('selectedDate')
+            ?.addEventListener('change', generateTimeOptions);
+    </script>
+</th:block>
+
+</body>
+</html>

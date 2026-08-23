@@ -166,7 +166,7 @@ public class OfferingService {
      *
      * <p>Rules when a package price is present: the price is positive and does not
      * exceed the single-session price (a package is never dearer per session), and
-     * the session bounds satisfy {@code 1 <= min <= max <= }{@link Offering#PACKAGE_SESSIONS_CAP}.
+     * the maximum session count satisfies {@code 1 <= max <= }{@link Offering#PACKAGE_SESSIONS_CAP}.
      *
      * @param offering       offering to configure
      * @param packagePricing pricing entered on the form
@@ -175,7 +175,6 @@ public class OfferingService {
     private void applyPackagePricing(Offering offering, PackagePricing packagePricing) {
         if (!packagePricing.isPackageable()) {
             offering.setPackagePricePerSession(null);
-            offering.setMinPackageSessions(null);
             offering.setMaxPackageSessions(null);
             return;
         }
@@ -188,20 +187,15 @@ public class OfferingService {
             throw new IllegalArgumentException("Package price per session cannot exceed the single-session price");
         }
 
-        Integer min = packagePricing.minSessions();
         Integer max = packagePricing.maxSessions();
-        if (min != null && min < 1) {
-            throw new IllegalArgumentException("Minimum package sessions must be at least 1");
+        if (max != null && max < 1) {
+            throw new IllegalArgumentException("Maximum package sessions must be at least 1");
         }
         if (max != null && max > Offering.PACKAGE_SESSIONS_CAP) {
             throw new IllegalArgumentException("Maximum package sessions cannot exceed " + Offering.PACKAGE_SESSIONS_CAP);
         }
-        if (min != null && max != null && min > max) {
-            throw new IllegalArgumentException("Minimum package sessions cannot exceed the maximum");
-        }
 
         offering.setPackagePricePerSession(packagePrice);
-        offering.setMinPackageSessions(min);
         offering.setMaxPackageSessions(max);
     }
 

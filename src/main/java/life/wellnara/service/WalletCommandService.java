@@ -131,7 +131,7 @@ public class WalletCommandService {
 
         Wallet wallet = getOrCreateWallet(managedProvider, client);
         ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
-                wallet, offering, sessions, price, wallet.getCurrency(), managedProvider, now(), comment, PackageStatus.ACTIVE));
+                wallet, offering, sessions, price, wallet.getCurrency(), managedProvider, now(), comment, PackageStatus.ACTIVE, null));
         walletEntryRepository.save(WalletEntry.session(
                 wallet, WalletEntryType.PACKAGE_GRANT, sessions, servicePackage, null, managedProvider, now(), comment));
     }
@@ -176,29 +176,35 @@ public class WalletCommandService {
     }
 
     /**
-     * A client requests a package of a packageable offering. The price is the
-     * offering's package price for the chosen count (fixed by the provider). The
-     * price is <em>reserved</em> on the client's wallet (a money HOLD) and the
-     * package awaits provider approval — no sessions are granted yet. Mirrors an
-     * appointment request.
+     * A client requests a package of {@code sessions} sessions of an offering and
+     * picks the start of its first session. The price is the offering's total for
+     * the chosen count ({@link Offering#totalPriceFor}): a single session at the
+     * standard price, more at the package price when the offering has one. The
+     * whole price is <em>reserved</em> on the client's wallet (a money HOLD) and
+     * the package awaits provider approval — no sessions are granted yet. The
+     * first session is scheduled from {@code firstSessionStartUtc} on approval.
      *
-     * @param client     client requesting the package
-     * @param offeringId packageable offering the sessions apply to
-     * @param sessions   number of sessions (within the offering's min/max)
-     * @param comment    optional free-text note
+     * @param client               client requesting the package
+     * @param offeringId           offering the sessions apply to
+     * @param sessions             number of sessions (1 up to the offering's maximum)
+     * @param firstSessionStartUtc chosen start of the first session, in UTC
+     * @param comment              optional free-text note
+     * @return the saved requested package
      * @throws IllegalArgumentException if the client has no provider or wallet, the
-     *                                  offering is not packageable, the count is out
-     *                                  of range, or the wallet lacks the funds
+     *                                  count is out of range, or the wallet lacks the funds
      */
     @Transactional
-    public void requestPackage(User client, Long offeringId, int sessions, String comment) {
+    public ServicePackage requestPackage(User client,
+                                         Long offeringId,
+                                         int sessions,
+                                         LocalDateTime firstSessionStartUtc,
+                                         String comment) {
         User provider = providerClientLinkRepository.findByClient(client)
                 .orElseThrow(() -> new IllegalArgumentException("Client is not linked to a provider"))
                 .getProvider();
         Offering offering = requireProviderOffering(provider, offeringId);
-        requirePackageable(offering);
         requireSessionsInRange(offering, sessions);
-        BigDecimal price = offering.packagePriceFor(sessions);
+        BigDecimal price = offering.totalPriceFor(sessions);
 
         Wallet wallet = walletRepository.findByClient(client)
                 .orElseThrow(() -> new IllegalArgumentException("Insufficient funds for this package"));
@@ -210,9 +216,11 @@ public class WalletCommandService {
         }
 
         ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
-                wallet, offering, sessions, price, wallet.getCurrency(), client, now(), comment, PackageStatus.REQUESTED));
+                wallet, offering, sessions, price, wallet.getCurrency(), client, now(), comment,
+                PackageStatus.REQUESTED, firstSessionStartUtc));
         walletEntryRepository.save(WalletEntry.packageMoney(
                 wallet, WalletEntryType.HOLD, price, servicePackage, client, now(), comment));
+        return servicePackage;
     }
 
     /**
@@ -333,11 +341,10 @@ public class WalletCommandService {
     }
 
     private void requireSessionsInRange(Offering offering, int sessions) {
-        int min = offering.effectiveMinPackageSessions();
         int max = offering.effectiveMaxPackageSessions();
-        if (sessions < min || sessions > max) {
+        if (sessions < 1 || sessions > max) {
             throw new IllegalArgumentException(
-                    "Package sessions must be between " + min + " and " + max);
+                    "Number of sessions must be between 1 and " + max);
         }
     }
 

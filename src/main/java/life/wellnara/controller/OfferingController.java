@@ -76,7 +76,6 @@ public class OfferingController {
 	                             @RequestParam(defaultValue = "0") int prepMinutes,
 	                             @RequestParam(defaultValue = "15") int wrapMinutes,
 	                             @RequestParam(required = false) BigDecimal packagePricePerSession,
-	                             @RequestParam(required = false) Integer minPackageSessions,
 	                             @RequestParam(required = false) Integer maxPackageSessions,
 	                             @CurrentUser User currentUser,
 	                             Model model) {
@@ -89,7 +88,7 @@ public class OfferingController {
 	                durationMinutes,
 	                prepMinutes,
 	                wrapMinutes,
-	                new PackagePricing(packagePricePerSession, minPackageSessions, maxPackageSessions)
+	                new PackagePricing(packagePricePerSession, maxPackageSessions)
 	        );
 	        return OFFERINGS_REDIRECT;
 	    } catch (IllegalArgumentException exception) {
@@ -137,7 +136,6 @@ public class OfferingController {
 			@RequestParam(defaultValue = "0") int prepMinutes,
 			@RequestParam(defaultValue = "0") int wrapMinutes,
 			@RequestParam(required = false) BigDecimal packagePricePerSession,
-			@RequestParam(required = false) Integer minPackageSessions,
 			@RequestParam(required = false) Integer maxPackageSessions,
 			@CurrentUser User currentUser,
 			Model model) {
@@ -151,7 +149,7 @@ public class OfferingController {
 					durationMinutes,
 					prepMinutes,
 					wrapMinutes,
-					new PackagePricing(packagePricePerSession, minPackageSessions, maxPackageSessions)
+					new PackagePricing(packagePricePerSession, maxPackageSessions)
 					);
 			return OFFERINGS_REDIRECT;
 		} catch (IllegalArgumentException exception) {

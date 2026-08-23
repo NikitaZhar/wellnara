@@ -120,8 +120,23 @@ public class WalletQueryService {
     }
 
     private PackageRequestView toRequestView(ServicePackage pkg, String clientName) {
-        return new PackageRequestView(pkg.getId(), clientName, pkg.getOffering().getName(),
-                pkg.getTotalSessions(), pkg.getPrice(), pkg.getCurrency());
+        return new PackageRequestView(pkg.getId(), pkg.getOffering().getId(), clientName,
+                pkg.getOffering().getName(), pkg.getTotalSessions(), pkg.getPrice(), pkg.getCurrency(),
+                firstSessionStartInProviderZone(pkg));
+    }
+
+    /**
+     * Converts the package's requested first-session start from UTC to the
+     * provider's timezone for display; {@code null} when no first session was
+     * chosen (a provider-granted package).
+     */
+    private LocalDateTime firstSessionStartInProviderZone(ServicePackage pkg) {
+        LocalDateTime startUtc = pkg.getFirstSessionStartUtc();
+        if (startUtc == null) {
+            return null;
+        }
+        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(pkg.getWallet().getProvider());
+        return startUtc.atZone(ZoneOffset.UTC).withZoneSameInstant(providerZone).toLocalDateTime();
     }
 
     /**

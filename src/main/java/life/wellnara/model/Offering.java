@@ -67,10 +67,6 @@ public class Offering {
     @Column(name = "package_price_per_session", precision = 10, scale = 2)
     private BigDecimal packagePricePerSession;
 
-    /** Minimum sessions a package of this service may contain; {@code null} → 1. */
-    @Column(name = "min_package_sessions")
-    private Integer minPackageSessions;
-
     /** Maximum sessions a package of this service may contain; {@code null} → {@value #PACKAGE_SESSIONS_CAP}. */
     @Column(name = "max_package_sessions")
     private Integer maxPackageSessions;
@@ -202,14 +198,6 @@ public class Offering {
         this.packagePricePerSession = packagePricePerSession;
     }
 
-    public Integer getMinPackageSessions() {
-        return minPackageSessions;
-    }
-
-    public void setMinPackageSessions(Integer minPackageSessions) {
-        this.minPackageSessions = minPackageSessions;
-    }
-
     public Integer getMaxPackageSessions() {
         return maxPackageSessions;
     }
@@ -225,15 +213,6 @@ public class Offering {
      */
     public boolean isPackageable() {
         return packagePricePerSession != null;
-    }
-
-    /**
-     * Smallest allowed session count for a package of this service.
-     *
-     * @return the configured minimum, or 1 when unset
-     */
-    public int effectiveMinPackageSessions() {
-        return minPackageSessions != null ? minPackageSessions : 1;
     }
 
     /**
@@ -257,6 +236,24 @@ public class Offering {
             throw new IllegalStateException("Offering is not sold as a package");
         }
         return packagePricePerSession.multiply(BigDecimal.valueOf(sessions));
+    }
+
+    /**
+     * Total price a client pays when buying {@code sessions} sessions of this
+     * service in one request. A single session is charged at the standard
+     * {@link #pricePerSession} (no discount); two or more use the discounted
+     * {@link #packagePricePerSession} when the service has one, otherwise the
+     * standard price. This is the single source of truth for the client-side
+     * package purchase total.
+     *
+     * @param sessions number of sessions being bought (at least 1)
+     * @return the total price in the offering currency
+     */
+    public BigDecimal totalPriceFor(int sessions) {
+        BigDecimal perSession = (sessions >= 2 && packagePricePerSession != null)
+                ? packagePricePerSession
+                : pricePerSession;
+        return perSession.multiply(BigDecimal.valueOf(sessions));
     }
 
     public boolean isActive() {

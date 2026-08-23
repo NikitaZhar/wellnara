@@ -52,6 +52,15 @@ public class ServicePackage {
     @Column(nullable = false, updatable = false, length = 3)
     private String currency;
 
+    /**
+     * Start (UTC) the client picked for the first session of this package when
+     * requesting it; {@code null} for a provider-granted package, whose sessions
+     * are all booked later. Read once, on approval, to schedule the first
+     * appointment.
+     */
+    @Column(name = "first_session_start_utc", updatable = false)
+    private LocalDateTime firstSessionStartUtc;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -85,6 +94,7 @@ public class ServicePackage {
      * @param createdAt creation timestamp in UTC (supplied by the time service)
      * @param comment optional free-text note
      * @param status initial lifecycle status
+     * @param firstSessionStartUtc start (UTC) the client picked for the first session, or {@code null}
      */
     public ServicePackage(Wallet wallet,
                           Offering offering,
@@ -94,7 +104,8 @@ public class ServicePackage {
                           User createdBy,
                           LocalDateTime createdAt,
                           String comment,
-                          PackageStatus status) {
+                          PackageStatus status,
+                          LocalDateTime firstSessionStartUtc) {
         this.wallet = wallet;
         this.offering = offering;
         this.totalSessions = totalSessions;
@@ -104,6 +115,7 @@ public class ServicePackage {
         this.createdAt = createdAt;
         this.comment = comment;
         this.status = status;
+        this.firstSessionStartUtc = firstSessionStartUtc;
     }
 
     /**
@@ -154,6 +166,10 @@ public class ServicePackage {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public LocalDateTime getFirstSessionStartUtc() {
+        return firstSessionStartUtc;
     }
 
     public LocalDateTime getCreatedAt() {

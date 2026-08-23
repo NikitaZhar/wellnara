@@ -45,6 +45,10 @@
         <p th:text="${appointmentActionError}" style="margin:0;"></p>
     </div>
 
+    <div th:if="${packageError}" class="alert alert-danger" role="alert">
+        <p th:text="${packageError}" style="margin:0;"></p>
+    </div>
+
     <section th:if="${not #lists.isEmpty(packageRequests)}" style="margin-bottom:var(--s-6);">
         <div class="section-head">
             <h2>Package requests</h2>
@@ -62,6 +66,10 @@
                 <p class="appt-meta">
                     <span th:text="${req.sessions}">0</span> sessions ·
                     <span th:text="${req.price}">0.00</span> <span th:text="${req.currency}">EUR</span>
+                </p>
+                <p class="appt-meta" th:if="${req.firstSessionStart != null}">
+                    First session: <span th:text="${req.firstSessionStart.toLocalDate()}">2026-08-25</span>
+                    at <span th:text="${req.firstSessionStart.toLocalTime()}">09:00</span>
                 </p>
                 <div class="appt-actions">
                     <form th:action="@{/provider/packages/{id}/accept(id=${req.packageId})}" method="post"

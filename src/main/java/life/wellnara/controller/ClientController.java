@@ -2,7 +2,7 @@ package life.wellnara.controller;
 
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
-import life.wellnara.service.WalletCommandService;
+import life.wellnara.service.ClientPackageBookingService;
 import life.wellnara.service.AuthService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
@@ -51,7 +51,7 @@ public class ClientController {
     private final ClientPageModelAssembler clientPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final AppointmentCalendarLinkService appointmentCalendarLinkService;
-    private final WalletCommandService walletCommandService;
+    private final ClientPackageBookingService clientPackageBookingService;
 
     /**
      * Creates client controller.
@@ -64,7 +64,7 @@ public class ClientController {
      * @param clientPageModelAssembler       assembler for client page model
      * @param calendarFeedModelAssembler     assembler for the calendar feed section
      * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
-     * @param walletCommandService           service for client wallet purchases (packages)
+     * @param clientPackageBookingService    service coordinating package purchase with first booking
      */
     public ClientController(ClientOfferingService clientOfferingService,
                             AppointmentService appointmentService,
@@ -74,7 +74,7 @@ public class ClientController {
                             ClientPageModelAssembler clientPageModelAssembler,
                             CalendarFeedModelAssembler calendarFeedModelAssembler,
                             AppointmentCalendarLinkService appointmentCalendarLinkService,
-                            WalletCommandService walletCommandService) {
+                            ClientPackageBookingService clientPackageBookingService) {
         this.clientOfferingService = clientOfferingService;
         this.appointmentService = appointmentService;
         this.providerCalendarService = providerCalendarService;
@@ -83,7 +83,7 @@ public class ClientController {
         this.clientPageModelAssembler = clientPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.appointmentCalendarLinkService = appointmentCalendarLinkService;
-        this.walletCommandService = walletCommandService;
+        this.clientPackageBookingService = clientPackageBookingService;
     }
 
     /**
@@ -223,24 +223,41 @@ public class ClientController {
     }
 
     /**
-     * Requests a package of the offering: the price is reserved on the client's
-     * wallet and the request is sent to the provider for approval. On a domain
-     * rejection the offering page is re-rendered with the error.
+     * Requests a package of the offering together with the first session's time:
+     * the whole price is reserved on the client's wallet and the request is sent to
+     * the provider for approval. The selected date and time are interpreted in the
+     * provider's timezone and stored in UTC. On a domain rejection the offering page
+     * is re-rendered in place with the error.
      *
-     * @param offeringId  packageable offering to request sessions of
-     * @param sessions    number of sessions in the package
-     * @param currentUser authenticated client
-     * @param model       MVC model
-     * @return redirect to the offerings page on success, or the offering page with an error
+     * @param offeringId   offering to buy sessions of
+     * @param sessions     number of sessions in the package (1 up to the offering's maximum)
+     * @param selectedDate first-session date in the provider timezone
+     * @param selectedTime first-session time in the provider timezone
+     * @param currentUser  authenticated client
+     * @param model        MVC model
+     * @return redirect to the requests page on success, or the offering page with an error
      */
     @PostMapping("/client/packages")
     public String requestPackage(@RequestParam Long offeringId,
                                  @RequestParam int sessions,
+                                 @RequestParam LocalDate selectedDate,
+                                 @RequestParam LocalTime selectedTime,
                                  @CurrentUser User currentUser,
                                  Model model) {
         try {
-            walletCommandService.requestPackage(currentUser, offeringId, sessions, null);
-            return "redirect:/client/offerings";
+            User provider = clientOfferingService.getProviderOfClient(currentUser);
+            ZoneId providerZone = providerCalendarService.getProviderTimezone(provider);
+
+            LocalDateTime startDateTimeUtc = LocalDateTime
+                    .of(selectedDate, selectedTime)
+                    .atZone(providerZone)
+                    .withZoneSameInstant(ZoneOffset.UTC)
+                    .toLocalDateTime();
+
+            clientPackageBookingService.requestPackage(
+                    currentUser, offeringId, sessions, selectedDate, selectedTime, startDateTimeUtc);
+
+            return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
             model.addAttribute("appointmentError", exception.getMessage());

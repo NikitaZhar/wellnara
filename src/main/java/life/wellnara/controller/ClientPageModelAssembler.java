@@ -1,6 +1,7 @@
 package life.wellnara.controller;
 
 import life.wellnara.dto.ClientPackageView;
+import life.wellnara.dto.ClientWalletView;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
@@ -105,13 +106,27 @@ public class ClientPageModelAssembler {
     public void populateOffering(Model model, User client, Long offeringId) {
         Offering offering = clientOfferingService.getOfferingOfClientProvider(client, offeringId);
         User provider = offering.getProvider();
+        ClientWalletView wallet = walletQueryService.getWalletOfClient(client);
 
         model.addAttribute("offering", offering);
         model.addAttribute("calendarTerms", appointmentService.getFreeCalendarTerms(provider));
         model.addAttribute("bookableDateOptions",
                 appointmentService.getBookableDateOptions(provider, offering));
         model.addAttribute("packageSessionsLeft", packageSessionsLeftFor(client, offeringId));
+        model.addAttribute("walletAvailable", wallet.getAvailable());
+        model.addAttribute("walletCurrency", wallet.getCurrency());
+        model.addAttribute("pendingPackageForOffering", hasPendingPackageFor(client, offeringId));
         addClientName(model, client);
+    }
+
+    /**
+     * Whether the client already has a package request for this offering awaiting
+     * approval. Drives hiding the purchase form so a second request cannot stack a
+     * duplicate hold on top of the pending one.
+     */
+    private boolean hasPendingPackageFor(User client, Long offeringId) {
+        return walletQueryService.getPendingPackageRequestsOfClient(client).stream()
+                .anyMatch(request -> request.getOfferingId().equals(offeringId));
     }
 
     /**

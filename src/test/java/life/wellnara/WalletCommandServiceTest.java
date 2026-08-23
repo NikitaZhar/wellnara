@@ -184,16 +184,16 @@ class WalletCommandServiceTest {
     }
 
     @Test
-    @DisplayName("Package session count must be within the offering's min/max")
+    @DisplayName("Package session count must be within 1 and the offering's maximum")
     void sellPackageRejectsSessionsOutOfRange() {
         User provider = provider("prov-range", "EUR");
         User client = linkedClient(provider, "client-range");
         Offering offering = packageableOffering(provider);
 
         assertThatThrownBy(() ->
-                walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 2, null, null))
+                walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 11, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("between 3 and 10");
+                .hasMessageContaining("between 1 and 10");
     }
 
     @Test
@@ -204,7 +204,7 @@ class WalletCommandServiceTest {
         Offering offering = packageableOffering(provider);
         walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
 
-        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null, null);
 
         ClientWalletView view = walletQueryService.getWalletOfClient(client);
         assertThat(view.getAvailable()).isEqualByComparingTo("100.00");
@@ -220,7 +220,7 @@ class WalletCommandServiceTest {
         User client = linkedClient(provider, "client-acc");
         Offering offering = packageableOffering(provider);
         walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
-        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null, null);
         Long packageId = onlyPackageId(client);
 
         walletCommandService.acceptPackageRequest(provider, packageId);
@@ -240,7 +240,7 @@ class WalletCommandServiceTest {
         User client = linkedClient(provider, "client-rej");
         Offering offering = packageableOffering(provider);
         walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
-        walletCommandService.requestPackage(client, offering.getId(), 10, null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null, null);
         Long packageId = onlyPackageId(client);
 
         walletCommandService.rejectPackageRequest(provider, packageId);
@@ -257,7 +257,7 @@ class WalletCommandServiceTest {
         Offering offering = packageableOffering(provider);
         walletCommandService.topUp(provider, client.getId(), new BigDecimal("100.00"), null);
 
-        assertThatThrownBy(() -> walletCommandService.requestPackage(client, offering.getId(), 10, null))
+        assertThatThrownBy(() -> walletCommandService.requestPackage(client, offering.getId(), 10, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Insufficient funds");
     }
@@ -337,7 +337,6 @@ class WalletCommandServiceTest {
     private Offering packageableOffering(User provider) {
         Offering offering = new Offering(provider, "Massage", "desc", new BigDecimal("50.00"), 60);
         offering.setPackagePricePerSession(new BigDecimal("40.00"));
-        offering.setMinPackageSessions(3);
         offering.setMaxPackageSessions(10);
         return offeringRepository.save(offering);
     }

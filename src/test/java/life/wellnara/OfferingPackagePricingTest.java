@@ -38,12 +38,11 @@ class OfferingPackagePricingTest {
 
         offeringService.createOffering(provider, "Massage", "desc",
                 new BigDecimal("50.00"), 60, 0, 0,
-                new PackagePricing(new BigDecimal("40.00"), 3, 10));
+                new PackagePricing(new BigDecimal("40.00"), 10));
 
         Offering offering = onlyOffering(provider);
         assertThat(offering.isPackageable()).isTrue();
         assertThat(offering.getPackagePricePerSession()).isEqualByComparingTo("40.00");
-        assertThat(offering.effectiveMinPackageSessions()).isEqualTo(3);
         assertThat(offering.effectiveMaxPackageSessions()).isEqualTo(10);
     }
 
@@ -65,21 +64,9 @@ class OfferingPackagePricingTest {
 
         assertThatThrownBy(() -> offeringService.createOffering(provider, "Massage", "desc",
                 new BigDecimal("50.00"), 60, 0, 0,
-                new PackagePricing(new BigDecimal("60.00"), null, null)))
+                new PackagePricing(new BigDecimal("60.00"), null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("exceed the single-session price");
-    }
-
-    @Test
-    @DisplayName("Minimum package sessions cannot exceed the maximum")
-    void minCannotExceedMax() {
-        User provider = provider();
-
-        assertThatThrownBy(() -> offeringService.createOffering(provider, "Massage", "desc",
-                new BigDecimal("50.00"), 60, 0, 0,
-                new PackagePricing(new BigDecimal("40.00"), 8, 4)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("cannot exceed the maximum");
     }
 
     @Test
@@ -89,7 +76,7 @@ class OfferingPackagePricingTest {
 
         assertThatThrownBy(() -> offeringService.createOffering(provider, "Massage", "desc",
                 new BigDecimal("50.00"), 60, 0, 0,
-                new PackagePricing(new BigDecimal("40.00"), 1, Offering.PACKAGE_SESSIONS_CAP + 1)))
+                new PackagePricing(new BigDecimal("40.00"), Offering.PACKAGE_SESSIONS_CAP + 1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cannot exceed");
     }

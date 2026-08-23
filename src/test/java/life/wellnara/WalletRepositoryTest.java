@@ -110,7 +110,7 @@ class WalletRepositoryTest {
 
         ServicePackage pkg = servicePackageRepository.save(
                 new ServicePackage(wallet, offering, 10, new BigDecimal("500.00"), "USD", provider, AT, "intro",
-                        life.wellnara.model.PackageStatus.ACTIVE));
+                        life.wellnara.model.PackageStatus.ACTIVE, null));
         walletEntryRepository.save(
                 WalletEntry.session(wallet, WalletEntryType.PACKAGE_GRANT, 10, pkg, null, provider, AT, null));
 

@@ -20,17 +20,8 @@
     <div class="page-head">
         <div>
             <h1 class="page-title" th:text="${offering.name}">Offering</h1>
-            <p class="page-sub">
-                <span th:text="${offering.pricePerSession}">0.00</span>
-                <span th:text="${offering.currency}">EUR</span> ·
-                <span th:text="${offering.durationMinutes}">0</span> min
-            </p>
+            <p class="page-sub"><span th:text="${offering.durationMinutes}">0</span> min</p>
         </div>
-    </div>
-
-    <div th:if="${packageSessionsLeft > 0}" class="alert" role="status"
-         style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
-        <p style="margin:0;">You have a package: <span th:text="${packageSessionsLeft}">0</span> left — this booking will use a session.</p>
     </div>
 
     <div th:if="${appointmentError}" class="alert alert-danger" role="alert">
@@ -44,27 +35,106 @@
         </div>
     </section>
 
-    <section th:if="${offering.isPackageable()}">
-        <div class="section-head">
-            <h2>Package</h2>
+    <!-- ============================================================= -->
+    <!-- Book-next mode: the client already holds sessions of this      -->
+    <!-- offering, so they only pick a time for the next one.           -->
+    <!-- ============================================================= -->
+    <th:block th:if="${packageSessionsLeft > 0}">
+        <div class="alert" role="status"
+             style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
+            <p style="margin:0;">You have <span th:text="${packageSessionsLeft}">0</span> session(s) left in this package — booking uses one of them.</p>
         </div>
-        <div class="card">
-            <form th:action="@{/client/packages}" method="post" class="inline-form"
-                  onsubmit="return confirm('Request this package? The price is reserved on your wallet until your provider approves it.');">
+
+        <section>
+            <div class="section-head">
+                <h2>Book your next session</h2>
+            </div>
+
+            <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
+                <p>No bookable times for this service yet.</p>
+            </div>
+
+            <div class="card" th:if="${not #lists.isEmpty(bookableDateOptions)}">
+                <form th:action="@{/client/appointments}" method="post">
+                    <input type="hidden" name="providerId" th:value="${offering.provider.id}">
+                    <input type="hidden" name="offeringId" th:value="${offering.id}">
+
+                    <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
+
+                    <div class="form-actions" style="justify-content:flex-start;">
+                        <button type="submit" class="btn btn-primary">Send request</button>
+                        <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </th:block>
+
+    <!-- ============================================================= -->
+    <!-- Purchase mode: choose how many sessions, then pick the time of -->
+    <!-- the first one and send the request to the provider.            -->
+    <!-- ============================================================= -->
+    <th:block th:if="${packageSessionsLeft == 0}">
+
+        <div th:if="${pendingPackageForOffering}" class="alert" role="status"
+             style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
+            <p style="margin:0;">You have a request for this service awaiting your provider's approval.</p>
+        </div>
+
+        <section th:unless="${pendingPackageForOffering}">
+            <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
+                <p>No bookable times for this service yet.</p>
+            </div>
+
+            <form th:if="${not #lists.isEmpty(bookableDateOptions)}"
+                  th:action="@{/client/packages}" method="post" id="purchaseForm">
                 <input type="hidden" name="offeringId" th:value="${offering.id}">
-                <div class="field">
-                    <label for="pkgSessions">Number of sessions</label>
-                    <select id="pkgSessions" name="sessions" required>
-                        <option th:each="n : ${#numbers.sequence(offering.effectiveMinPackageSessions(), offering.effectiveMaxPackageSessions())}"
-                                th:value="${n}"
-                                th:text="${n} + ' sessions — ' + ${offering.packagePriceFor(n)} + ' ' + ${offering.currency}">3 sessions — 36.00 EUR</option>
-                    </select>
+
+                <div class="section-head">
+                    <h2>Choose number of sessions</h2>
                 </div>
-                <button type="submit" class="btn btn-primary">Request package</button>
+                <div class="card"
+                     id="pricing"
+                     th:attr="data-single=${offering.pricePerSession},
+                              data-package=${offering.packagePricePerSession},
+                              data-available=${walletAvailable},
+                              data-currency=${walletCurrency},
+                              data-max=${offering.effectiveMaxPackageSessions()}">
+                    <div class="field" style="max-width:220px;">
+                        <label for="sessions">Number of sessions</label>
+                        <input id="sessions" name="sessions" type="number"
+                               min="1" th:max="${offering.effectiveMaxPackageSessions()}"
+                               value="1" required>
+                    </div>
+
+                    <p id="priceLine" style="margin:var(--s-3) 0 0; font-weight:500;"
+                       th:text="${offering.totalPriceFor(1)} + ' ' + ${walletCurrency}">0.00 EUR</p>
+                    <p id="fundsLine" class="alert alert-danger" role="alert" hidden
+                       style="margin:var(--s-3) 0 0;">Not enough funds in your wallet for this selection.</p>
+
+                    <div class="form-actions" style="justify-content:flex-start; margin-top:var(--s-4);">
+                        <button type="button" id="toStep2" class="btn btn-primary">Continue to pick a time</button>
+                    </div>
+                </div>
+
+                <div id="step2" hidden>
+                    <div class="section-head">
+                        <h2>Pick a time for the first session</h2>
+                    </div>
+                    <div class="card">
+                        <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
+
+                        <p class="hint" style="margin:var(--s-3) 0 var(--s-4);">The price is reserved on your wallet and sent to your provider for approval. Once approved, the first session is booked and you can book the rest one at a time.</p>
+
+                        <div class="form-actions" style="justify-content:flex-start;">
+                            <button type="submit" id="sendRequest" class="btn btn-primary" disabled>Send request</button>
+                            <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
+                        </div>
+                    </div>
+                </div>
             </form>
-            <p class="hint" style="margin:var(--s-2) 0 0;">The price is reserved on your wallet and sent to your provider for approval. Once approved, book the sessions one at a time.</p>
-        </div>
-    </section>
+        </section>
+    </th:block>
 
     <section>
         <div class="section-head">
@@ -95,78 +165,72 @@
         </table>
     </section>
 
-    <section>
-        <div class="section-head">
-            <h2>Book a slot</h2>
-        </div>
-
-        <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
-            <p>No bookable times for this offering yet.</p>
-        </div>
-
-        <div class="card" th:if="${not #lists.isEmpty(bookableDateOptions)}">
-            <form th:action="@{/client/appointments}" method="post">
-                <input type="hidden" name="providerId" th:value="${offering.provider.id}">
-                <input type="hidden" name="offeringId" th:value="${offering.id}">
-
-                <div class="field-grid">
-                    <div class="field">
-                        <label for="selectedDate">Date</label>
-                        <select id="selectedDate" name="selectedDate" required>
-                            <option th:each="option : ${bookableDateOptions}"
-                                    th:value="${option.date}" th:text="${option.date}"
-                                    th:data-times="${option.timesValue}"></option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="selectedTime">Time</label>
-                        <select id="selectedTime" name="selectedTime" required></select>
-                    </div>
-                </div>
-
-                <div class="form-actions" style="justify-content:flex-start;">
-                    <button type="submit" class="btn btn-primary">Send request</button>
-                    <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
-                </div>
-            </form>
-        </div>
-    </section>
-
 </main>
 
 <script>
-    function generateTimeOptions() {
-        const dateSelect = document.getElementById('selectedDate');
-        const timeSelect = document.getElementById('selectedTime');
-
-        if (!dateSelect || !timeSelect || dateSelect.options.length === 0) {
-            return;
+    (function () {
+        const pricing = document.getElementById('pricing');
+        if (!pricing) {
+            return; // book-next mode or no bookable slots: nothing to price.
         }
 
-        const selectedOption = dateSelect.options[dateSelect.selectedIndex];
-        const timesValue = selectedOption.dataset.times;
+        const single = Math.round(parseFloat(pricing.dataset.single) * 100);
+        const pkg = pricing.dataset.package ? Math.round(parseFloat(pricing.dataset.package) * 100) : null;
+        const available = Math.round(parseFloat(pricing.dataset.available) * 100);
+        const currency = pricing.dataset.currency;
+        const max = parseInt(pricing.dataset.max, 10);
 
-        timeSelect.innerHTML = '';
+        const sessions = document.getElementById('sessions');
+        const priceLine = document.getElementById('priceLine');
+        const fundsLine = document.getElementById('fundsLine');
+        const toStep2 = document.getElementById('toStep2');
+        const step2 = document.getElementById('step2');
+        const sendRequest = document.getElementById('sendRequest');
 
-        if (!timesValue) {
-            return;
+        function totalCents(n) {
+            const perSession = (n >= 2 && pkg !== null) ? pkg : single;
+            return perSession * n;
         }
 
-        timesValue.split(',')
-        .map(time => time.trim())
-        .filter(time => time.length > 0)
-        .forEach(time => {
-            const option = document.createElement('option');
-            option.value = time;
-            option.text = time;
-            timeSelect.appendChild(option);
+        function format(cents) {
+            return (cents / 100).toFixed(2) + ' ' + currency;
+        }
+
+        function refresh() {
+            let n = parseInt(sessions.value, 10);
+            if (isNaN(n) || n < 1) {
+                n = 1;
+            }
+            if (n > max) {
+                n = max;
+                sessions.value = max;
+            }
+
+            const total = totalCents(n);
+            const affordable = total <= available;
+
+            priceLine.textContent = 'Total: ' + format(total);
+            priceLine.hidden = !affordable;
+            fundsLine.hidden = affordable;
+            toStep2.disabled = !affordable;
+        }
+
+        sessions.addEventListener('input', refresh);
+        sessions.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+            }
         });
-    }
 
-    window.addEventListener('DOMContentLoaded', generateTimeOptions);
+        toStep2.addEventListener('click', function () {
+            step2.hidden = false;
+            sendRequest.disabled = false;
+            toStep2.disabled = true;
+            step2.scrollIntoView({ behavior: 'smooth' });
+        });
 
-    document.getElementById('selectedDate')
-        ?.addEventListener('change', generateTimeOptions);
+        refresh();
+    })();
 </script>
 
 </body>
