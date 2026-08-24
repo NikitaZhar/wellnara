@@ -3,7 +3,6 @@ package life.wellnara.controller;
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientPackageBookingService;
-import life.wellnara.service.AuthService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.ProviderCalendarService;
 import life.wellnara.service.UserProfileService;
@@ -47,7 +46,6 @@ public class ClientController {
     private final AppointmentService appointmentService;
     private final ProviderCalendarService providerCalendarService;
     private final UserProfileService userProfileService;
-    private final AuthService authService;
     private final ClientPageModelAssembler clientPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final AppointmentCalendarLinkService appointmentCalendarLinkService;
@@ -60,7 +58,6 @@ public class ClientController {
      * @param appointmentService             service for appointment requests
      * @param providerCalendarService        service for provider calendar operations
      * @param userProfileService             service for user personal data
-     * @param authService                    service for password verification and change
      * @param clientPageModelAssembler       assembler for client page model
      * @param calendarFeedModelAssembler     assembler for the calendar feed section
      * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
@@ -70,7 +67,6 @@ public class ClientController {
                             AppointmentService appointmentService,
                             ProviderCalendarService providerCalendarService,
                             UserProfileService userProfileService,
-                            AuthService authService,
                             ClientPageModelAssembler clientPageModelAssembler,
                             CalendarFeedModelAssembler calendarFeedModelAssembler,
                             AppointmentCalendarLinkService appointmentCalendarLinkService,
@@ -79,7 +75,6 @@ public class ClientController {
         this.appointmentService = appointmentService;
         this.providerCalendarService = providerCalendarService;
         this.userProfileService = userProfileService;
-        this.authService = authService;
         this.clientPageModelAssembler = clientPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.appointmentCalendarLinkService = appointmentCalendarLinkService;
@@ -312,23 +307,9 @@ public class ClientController {
                                       @CurrentUser User currentUser,
                                       Model model) {
         try {
-            boolean passwordChangeRequested =
-                    hasText(currentPassword) || hasText(newPassword) || hasText(confirmNewPassword);
-
-            if (passwordChangeRequested) {
-                if (!authService.verifyPassword(currentUser, currentPassword)) {
-                    throw new IllegalArgumentException("Current password is incorrect");
-                }
-                if (!newPassword.equals(confirmNewPassword)) {
-                    throw new IllegalArgumentException("New passwords do not match");
-                }
-            }
-
-            userProfileService.updateProfile(currentUser, firstName, lastName, phone);
-
-            if (passwordChangeRequested) {
-                authService.changePassword(currentUser, newPassword);
-            }
+            userProfileService.updateProfileAndPassword(currentUser,
+                    firstName, lastName, phone,
+                    currentPassword, newPassword, confirmNewPassword);
 
             return "redirect:/client/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
@@ -404,9 +385,5 @@ public class ClientController {
         Long offeringId = appointmentService.rescheduleScheduledAppointmentByClient(currentUser, appointmentId);
 
         return "redirect:/client/offerings/" + offeringId;
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 }

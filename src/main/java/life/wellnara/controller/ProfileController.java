@@ -1,7 +1,6 @@
 package life.wellnara.controller;
 
 import life.wellnara.model.User;
-import life.wellnara.service.AuthService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.stereotype.Controller;
@@ -23,7 +22,6 @@ public class ProfileController {
     private static final String PROFILE_VIEW = "provider-profile";
 
     private final UserProfileService userProfileService;
-    private final AuthService authService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
 
@@ -31,18 +29,15 @@ public class ProfileController {
      * Creates profile controller.
      *
      * @param userProfileService         service for user personal data
-     * @param authService                service for password verification and change
      * @param providerPageModelAssembler assembler for the provider profile model, used
      *                                   to re-render the profile page when the update fails
      * @param calendarFeedModelAssembler assembler for the calendar feed section, used
      *                                   to re-render the profile page when the update fails
      */
     public ProfileController(UserProfileService userProfileService,
-                             AuthService authService,
                              ProviderPageModelAssembler providerPageModelAssembler,
                              CalendarFeedModelAssembler calendarFeedModelAssembler) {
         this.userProfileService = userProfileService;
-        this.authService = authService;
         this.providerPageModelAssembler = providerPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
     }
@@ -75,23 +70,9 @@ public class ProfileController {
                                         @CurrentUser User currentUser,
                                         Model model) {
         try {
-            boolean passwordChangeRequested =
-                    hasText(currentPassword) || hasText(newPassword) || hasText(confirmNewPassword);
-
-            if (passwordChangeRequested) {
-                if (!authService.verifyPassword(currentUser, currentPassword)) {
-                    throw new IllegalArgumentException("Current password is incorrect");
-                }
-                if (!newPassword.equals(confirmNewPassword)) {
-                    throw new IllegalArgumentException("New passwords do not match");
-                }
-            }
-
-            userProfileService.updateProfile(currentUser, firstName, lastName, phone);
-
-            if (passwordChangeRequested) {
-                authService.changePassword(currentUser, newPassword);
-            }
+            userProfileService.updateProfileAndPassword(currentUser,
+                    firstName, lastName, phone,
+                    currentPassword, newPassword, confirmNewPassword);
 
             return "redirect:/provider/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
@@ -103,9 +84,5 @@ public class ProfileController {
             model.addAttribute("profileError", exception.getMessage());
             return PROFILE_VIEW;
         }
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 }

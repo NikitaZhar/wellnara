@@ -31,9 +31,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Read-only projections over the wallet ledger.
@@ -186,43 +188,70 @@ public class WalletQueryService {
         if (appointmentIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, String> labels = new HashMap<>();
+        // Group the requested appointments by the package that covers them, so each
+        // package's ledger is read once instead of once per appointment.
+        Map<Long, ServicePackage> packagesById = new LinkedHashMap<>();
+        Map<Long, List<Long>> requestedByPackageId = new LinkedHashMap<>();
         for (WalletEntry hold : walletEntryRepository
                 .findAllByAppointment_IdInAndType(appointmentIds, WalletEntryType.PACKAGE_HOLD)) {
-            var servicePackage = hold.getServicePackage();
+            ServicePackage servicePackage = hold.getServicePackage();
+            packagesById.putIfAbsent(servicePackage.getId(), servicePackage);
+            requestedByPackageId
+                    .computeIfAbsent(servicePackage.getId(), id -> new ArrayList<>())
+                    .add(hold.getAppointment().getId());
+        }
+
+        Map<Long, String> labels = new HashMap<>();
+        for (Map.Entry<Long, List<Long>> entry : requestedByPackageId.entrySet()) {
+            ServicePackage servicePackage = packagesById.get(entry.getKey());
             int total = servicePackage.getTotalSessions();
             if (total <= 1) {
                 continue; // single-session package: no session number to show
             }
-            Long appointmentId = hold.getAppointment().getId();
-            labels.put(appointmentId,
-                    "Session " + ordinalWithinPackage(servicePackage, appointmentId) + " of " + total);
+            Map<Long, Integer> sessionNumberByAppointment = sessionNumbersOf(servicePackage);
+            for (Long appointmentId : entry.getValue()) {
+                Integer number = sessionNumberByAppointment.get(appointmentId);
+                if (number != null) {
+                    labels.put(appointmentId, "Session " + number + " of " + total);
+                }
+            }
         }
         return labels;
     }
 
     /**
-     * The 1-based position of an appointment among the sessions booked from a
-     * package, in booking order. Each booked session leaves exactly one
-     * {@code PACKAGE_HOLD} entry, so ordering those entries by id gives the order in
-     * which the sessions were reserved.
+     * Numbers the still-live sessions of a package in booking order. A session is
+     * live when its {@code PACKAGE_HOLD} has no matching {@code PACKAGE_RELEASE}:
+     * the append-only ledger keeps the original hold after a cancellation, so a
+     * cancelled-and-rebooked session must not inflate the count (nor exceed the
+     * total). Cancelled sessions get no number.
      *
-     * @param servicePackage the package the appointment belongs to
-     * @param appointmentId  the appointment whose session number is wanted
-     * @return the session number (1-based)
+     * @param servicePackage the package whose sessions are numbered
+     * @return map of appointment id to its 1-based number among the live sessions
      */
-    private int ordinalWithinPackage(ServicePackage servicePackage, Long appointmentId) {
-        int ordinal = 0;
-        for (WalletEntry entry : walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage)) {
-            if (entry.getType() != WalletEntryType.PACKAGE_HOLD) {
-                continue;
-            }
-            ordinal++;
-            if (entry.getAppointment() != null && appointmentId.equals(entry.getAppointment().getId())) {
-                break;
+    private Map<Long, Integer> sessionNumbersOf(ServicePackage servicePackage) {
+        List<WalletEntry> entries = walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage);
+
+        Set<Long> releasedAppointmentIds = new HashSet<>();
+        for (WalletEntry entry : entries) {
+            if (entry.getType() == WalletEntryType.PACKAGE_RELEASE && entry.getAppointment() != null) {
+                releasedAppointmentIds.add(entry.getAppointment().getId());
             }
         }
-        return ordinal;
+
+        Map<Long, Integer> sessionNumberByAppointment = new HashMap<>();
+        int number = 0;
+        for (WalletEntry entry : entries) {
+            if (entry.getType() != WalletEntryType.PACKAGE_HOLD || entry.getAppointment() == null) {
+                continue;
+            }
+            Long appointmentId = entry.getAppointment().getId();
+            if (releasedAppointmentIds.contains(appointmentId)) {
+                continue; // cancelled session: it no longer occupies a slot
+            }
+            sessionNumberByAppointment.put(appointmentId, ++number);
+        }
+        return sessionNumberByAppointment;
     }
 
     private List<ClientPackageView> buildActivePackages(Wallet wallet) {

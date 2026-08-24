@@ -5,6 +5,7 @@ import life.wellnara.model.UserProfile;
 import life.wellnara.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.Collection;
 import java.util.Map;
@@ -20,14 +21,66 @@ import java.util.stream.Collectors;
 public class UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
+    private final AuthService authService;
 
     /**
      * Creates user profile service.
      *
      * @param userProfileRepository repository for user profiles
+     * @param authService           service for password verification and change
      */
-    public UserProfileService(UserProfileRepository userProfileRepository) {
+    public UserProfileService(UserProfileRepository userProfileRepository, AuthService authService) {
         this.userProfileRepository = userProfileRepository;
+        this.authService = authService;
+    }
+
+    /**
+     * Updates the profile and, when any password field is filled in, changes the
+     * password — as a single transaction, so a failing password change never leaves
+     * the name/phone update committed on its own (and vice versa).
+     *
+     * <p>All validation (current password correct, new password present and
+     * confirmed) runs <em>before</em> anything is written.
+     *
+     * @param user               profile owner
+     * @param firstName          new first name
+     * @param lastName           new last name
+     * @param phone              new phone number, optional (may be null or blank)
+     * @param currentPassword    current password, required only when changing the password
+     * @param newPassword        new password, required only when changing the password
+     * @param confirmNewPassword repeated new password, required only when changing the password
+     * @throws IllegalArgumentException if a required field is blank, the current
+     *                                  password is wrong, or the new passwords differ
+     */
+    @Transactional
+    public void updateProfileAndPassword(User user,
+                                         String firstName,
+                                         String lastName,
+                                         String phone,
+                                         String currentPassword,
+                                         String newPassword,
+                                         String confirmNewPassword) {
+        boolean passwordChangeRequested = StringUtils.hasText(currentPassword)
+                || StringUtils.hasText(newPassword)
+                || StringUtils.hasText(confirmNewPassword);
+
+        if (passwordChangeRequested) {
+            if (!authService.verifyPassword(user, currentPassword)) {
+                throw new IllegalArgumentException("Current password is incorrect");
+            }
+            if (!StringUtils.hasText(newPassword)) {
+                throw new IllegalArgumentException("New password is required");
+            }
+            if (!newPassword.equals(confirmNewPassword)) {
+                throw new IllegalArgumentException("New passwords do not match");
+            }
+        }
+
+        updateProfile(user, firstName, lastName, phone);
+
+        if (passwordChangeRequested) {
+            authService.changePassword(user, newPassword);
+        }
     }
 
     /**
