@@ -190,14 +190,39 @@ public class WalletQueryService {
         for (WalletEntry hold : walletEntryRepository
                 .findAllByAppointment_IdInAndType(appointmentIds, WalletEntryType.PACKAGE_HOLD)) {
             var servicePackage = hold.getServicePackage();
-            int remaining = ledgerCalculator
-                    .foldSessions(walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage))
-                    .getAvailable();
-            String label = "Package: " + servicePackage.getOffering().getName()
-                    + " · " + remaining + " of " + servicePackage.getTotalSessions() + " left";
-            labels.put(hold.getAppointment().getId(), label);
+            int total = servicePackage.getTotalSessions();
+            if (total <= 1) {
+                continue; // single-session package: no session number to show
+            }
+            Long appointmentId = hold.getAppointment().getId();
+            labels.put(appointmentId,
+                    "Session " + ordinalWithinPackage(servicePackage, appointmentId) + " of " + total);
         }
         return labels;
+    }
+
+    /**
+     * The 1-based position of an appointment among the sessions booked from a
+     * package, in booking order. Each booked session leaves exactly one
+     * {@code PACKAGE_HOLD} entry, so ordering those entries by id gives the order in
+     * which the sessions were reserved.
+     *
+     * @param servicePackage the package the appointment belongs to
+     * @param appointmentId  the appointment whose session number is wanted
+     * @return the session number (1-based)
+     */
+    private int ordinalWithinPackage(ServicePackage servicePackage, Long appointmentId) {
+        int ordinal = 0;
+        for (WalletEntry entry : walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage)) {
+            if (entry.getType() != WalletEntryType.PACKAGE_HOLD) {
+                continue;
+            }
+            ordinal++;
+            if (entry.getAppointment() != null && appointmentId.equals(entry.getAppointment().getId())) {
+                break;
+            }
+        }
+        return ordinal;
     }
 
     private List<ClientPackageView> buildActivePackages(Wallet wallet) {

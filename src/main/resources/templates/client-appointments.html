@@ -65,6 +65,8 @@
                     <span th:text="${appointment.localDate}">Date</span>,
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
+                <p class="appt-meta" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                   th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                 <!-- Row 1: add this session to an external calendar. -->
                 <div class="appt-actions" th:with="addLinks=${calendarAddLinks != null ? calendarAddLinks.get(appointment.id) : null}">
                     <span class="cal-lead">Add to calendar:</span>

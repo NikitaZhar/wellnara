@@ -2,6 +2,7 @@ package life.wellnara.controller;
 
 import life.wellnara.dto.AppointmentView;
 import life.wellnara.dto.ClientPackageView;
+import life.wellnara.dto.PackageRequestView;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
@@ -70,6 +71,11 @@ public class HomePageModelAssembler {
                 .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
                 .toList();
 
+        // Package purchase requests await the provider's approval too, so the Home
+        // "Requests" panel counts and lists them alongside single-session requests.
+        List<PackageRequestView> packageRequests =
+                walletQueryService.getPendingPackageRequestsForProvider(provider);
+
         // Mirror the internal /provider/appointments page: confirmed sessions plus
         // undismissed client-cancellation notices, each shown with its own badge —
         // so the Home panel and the detail page hold the same rows and count.
@@ -84,8 +90,11 @@ public class HomePageModelAssembler {
 
         model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
         model.addAttribute("pendingRequests", pendingRequests);
-        model.addAttribute("pendingRequestCount", pendingRequests.size());
+        model.addAttribute("packageRequests", packageRequests);
+        model.addAttribute("pendingRequestCount", pendingRequests.size() + packageRequests.size());
         model.addAttribute("upcomingAppointments", upcomingAppointments);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
+                upcomingAppointments.stream().map(AppointmentView::getId).toList()));
         model.addAttribute("activeOfferingCount", activeOfferingCount);
         model.addAttribute("clientCount", clientCount);
     }
@@ -103,6 +112,9 @@ public class HomePageModelAssembler {
         List<AppointmentView> requestUpdates =
                 appointmentService.getAppointmentViewsOfClient(client);
 
+        List<PackageRequestView> pendingPackages =
+                walletQueryService.getPendingPackageRequestsOfClient(client);
+
         List<AppointmentView> upcomingAppointments =
                 appointmentService.getConfirmedAppointmentViewsOfClient(client);
 
@@ -111,8 +123,11 @@ public class HomePageModelAssembler {
         model.addAttribute("clientName", userProfileService.resolveDisplayName(client));
         model.addAttribute("providerName", providerNameOf(client));
         model.addAttribute("requestUpdates", requestUpdates);
-        model.addAttribute("requestUpdateCount", requestUpdates.size());
+        model.addAttribute("pendingPackages", pendingPackages);
+        model.addAttribute("requestUpdateCount", requestUpdates.size() + pendingPackages.size());
         model.addAttribute("upcomingAppointments", upcomingAppointments);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
+                upcomingAppointments.stream().map(AppointmentView::getId).toList()));
         model.addAttribute("availableOfferings", availableOfferings);
         model.addAttribute("availableOfferingCount", availableOfferings.size());
         model.addAttribute("wallet", walletQueryService.getWalletOfClient(client));

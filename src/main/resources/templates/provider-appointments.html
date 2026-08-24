@@ -88,6 +88,8 @@
                     <span th:text="${appointment.localDate}">Date</span>,
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
+                <p class="appt-meta" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                   th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                 <p class="appt-meta"
                    th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
                     Appointment cancelled by client.

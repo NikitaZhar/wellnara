@@ -20,6 +20,7 @@ import org.springframework.ui.Model;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.Map;
 
 /**
@@ -101,11 +102,17 @@ public class ProviderPageModelAssembler {
      */
     public void populateAppointments(Model model, User provider) {
         List<AppointmentView> requests = appointmentService.getAppointmentViewsOfProvider(provider);
+        List<AppointmentView> confirmed = appointmentService.getConfirmedAppointmentViewsOfProvider(provider);
+
+        // Package session numbers are shown on both the requests and the upcoming
+        // appointments, so label every appointment id rendered on either page.
+        List<Long> labelledIds = Stream.concat(requests.stream(), confirmed.stream())
+                .map(AppointmentView::getId)
+                .toList();
+
         model.addAttribute("appointments", requests);
-        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
-                requests.stream().map(AppointmentView::getId).toList()));
-        model.addAttribute("confirmedAppointments",
-                appointmentService.getConfirmedAppointmentViewsOfProvider(provider));
+        model.addAttribute("confirmedAppointments", confirmed);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(labelledIds));
         model.addAttribute("packageRequests", walletQueryService.getPendingPackageRequestsForProvider(provider));
         addProviderName(model, provider);
     }

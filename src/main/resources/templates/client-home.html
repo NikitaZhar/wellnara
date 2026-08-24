@@ -52,6 +52,8 @@
                             <span th:text="${appointment.localDate}">Date</span>,
                             <span th:text="${appointment.localTime}">Time</span>
                         </p>
+                        <p class="secondary" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                           th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                     </div>
                 </div>
             </div>
@@ -66,11 +68,21 @@
                 <span class="count-pill" th:text="${requestUpdateCount}">0</span>
             </div>
             <div class="panel-body">
-                <div th:if="${#lists.isEmpty(requestUpdates)}" class="empty">
+                <div th:if="${#lists.isEmpty(requestUpdates) and #lists.isEmpty(pendingPackages)}" class="empty">
                     <p>No requests or updates.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
-                <div class="list-scroll" th:if="${not #lists.isEmpty(requestUpdates)}">
+                <div class="list-scroll" th:if="${not #lists.isEmpty(requestUpdates) or not #lists.isEmpty(pendingPackages)}">
+                    <div class="item" th:each="pkg : ${pendingPackages}">
+                        <div class="item-head">
+                            <p class="primary" th:text="${pkg.offeringName}">Offering</p>
+                            <span class="badge badge-primary">Awaiting approval</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${pkg.sessions}">0</span> sessions ·
+                            <span th:text="${pkg.price}">0.00</span> <span th:text="${pkg.currency}">EUR</span> reserved
+                        </p>
+                    </div>
                     <div class="item" th:each="req : ${requestUpdates}">
                         <div class="item-head">
                             <p class="primary" th:text="${req.offeringName}">Offering</p>

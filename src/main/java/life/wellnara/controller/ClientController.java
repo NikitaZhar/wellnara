@@ -138,7 +138,7 @@ public class ClientController {
      */
     @GetMapping("/client/requests")
     public String showRequests(@CurrentUser User currentUser, Model model) {
-        clientPageModelAssembler.populateAppointments(model, currentUser);
+        clientPageModelAssembler.populateRequests(model, currentUser);
 
         return REQUESTS_VIEW;
     }
@@ -263,6 +263,25 @@ public class ClientController {
             model.addAttribute("appointmentError", exception.getMessage());
             return OFFERING_VIEW;
         }
+    }
+
+    /**
+     * Withdraws a pending package request the client made; the held price is
+     * released back to their wallet.
+     *
+     * @param packageId   requested package identifier
+     * @param currentUser authenticated client
+     * @return redirect to the requests page
+     */
+    @PostMapping("/client/packages/{packageId}/cancel-request")
+    public String cancelPendingPackage(@PathVariable Long packageId,
+                                       @CurrentUser User currentUser) {
+        try {
+            clientPackageBookingService.cancelPackageRequest(currentUser, packageId);
+        } catch (IllegalArgumentException | IllegalStateException alreadyHandled) {
+            // Not found, not the client's, or already processed (e.g. double submit).
+        }
+        return REQUESTS_REDIRECT;
     }
 
     /**

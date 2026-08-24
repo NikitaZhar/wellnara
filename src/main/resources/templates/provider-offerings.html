@@ -65,7 +65,10 @@
                         <input id="wrapMinutes" type="number" name="wrapMinutes" min="0" value="15">
                     </div>
                 </div>
-                <p class="hint" style="margin:0 0 var(--s-3);">Only you see this — kept free on your calendar around the session.</p>
+
+                <div class="section-head">
+                    <h2>Package options <span style="font-weight:400; color:var(--text-faint);">(leave blank to disable)</span></h2>
+                </div>
                 <div class="buffer-row">
                     <div class="field">
                         <label for="packagePricePerSession">Package price / session</label>
@@ -76,7 +79,6 @@
                         <input id="maxPackageSessions" type="number" name="maxPackageSessions" min="1" placeholder="—">
                     </div>
                 </div>
-                <p class="hint" style="margin:0 0 var(--s-3);">Optional — set a per-session price to sell this service as a package. Leave blank to disable.</p>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Create</button>
                 </div>

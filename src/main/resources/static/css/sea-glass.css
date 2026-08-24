@@ -237,6 +237,23 @@ a { color:var(--sea-primary-dark); }
 /* Right-aligned form actions row */
 .form-actions { display:flex; justify-content:flex-end; gap:var(--s-2); margin-top:var(--s-2); }
 
+/* Compact "sessions + total" summary row on the client booking screen */
+.booking-summary { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--s-6); flex-wrap:wrap; }
+.booking-summary .field { margin-bottom:0; width:150px; }
+.booking-total { display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding-bottom:4px; }
+.booking-total-label { font-size:13px; color:var(--text-muted); }
+.booking-total-value { font-family:var(--font-ui); font-size:20px; font-weight:600; color:var(--text); }
+
+/* Divider between subsections inside a card */
+.card-divider { border:0; border-top:1px solid var(--border); margin:var(--s-6) 0; }
+
+/* Provider availability reference on the client booking screen — capped in height
+   so a long list of open windows never buries the booking form beneath it. The
+   wrapper carries the frame; the inner table drops its own so borders don't double. */
+.availability-scroll { max-height:320px; overflow:auto; border:1px solid var(--border); border-radius:var(--r-md); }
+.availability-scroll .data-table { border:0; border-radius:0; }
+.availability-scroll .data-table thead th { position:sticky; top:0; z-index:1; }
+
 /* Section navigation (provider and client cabinets) — real links under the
    app header, active item underlined. Aligned with the page content width. */
 .section-nav { display:flex; gap:var(--s-1); flex-wrap:wrap; max-width:880px; margin:0 auto; padding:0 var(--s-6); border-bottom:1px solid var(--border); }

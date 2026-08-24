@@ -250,6 +250,39 @@ class WalletCommandServiceTest {
     }
 
     @Test
+    @DisplayName("A client withdrawing their own package request releases the held price")
+    void clientCancelPackageReleasesMoney() {
+        User provider = provider("prov-cxl", "EUR");
+        User client = linkedClient(provider, "client-cxl");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("500.00"), null);
+        walletCommandService.requestPackage(client, offering.getId(), 10, null, null);
+        Long packageId = onlyPackageId(client);
+
+        walletCommandService.cancelPackageRequestByClient(client, packageId);
+
+        assertThat(walletQueryService.getWalletOfClient(client).getAvailable()).isEqualByComparingTo("500.00");
+        assertThat(walletQueryService.getActivePackagesOfClient(client)).isEmpty();
+        assertThat(walletQueryService.getPendingPackageRequestsOfClient(client)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("A client cannot cancel another client's package request")
+    void cancelPackageRejectsForeignClient() {
+        User provider = provider("prov-cxl2", "EUR");
+        User owner = linkedClient(provider, "client-owner");
+        User stranger = linkedClient(provider, "client-stranger");
+        Offering offering = packageableOffering(provider);
+        walletCommandService.topUp(provider, owner.getId(), new BigDecimal("500.00"), null);
+        walletCommandService.requestPackage(owner, offering.getId(), 10, null, null);
+        Long packageId = onlyPackageId(owner);
+
+        assertThatThrownBy(() -> walletCommandService.cancelPackageRequestByClient(stranger, packageId))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(walletQueryService.getWalletOfClient(owner).getHeld()).isEqualByComparingTo("400.00");
+    }
+
+    @Test
     @DisplayName("Requesting a package is rejected when the wallet lacks the funds")
     void requestPackageRejectsInsufficientFunds() {
         User provider = provider("prov-req-poor", "EUR");

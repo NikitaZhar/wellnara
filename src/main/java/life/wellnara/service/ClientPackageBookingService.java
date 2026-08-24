@@ -95,6 +95,20 @@ public class ClientPackageBookingService {
     }
 
     /**
+     * Withdraws a client's own pending package request: the held price is released
+     * back to the wallet. Nothing was booked yet, so there is nothing else to undo.
+     *
+     * @param client    authenticated client (must own the package)
+     * @param packageId requested package identifier
+     * @throws IllegalArgumentException if the package is not found or not the client's
+     * @throws IllegalStateException    if the package is not awaiting approval
+     */
+    @Transactional
+    public void cancelPackageRequest(User client, Long packageId) {
+        walletCommandService.cancelPackageRequestByClient(client, packageId);
+    }
+
+    /**
      * Approves a client's package request: activates the package (its held price is
      * settled and the sessions are granted) and schedules its first session from
      * the start the client chose, consuming one of the granted sessions.

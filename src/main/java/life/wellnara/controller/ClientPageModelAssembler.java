@@ -1,10 +1,15 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.AppointmentView;
 import life.wellnara.dto.ClientPackageView;
 import life.wellnara.dto.ClientWalletView;
+import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
+
+import java.util.List;
+import java.util.stream.Stream;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientOfferingService;
 import life.wellnara.service.UserProfileService;
@@ -59,7 +64,6 @@ public class ClientPageModelAssembler {
         model.addAttribute("providerName",
                 userProfileService.resolveDisplayName(clientOfferingService.getProviderOfClient(client)));
         model.addAttribute("activePackages", walletQueryService.getActivePackagesOfClient(client));
-        model.addAttribute("pendingPackages", walletQueryService.getPendingPackageRequestsOfClient(client));
         addClientName(model, client);
     }
 
@@ -71,9 +75,45 @@ public class ClientPageModelAssembler {
      * @param client authenticated client
      */
     public void populateAppointments(Model model, User client) {
+        List<AppointmentView> confirmed = appointmentService.getConfirmedAppointmentViewsOfClient(client);
+
         model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
-        model.addAttribute("confirmedAppointments",
-                appointmentService.getConfirmedAppointmentViewsOfClient(client));
+        model.addAttribute("confirmedAppointments", confirmed);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
+                confirmed.stream().map(AppointmentView::getId).toList()));
+        addClientName(model, client);
+    }
+
+    /**
+     * Adds the requests page data to the MVC model, grouped by state rather than by
+     * type: everything still awaiting the provider (pending package requests and
+     * REQUESTED single appointments) versus requests the provider rejected, which
+     * the client acknowledges to dismiss.
+     *
+     * @param model  MVC model
+     * @param client authenticated client
+     */
+    public void populateRequests(Model model, User client) {
+        List<AppointmentView> appointments = appointmentService.getAppointmentViewsOfClient(client);
+
+        List<AppointmentView> pendingAppointments = appointments.stream()
+                .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
+                .toList();
+        List<AppointmentView> rejectedRequests = appointments.stream()
+                .filter(view -> view.getStatus() == AppointmentStatus.CANCELLED)
+                .toList();
+
+        // Single-session rows here can be later package sessions (booked one at a
+        // time), so label them with their session number like every other page.
+        List<Long> labelledIds = Stream.concat(pendingAppointments.stream(), rejectedRequests.stream())
+                .map(AppointmentView::getId)
+                .toList();
+
+        model.addAttribute("pendingPackages",
+                walletQueryService.getPendingPackageRequestsOfClient(client));
+        model.addAttribute("pendingAppointments", pendingAppointments);
+        model.addAttribute("rejectedRequests", rejectedRequests);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(labelledIds));
         addClientName(model, client);
     }
 

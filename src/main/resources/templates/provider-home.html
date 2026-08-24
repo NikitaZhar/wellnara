@@ -27,15 +27,28 @@
 
         <section class="panel">
             <div class="panel-head">
-                <h2>Appointment requests</h2>
+                <h2>Requests</h2>
                 <span class="count-pill" th:text="${pendingRequestCount}">0</span>
             </div>
             <div class="panel-body">
-                <div th:if="${#lists.isEmpty(pendingRequests)}" class="empty">
+                <div th:if="${#lists.isEmpty(pendingRequests) and #lists.isEmpty(packageRequests)}" class="empty">
                     <p>No pending requests.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
-                <div class="list-scroll" th:if="${not #lists.isEmpty(pendingRequests)}">
+                <div class="list-scroll" th:if="${not #lists.isEmpty(pendingRequests) or not #lists.isEmpty(packageRequests)}">
+                    <div class="item" th:each="pkg : ${packageRequests}">
+                        <div class="item-head">
+                            <p class="primary">
+                                <span th:text="${pkg.clientName}">Client</span> ·
+                                Package: <span th:text="${pkg.offeringName}">Offering</span>
+                            </p>
+                            <span class="badge badge-primary">REQUESTED</span>
+                        </div>
+                        <p class="secondary">
+                            <span th:text="${pkg.sessions}">0</span> sessions ·
+                            <span th:text="${pkg.price}">0.00</span> <span th:text="${pkg.currency}">EUR</span>
+                        </p>
+                    </div>
                     <div class="item" th:each="req : ${pendingRequests}">
                         <div class="item-head">
                             <p class="primary">
@@ -81,6 +94,8 @@
                             <span th:text="${appointment.localDate}">Date</span>,
                             <span th:text="${appointment.localTime}">Time</span>
                         </p>
+                        <p class="secondary" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                           th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                     </div>
                 </div>
             </div>

@@ -36,7 +36,7 @@
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Appointment requests</h1>
+            <h1 class="page-title">Requests</h1>
             <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
         </div>
     </div>
@@ -49,12 +49,21 @@
         <p th:text="${packageError}" style="margin:0;"></p>
     </div>
 
-    <section th:if="${not #lists.isEmpty(packageRequests)}" style="margin-bottom:var(--s-6);">
+    <!-- Everything awaiting the provider's approval: package purchase requests and
+         single-session appointment requests. Grouped by state, not by type. -->
+    <section>
         <div class="section-head">
-            <h2>Package requests</h2>
-            <span class="count-pill" th:text="${#lists.size(packageRequests)}">0</span>
+            <h2>Requests</h2>
+            <span class="count-pill"
+                  th:text="${#lists.size(packageRequests) + #lists.size(appointments)}">0</span>
         </div>
-        <div class="list">
+
+        <div th:if="${#lists.isEmpty(packageRequests) and #lists.isEmpty(appointments)}" class="empty">
+            <p>No pending requests.</p>
+        </div>
+
+        <div class="list" th:if="${not #lists.isEmpty(packageRequests) or not #lists.isEmpty(appointments)}">
+            <!-- Package purchase requests (Accept charges the hold; Reject releases it). -->
             <div class="appt" th:each="req : ${packageRequests}">
                 <div class="appt-head">
                     <p class="appt-title">
@@ -82,20 +91,8 @@
                     </form>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <section>
-        <div class="section-head">
-            <h2>Pending appointments</h2>
-            <span class="count-pill" th:text="${#lists.size(appointments)}">0</span>
-        </div>
-
-        <div th:if="${#lists.isEmpty(appointments)}" class="empty">
-            <p>No appointment requests.</p>
-        </div>
-
-        <div class="list" th:if="${not #lists.isEmpty(appointments)}">
+            <!-- Single-session appointment requests. -->
             <div class="appt" th:each="appointment : ${appointments}">
                 <div class="appt-head">
                     <p class="appt-title">
@@ -108,8 +105,8 @@
                     <span th:text="${appointment.localDate}">Date</span>,
                     <span th:text="${appointment.localTime}">Time</span>
                 </p>
-                <p class="appt-meta" th:if="${packageLabels.containsKey(appointment.id)}"
-                   th:text="${packageLabels.get(appointment.id)}">Package: Service · 6 of 10 left</p>
+                <p class="appt-meta" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                   th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
 
                 <div class="appt-actions">
                     <form th:action="@{/provider/appointments/{appointmentId}/accept(appointmentId=${appointment.id})}"

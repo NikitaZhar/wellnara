@@ -265,6 +265,31 @@ public class WalletCommandService {
                 wallet, WalletEntryType.RELEASE, servicePackage.getPrice(), servicePackage, managedProvider, now(), null));
     }
 
+    /**
+     * Client withdraws their own package request before the provider acts on it:
+     * the held price is released back to the wallet. Mirrors
+     * {@link #rejectPackageRequest} but is initiated by the owning client, so the
+     * package ends in the same terminal state and the hold is released the same way.
+     *
+     * @param client    client withdrawing the request (must own the wallet)
+     * @param packageId requested package identifier
+     * @throws IllegalArgumentException if the package is not found or not the client's
+     * @throws IllegalStateException    if the package is not awaiting approval
+     */
+    @Transactional
+    public void cancelPackageRequestByClient(User client, Long packageId) {
+        ServicePackage servicePackage = servicePackageRepository.findById(packageId)
+                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+        if (!servicePackage.getWallet().getClient().getId().equals(client.getId())) {
+            throw new IllegalArgumentException("Package does not belong to client");
+        }
+
+        servicePackage.reject();
+        Wallet wallet = servicePackage.getWallet();
+        walletEntryRepository.save(WalletEntry.packageMoney(
+                wallet, WalletEntryType.RELEASE, servicePackage.getPrice(), servicePackage, client, now(), null));
+    }
+
     // ===== Private helpers =====
 
     private ServicePackage requireOwnedPackage(User provider, Long packageId) {

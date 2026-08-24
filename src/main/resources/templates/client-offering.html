@@ -35,6 +35,45 @@
         </div>
     </section>
 
+    <!-- Provider's general availability, shown as context before the booking form.
+         These are the provider's open windows; the exact bookable start times for
+         this service (duration + buffers applied) live in the form below. -->
+    <section>
+        <div class="section-head">
+            <h2>Provider's availability</h2>
+        </div>
+
+        <div th:if="${#lists.isEmpty(calendarTerms)}" class="empty">
+            <p>No available times.</p>
+        </div>
+
+        <th:block th:if="${not #lists.isEmpty(calendarTerms)}">
+            <p style="color:var(--text-muted); font-size:14px; margin:0 0 var(--s-3);">
+                The provider's open hours — pick your exact session time in the form below.
+            </p>
+            <div class="availability-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Day</th>
+                            <th>Start</th>
+                            <th>End</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="term : ${calendarTerms}">
+                            <td th:text="${term.date}">2026-08-12</td>
+                            <td th:text="${term.date.dayOfWeek}">MONDAY</td>
+                            <td th:text="${term.startTime}">09:00</td>
+                            <td th:text="${term.endTime}">18:00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </th:block>
+    </section>
+
     <!-- ============================================================= -->
     <!-- Book-next mode: the client already holds sessions of this      -->
     <!-- offering, so they only pick a time for the next one.           -->
@@ -82,6 +121,10 @@
         </div>
 
         <section th:unless="${pendingPackageForOffering}">
+            <div class="section-head">
+                <h2>Book this service</h2>
+            </div>
+
             <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
                 <p>No bookable times for this service yet.</p>
             </div>
@@ -90,9 +133,6 @@
                   th:action="@{/client/packages}" method="post" id="purchaseForm">
                 <input type="hidden" name="offeringId" th:value="${offering.id}">
 
-                <div class="section-head">
-                    <h2>Choose number of sessions</h2>
-                </div>
                 <div class="card"
                      id="pricing"
                      th:attr="data-single=${offering.pricePerSession},
@@ -100,70 +140,40 @@
                               data-available=${walletAvailable},
                               data-currency=${walletCurrency},
                               data-max=${offering.effectiveMaxPackageSessions()}">
-                    <div class="field" style="max-width:220px;">
-                        <label for="sessions">Number of sessions</label>
-                        <input id="sessions" name="sessions" type="number"
-                               min="1" th:max="${offering.effectiveMaxPackageSessions()}"
-                               value="1" required>
-                    </div>
 
-                    <p id="priceLine" style="margin:var(--s-3) 0 0; font-weight:500;"
-                       th:text="${offering.totalPriceFor(1)} + ' ' + ${walletCurrency}">0.00 EUR</p>
+                    <!-- Number of sessions + running total, kept compact on one row -->
+                    <div class="booking-summary">
+                        <div class="field">
+                            <label for="sessions">Number of sessions</label>
+                            <input id="sessions" name="sessions" type="number"
+                                   min="1" th:max="${offering.effectiveMaxPackageSessions()}"
+                                   value="1" required>
+                        </div>
+                        <div class="booking-total">
+                            <span class="booking-total-label">Total</span>
+                            <span id="priceLine" class="booking-total-value"
+                                  th:text="${offering.totalPriceFor(1)} + ' ' + ${walletCurrency}">0.00 EUR</span>
+                        </div>
+                    </div>
                     <p id="fundsLine" class="alert alert-danger" role="alert" hidden
                        style="margin:var(--s-3) 0 0;">Not enough funds in your wallet for this selection.</p>
 
-                    <div class="form-actions" style="justify-content:flex-start; margin-top:var(--s-4);">
-                        <button type="button" id="toStep2" class="btn btn-primary">Continue to pick a time</button>
-                    </div>
-                </div>
+                    <hr class="card-divider">
 
-                <div id="step2" hidden>
-                    <div class="section-head">
-                        <h2>Pick a time for the first session</h2>
-                    </div>
-                    <div class="card">
-                        <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
+                    <!-- Time of the first session -->
+                    <p class="card-title">Pick a time for the first session</p>
+                    <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
 
-                        <p class="hint" style="margin:var(--s-3) 0 var(--s-4);">The price is reserved on your wallet and sent to your provider for approval. Once approved, the first session is booked and you can book the rest one at a time.</p>
+                    <p class="hint" style="margin:var(--s-3) 0 var(--s-4);">The price is reserved on your wallet and sent to your provider for approval. Once approved, the first session is booked and you can book the rest one at a time.</p>
 
-                        <div class="form-actions" style="justify-content:flex-start;">
-                            <button type="submit" id="sendRequest" class="btn btn-primary" disabled>Send request</button>
-                            <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
-                        </div>
+                    <div class="form-actions" style="justify-content:flex-start;">
+                        <button type="submit" id="sendRequest" class="btn btn-primary">Send request</button>
+                        <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
                     </div>
                 </div>
             </form>
         </section>
     </th:block>
-
-    <section>
-        <div class="section-head">
-            <h2>Available times</h2>
-        </div>
-
-        <div th:if="${#lists.isEmpty(calendarTerms)}" class="empty">
-            <p>No available times.</p>
-        </div>
-
-        <table class="data-table" th:if="${not #lists.isEmpty(calendarTerms)}">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Day</th>
-                    <th>Start</th>
-                    <th>End</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="term : ${calendarTerms}">
-                    <td th:text="${term.date}">2026-08-12</td>
-                    <td th:text="${term.date.dayOfWeek}">MONDAY</td>
-                    <td th:text="${term.startTime}">09:00</td>
-                    <td th:text="${term.endTime}">18:00</td>
-                </tr>
-            </tbody>
-        </table>
-    </section>
 
 </main>
 
@@ -183,8 +193,6 @@
         const sessions = document.getElementById('sessions');
         const priceLine = document.getElementById('priceLine');
         const fundsLine = document.getElementById('fundsLine');
-        const toStep2 = document.getElementById('toStep2');
-        const step2 = document.getElementById('step2');
         const sendRequest = document.getElementById('sendRequest');
 
         function totalCents(n) {
@@ -209,10 +217,9 @@
             const total = totalCents(n);
             const affordable = total <= available;
 
-            priceLine.textContent = 'Total: ' + format(total);
-            priceLine.hidden = !affordable;
+            priceLine.textContent = format(total);
             fundsLine.hidden = affordable;
-            toStep2.disabled = !affordable;
+            sendRequest.disabled = !affordable;
         }
 
         sessions.addEventListener('input', refresh);
@@ -220,13 +227,6 @@
             if (event.key === 'Enter') {
                 event.preventDefault();
             }
-        });
-
-        toStep2.addEventListener('click', function () {
-            step2.hidden = false;
-            sendRequest.disabled = false;
-            toStep2.disabled = true;
-            step2.scrollIntoView({ behavior: 'smooth' });
         });
 
         refresh();

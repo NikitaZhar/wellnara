@@ -23,24 +23,6 @@
         </div>
     </div>
 
-    <section th:if="${not #lists.isEmpty(pendingPackages)}" style="margin-bottom:var(--s-6);">
-        <div class="section-head">
-            <h2>Package requests</h2>
-        </div>
-        <div class="list">
-            <div class="item row-between" th:each="req : ${pendingPackages}">
-                <div class="who">
-                    <p class="primary" th:text="${req.offeringName}">Service</p>
-                    <p class="secondary">
-                        <span th:text="${req.sessions}">0</span> sessions ·
-                        <span th:text="${req.price}">0.00</span> <span th:text="${req.currency}">EUR</span> reserved
-                    </p>
-                </div>
-                <span class="badge badge-primary">Awaiting approval</span>
-            </div>
-        </div>
-    </section>
-
     <section th:if="${not #lists.isEmpty(activePackages)}" style="margin-bottom:var(--s-6);">
         <div class="section-head">
             <h2>My packages</h2>
