@@ -93,10 +93,12 @@ public class ProviderInvitationService {
      * @param password  provider password
      * @param firstName provider first name
      * @param lastName  provider last name
-     * @param phone     provider phone number, optional (may be null or blank)
-     * @param currency  provider wallet currency (ISO 4217; validated)
+     * @param phone       provider phone number, optional (may be null or blank)
+     * @param currency    provider wallet currency (ISO 4217; validated)
+     * @param whatsappUrl WhatsApp contact link, optional (may be null or blank)
+     * @param telegramUrl Telegram contact link, optional (may be null or blank)
      * @return created provider user
-     * @throws IllegalArgumentException if the currency code is missing or invalid
+     * @throws IllegalArgumentException if the currency code or a contact link is invalid
      */
     @Transactional
     public User register(String token,
@@ -105,7 +107,9 @@ public class ProviderInvitationService {
                          String firstName,
                          String lastName,
                          String phone,
-                         String currency) {
+                         String currency,
+                         String whatsappUrl,
+                         String telegramUrl) {
         ProviderInvitation invitation = requireValidInvitation(token);
         passwordPolicy.validate(password);
 
@@ -118,6 +122,7 @@ public class ProviderInvitationService {
 
         User savedUser = userRepository.save(user);
         userProfileService.createProfile(savedUser, firstName, lastName, phone);
+        userProfileService.applyContactLinks(savedUser, whatsappUrl, telegramUrl);
         invitationRepository.delete(invitation);
 
         return savedUser;

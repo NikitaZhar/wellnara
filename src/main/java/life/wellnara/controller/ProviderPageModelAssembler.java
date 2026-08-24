@@ -132,6 +132,8 @@ public class ProviderPageModelAssembler {
         model.addAttribute("profileFirstName", profile != null ? profile.getFirstName() : "");
         model.addAttribute("profileLastName", profile != null ? profile.getLastName() : "");
         model.addAttribute("profilePhone", profile != null ? profile.getPhone() : "");
+        model.addAttribute("profileWhatsapp", profile != null ? profile.getWhatsappUrl() : "");
+        model.addAttribute("profileTelegram", profile != null ? profile.getTelegramUrl() : "");
         model.addAttribute("providerCurrency", provider.getCurrency());
         model.addAttribute("supportedCurrencies", CurrencyCodes.SUPPORTED);
         addProviderName(model, provider);

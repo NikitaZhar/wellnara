@@ -53,6 +53,8 @@ public class ProfileController {
      * @param firstName          new first name
      * @param lastName           new last name
      * @param phone              new phone number, optional
+     * @param whatsappUrl        WhatsApp contact link, optional (blank removes it)
+     * @param telegramUrl        Telegram contact link, optional (blank removes it)
      * @param currentPassword    current password, required only when changing the password
      * @param newPassword        new password, required only when changing the password
      * @param confirmNewPassword repeated new password, required only when changing the password
@@ -64,14 +66,16 @@ public class ProfileController {
     public String updateProviderProfile(@RequestParam String firstName,
                                         @RequestParam String lastName,
                                         @RequestParam(required = false) String phone,
+                                        @RequestParam(required = false) String whatsappUrl,
+                                        @RequestParam(required = false) String telegramUrl,
                                         @RequestParam(required = false) String currentPassword,
                                         @RequestParam(required = false) String newPassword,
                                         @RequestParam(required = false) String confirmNewPassword,
                                         @CurrentUser User currentUser,
                                         Model model) {
         try {
-            userProfileService.updateProfileAndPassword(currentUser,
-                    firstName, lastName, phone,
+            userProfileService.updateProviderProfile(currentUser,
+                    firstName, lastName, phone, whatsappUrl, telegramUrl,
                     currentPassword, newPassword, confirmNewPassword);
 
             return "redirect:/provider/profile?profileUpdated";
@@ -81,6 +85,8 @@ public class ProfileController {
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);
+            model.addAttribute("profileWhatsapp", whatsappUrl);
+            model.addAttribute("profileTelegram", telegramUrl);
             model.addAttribute("profileError", exception.getMessage());
             return PROFILE_VIEW;
         }

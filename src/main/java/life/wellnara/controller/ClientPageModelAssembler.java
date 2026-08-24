@@ -60,9 +60,13 @@ public class ClientPageModelAssembler {
      * @param client authenticated client
      */
     public void populateOfferings(Model model, User client) {
+        User provider = clientOfferingService.getProviderOfClient(client);
+        UserProfile providerProfile = userProfileService.findProfile(provider).orElse(null);
+
         model.addAttribute("offerings", clientOfferingService.getOfferingsOfClientProvider(client));
-        model.addAttribute("providerName",
-                userProfileService.resolveDisplayName(clientOfferingService.getProviderOfClient(client)));
+        model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
+        model.addAttribute("providerWhatsapp", providerProfile != null ? providerProfile.getWhatsappUrl() : null);
+        model.addAttribute("providerTelegram", providerProfile != null ? providerProfile.getTelegramUrl() : null);
         model.addAttribute("activePackages", walletQueryService.getActivePackagesOfClient(client));
         addClientName(model, client);
     }

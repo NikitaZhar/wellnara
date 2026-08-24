@@ -38,6 +38,14 @@ public class UserProfile {
     @Column
     private String phone;
 
+    /** Optional public WhatsApp contact link (providers only). */
+    @Column(name = "whatsapp_url", length = 500)
+    private String whatsappUrl;
+
+    /** Optional public Telegram contact link (providers only). */
+    @Column(name = "telegram_url", length = 500)
+    private String telegramUrl;
+
     /**
      * Required by JPA.
      */
@@ -89,6 +97,22 @@ public class UserProfile {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getWhatsappUrl() {
+        return whatsappUrl;
+    }
+
+    public void setWhatsappUrl(String whatsappUrl) {
+        this.whatsappUrl = whatsappUrl;
+    }
+
+    public String getTelegramUrl() {
+        return telegramUrl;
+    }
+
+    public void setTelegramUrl(String telegramUrl) {
+        this.telegramUrl = telegramUrl;
     }
 
     /**

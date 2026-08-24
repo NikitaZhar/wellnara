@@ -22,16 +22,21 @@ public class UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
     private final AuthService authService;
+    private final ContactLinkValidator contactLinkValidator;
 
     /**
      * Creates user profile service.
      *
      * @param userProfileRepository repository for user profiles
      * @param authService           service for password verification and change
+     * @param contactLinkValidator  validator/normalizer for provider contact links
      */
-    public UserProfileService(UserProfileRepository userProfileRepository, AuthService authService) {
+    public UserProfileService(UserProfileRepository userProfileRepository,
+                              AuthService authService,
+                              ContactLinkValidator contactLinkValidator) {
         this.userProfileRepository = userProfileRepository;
         this.authService = authService;
+        this.contactLinkValidator = contactLinkValidator;
     }
 
     /**
@@ -81,6 +86,56 @@ public class UserProfileService {
         if (passwordChangeRequested) {
             authService.changePassword(user, newPassword);
         }
+    }
+
+    /**
+     * Updates a provider's profile, optional password and optional contact links in
+     * a single transaction, so a rejected value (e.g. an invalid contact link) never
+     * leaves the other fields committed on their own.
+     *
+     * @param user               profile owner (a provider)
+     * @param firstName          new first name
+     * @param lastName           new last name
+     * @param phone              new phone number, optional
+     * @param whatsappUrl        WhatsApp contact link, optional (blank removes it)
+     * @param telegramUrl        Telegram contact link, optional (blank removes it)
+     * @param currentPassword    current password, required only when changing the password
+     * @param newPassword        new password, required only when changing the password
+     * @param confirmNewPassword repeated new password, required only when changing the password
+     * @throws IllegalArgumentException if a required field is blank, the current
+     *                                  password is wrong, the new passwords differ,
+     *                                  or a contact link is invalid
+     */
+    @Transactional
+    public void updateProviderProfile(User user,
+                                      String firstName,
+                                      String lastName,
+                                      String phone,
+                                      String whatsappUrl,
+                                      String telegramUrl,
+                                      String currentPassword,
+                                      String newPassword,
+                                      String confirmNewPassword) {
+        updateProfileAndPassword(user, firstName, lastName, phone,
+                currentPassword, newPassword, confirmNewPassword);
+        applyContactLinks(user, whatsappUrl, telegramUrl);
+    }
+
+    /**
+     * Sets a provider's contact links (validated and normalized); a blank value
+     * removes the corresponding link. The profile must already exist.
+     *
+     * @param user        profile owner (a provider)
+     * @param whatsappUrl WhatsApp contact link, optional (blank removes it)
+     * @param telegramUrl Telegram contact link, optional (blank removes it)
+     * @throws IllegalArgumentException if a contact link is invalid
+     */
+    @Transactional
+    public void applyContactLinks(User user, String whatsappUrl, String telegramUrl) {
+        UserProfile profile = getProfile(user);
+        profile.setWhatsappUrl(contactLinkValidator.normalizeWhatsapp(whatsappUrl));
+        profile.setTelegramUrl(contactLinkValidator.normalizeTelegram(telegramUrl));
+        userProfileRepository.save(profile);
     }
 
     /**

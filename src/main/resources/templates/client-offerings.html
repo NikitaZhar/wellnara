@@ -19,7 +19,9 @@
     <div class="page-head">
         <div>
             <h1 class="page-title">Offerings</h1>
-            <p class="page-sub">Your provider: <span style="color:var(--text); font-weight:500;" th:text="${providerName} ?: '—'">Provider</span></p>
+            <p class="page-sub">Your provider: <span style="color:var(--text); font-weight:500;" th:text="${providerName} ?: '—'">Provider</span><span
+                    th:if="${providerWhatsapp}"> · <a th:href="${providerWhatsapp}" target="_blank" rel="noopener noreferrer" style="color:var(--sea-primary-dark); font-weight:500;">WhatsApp</a></span><span
+                    th:if="${providerTelegram}"> · <a th:href="${providerTelegram}" target="_blank" rel="noopener noreferrer" style="color:var(--sea-primary-dark); font-weight:500;">Telegram</a></span></p>
         </div>
     </div>
 

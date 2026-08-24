@@ -80,6 +80,8 @@ public class ProviderRegistrationController {
                            @RequestParam String lastName,
                            @RequestParam(required = false) String phone,
                            @RequestParam String currency,
+                           @RequestParam(required = false) String whatsappUrl,
+                           @RequestParam(required = false) String telegramUrl,
                            HttpServletRequest request,
                            HttpServletResponse response,
                            Model model) {
@@ -94,16 +96,17 @@ public class ProviderRegistrationController {
 
         if (!password.equals(confirmPassword)) {
             return renderRegisterError(model, token, email, name, firstName, lastName, phone,
-                    currency, "Passwords do not match");
+                    currency, whatsappUrl, telegramUrl, "Passwords do not match");
         }
 
         try {
-            User registeredUser = service.register(token, name, password, firstName, lastName, phone, currency);
+            User registeredUser = service.register(token, name, password, firstName, lastName, phone,
+                    currency, whatsappUrl, telegramUrl);
             securitySessionService.establish(registeredUser, request, response);
             return "redirect:/home";
         } catch (IllegalArgumentException exception) {
             return renderRegisterError(model, token, email, name, firstName, lastName, phone,
-                    currency, exception.getMessage());
+                    currency, whatsappUrl, telegramUrl, exception.getMessage());
         }
     }
 
@@ -115,6 +118,8 @@ public class ProviderRegistrationController {
                                        String lastName,
                                        String phone,
                                        String currency,
+                                       String whatsappUrl,
+                                       String telegramUrl,
                                        String error) {
         model.addAttribute("token", token);
         model.addAttribute("email", email);
@@ -122,6 +127,8 @@ public class ProviderRegistrationController {
         model.addAttribute("firstName", firstName);
         model.addAttribute("lastName", lastName);
         model.addAttribute("phone", phone);
+        model.addAttribute("whatsappUrl", whatsappUrl);
+        model.addAttribute("telegramUrl", telegramUrl);
         addCurrencyAttributes(model, currency);
         model.addAttribute("error", error);
         return "provider-register";

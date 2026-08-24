@@ -79,6 +79,20 @@
                 </div>
 
                 <div class="field">
+                    <label for="whatsappUrl">WhatsApp link (optional)</label>
+                    <input id="whatsappUrl" type="url" name="whatsappUrl" th:value="${whatsappUrl}"
+                           placeholder="https://wa.me/1234567890">
+                    <span class="hint">Shown to your clients later. You can add it now or in your profile.</span>
+                </div>
+
+                <div class="field">
+                    <label for="telegramUrl">Telegram link (optional)</label>
+                    <input id="telegramUrl" type="url" name="telegramUrl" th:value="${telegramUrl}"
+                           placeholder="https://t.me/yourname">
+                    <span class="hint">Shown to your clients later. You can add it now or in your profile.</span>
+                </div>
+
+                <div class="field">
                     <label for="currency">Wallet currency</label>
                     <select id="currency" name="currency" required>
                         <option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
