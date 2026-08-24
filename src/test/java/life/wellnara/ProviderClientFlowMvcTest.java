@@ -131,8 +131,8 @@ class ProviderClientFlowMvcTest {
         MvcResult registrationResult = mockMvc.perform(post("/client/register").with(csrf())
                 .param("token", invitation.getToken())
                 .param("name", "client-three")
-                .param("password", "pass123")
-                .param("confirmPassword", "pass123")
+                .param("password", "pass1234")
+                .param("confirmPassword", "pass1234")
                 .param("firstName", "Client")
                 .param("lastName", "Three"))
         .andExpect(status().is3xxRedirection())
@@ -168,7 +168,7 @@ class ProviderClientFlowMvcTest {
 
         MvcResult loginResult = mockMvc.perform(post("/auth/login").with(csrf())
                         .param("username", "client-three")
-                        .param("password", "pass123"))
+                        .param("password", "pass1234"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/home"))
                 .andReturn();

@@ -24,6 +24,7 @@ public class ProviderInvitationService {
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
     private final long ttlDays;
 
     /**
@@ -31,6 +32,8 @@ public class ProviderInvitationService {
      *
      * @param invitationRepository   repository for provider invitations
      * @param userRepository         repository for users
+     * @param passwordEncoder        encoder for hashing passwords
+     * @param passwordPolicy         the password strength rule applied on registration
      * @param userProfileService     service for user personal data
      * @param applicationTimeService source of current application time (UTC)
      * @param ttlDays                number of days an invitation stays valid
@@ -38,12 +41,14 @@ public class ProviderInvitationService {
     public ProviderInvitationService(ProviderInvitationRepository invitationRepository,
                                      UserRepository userRepository,
                                      PasswordEncoder passwordEncoder,
+                                     PasswordPolicy passwordPolicy,
                                      UserProfileService userProfileService,
                                      ApplicationTimeService applicationTimeService,
                                      @Value("${wellnara.invitation.ttl-days:7}") long ttlDays) {
         this.invitationRepository = invitationRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
@@ -102,6 +107,7 @@ public class ProviderInvitationService {
                          String phone,
                          String currency) {
         ProviderInvitation invitation = requireValidInvitation(token);
+        passwordPolicy.validate(password);
 
         User user = new User();
         user.setEmail(invitation.getEmail());

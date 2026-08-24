@@ -66,6 +66,7 @@ public class SecurityConfig {
                 // Публичные маршруты — до правил по ролям, т.к. регистрация
                 // живёт под /client и /provider.
                 .requestMatchers("/auth/login", "/auth/logout").permitAll()
+                .requestMatchers("/auth/forgot-password", "/auth/reset-password").permitAll()
                 .requestMatchers("/client/register", "/provider/register").permitAll()
                 .requestMatchers("/css/**", "/favicon.ico", "/error").permitAll()
                 // Публичный фид календаря: единственный доступ — по секретному токену в пути.

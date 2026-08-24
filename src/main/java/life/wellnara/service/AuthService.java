@@ -16,16 +16,21 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
 
     /**
      * Creates authentication service.
      *
      * @param userRepository  repository for user access
      * @param passwordEncoder encoder for hashing and matching passwords
+     * @param passwordPolicy  the password strength rule applied on every change
      */
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       PasswordPolicy passwordPolicy) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
     }
 
     /**
@@ -61,14 +66,12 @@ public class AuthService {
      * via {@link #verifyPassword(User, String)} beforehand.
      *
      * @param user        user whose password is changed
-     * @param newPassword new password value, must not be blank
-     * @throws IllegalArgumentException if the new password is blank
+     * @param newPassword new password value, must satisfy {@link PasswordPolicy}
+     * @throws IllegalArgumentException if the new password violates the policy
      */
     @Transactional
     public void changePassword(User user, String newPassword) {
-        if (newPassword == null || newPassword.isBlank()) {
-            throw new IllegalArgumentException("New password is required");
-        }
+        passwordPolicy.validate(newPassword);
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);

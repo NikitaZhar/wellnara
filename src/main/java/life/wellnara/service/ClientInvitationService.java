@@ -26,6 +26,7 @@ public class ClientInvitationService {
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicy passwordPolicy;
     private final long ttlDays;
 
     /**
@@ -34,6 +35,7 @@ public class ClientInvitationService {
      * @param clientInvitationRepository   repository for client invitations
      * @param providerClientLinkRepository repository for provider-client links
      * @param passwordEncoder 			   encoder for hashing passwords
+     * @param passwordPolicy               the password strength rule applied on registration
      * @param userRepository               repository for users
      * @param userProfileService           service for user personal data
      * @param applicationTimeService       source of current application time (UTC)
@@ -42,6 +44,7 @@ public class ClientInvitationService {
     public ClientInvitationService(ClientInvitationRepository clientInvitationRepository,
                                    ProviderClientLinkRepository providerClientLinkRepository,
                                    PasswordEncoder passwordEncoder,
+                                   PasswordPolicy passwordPolicy,
                                    UserRepository userRepository,
                                    UserProfileService userProfileService,
                                    ApplicationTimeService applicationTimeService,
@@ -50,6 +53,7 @@ public class ClientInvitationService {
         this.providerClientLinkRepository = providerClientLinkRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.passwordPolicy = passwordPolicy;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
         this.ttlDays = ttlDays;
@@ -108,6 +112,7 @@ public class ClientInvitationService {
                          String lastName,
                          String phone) {
         ClientInvitation invitation = requireValidInvitation(token);
+        passwordPolicy.validate(password);
 
         User client = new User();
         client.setEmail(invitation.getEmail());

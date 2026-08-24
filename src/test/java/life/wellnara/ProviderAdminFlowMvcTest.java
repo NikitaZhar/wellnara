@@ -139,7 +139,7 @@ class ProviderAdminFlowMvcTest {
     void shouldRegisterProviderSuccessfullyAndAllowLogoutThenLogin() throws Exception {
         String email = "successful-provider@example.com";
         String username = "successful-provider";
-        String password = "pass123";
+        String password = "pass1234";
 
         String token = providerInvitationService.invite(email);
 

@@ -55,6 +55,8 @@
             .auth-body { padding:20px; }
             .auth-title { font-size:23px; }
         }
+        .auth-alt { margin:16px 0 0; font-size:14px; text-align:center; }
+        .auth-alt a { color:var(--sea-primary-dark); text-decoration:none; }
     </style>
 </head>
 <body>
@@ -71,6 +73,10 @@
         <div class="auth-body">
             <h1 class="auth-title">Welcome</h1>
             <p class="auth-sub">A calm space for your wellbeing</p>
+
+            <div th:if="${param.passwordReset}" class="alert alert-success" role="status">
+                <span>Your password has been updated. Please sign in.</span>
+            </div>
 
             <div th:if="${error}" class="alert alert-danger" role="alert">
                 <span th:text="${error}">Invalid login or password.</span>
@@ -89,6 +95,8 @@
 
                 <button type="submit" class="btn btn-primary">Log in</button>
             </form>
+
+            <p class="auth-alt"><a th:href="@{/auth/forgot-password}">Forgot password?</a></p>
         </div>
     </div>
 </main>
