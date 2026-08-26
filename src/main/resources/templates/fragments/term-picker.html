@@ -15,7 +15,7 @@
 <th:block th:fragment="picker(bookableDateOptions)">
     <div class="field-grid">
         <div class="field">
-            <label for="selectedDate">Date</label>
+            <label for="selectedDate" th:text="#{picker.date}">Date</label>
             <select id="selectedDate" name="selectedDate" required>
                 <option th:each="option : ${bookableDateOptions}"
                         th:value="${option.date}" th:text="${option.date}"
@@ -23,7 +23,7 @@
             </select>
         </div>
         <div class="field">
-            <label for="selectedTime">Time</label>
+            <label for="selectedTime" th:text="#{picker.time}">Time</label>
             <select id="selectedTime" name="selectedTime" required></select>
         </div>
     </div>

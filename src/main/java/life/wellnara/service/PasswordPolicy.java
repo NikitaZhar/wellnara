@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,10 +22,11 @@ public class PasswordPolicy {
      */
     public void validate(String password) {
         if (password == null || password.isBlank()) {
-            throw new IllegalArgumentException("Password is required");
+            throw new LocalizedException("error.password.required", "Password is required");
         }
         if (password.length() < MIN_LENGTH) {
-            throw new IllegalArgumentException("Password must be at least " + MIN_LENGTH + " characters");
+            throw new LocalizedException("error.password.tooShort",
+                    "Password must be at least " + MIN_LENGTH + " characters", MIN_LENGTH);
         }
     }
 }

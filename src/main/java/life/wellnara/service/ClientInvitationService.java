@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.ClientInvitation;
 import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
@@ -136,20 +137,20 @@ public class ClientInvitationService {
 
     private void requireProviderRole(User provider) {
         if (provider.getRole() != UserRole.PROVIDER) {
-            throw new IllegalArgumentException("Only provider can invite client");
+            throw new LocalizedException("error.invite.onlyProvider", "Only provider can invite client");
         }
     }
 
     private void requireEmailNotRegistered(String email) {
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email already used");
+            throw new LocalizedException("error.email.used", "Email already used");
         }
     }
 
     private void discardExistingExpiredOrReject(String email, LocalDateTime now) {
         clientInvitationRepository.findByEmail(email).ifPresent(existing -> {
             if (!existing.isExpired(now)) {
-                throw new IllegalArgumentException("Invitation already exists");
+                throw new LocalizedException("error.invite.exists", "Invitation already exists");
             }
             clientInvitationRepository.delete(existing);
         });
@@ -157,10 +158,10 @@ public class ClientInvitationService {
 
     private ClientInvitation requireValidInvitation(String token) {
         ClientInvitation invitation = clientInvitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+                .orElseThrow(() -> new LocalizedException("error.invite.invalidToken", "Invalid token"));
 
         if (invitation.isExpired(applicationTimeService.currentUtcDateTime())) {
-            throw new IllegalArgumentException("Invitation has expired");
+            throw new LocalizedException("error.invite.expired", "Invitation has expired");
         }
 
         return invitation;

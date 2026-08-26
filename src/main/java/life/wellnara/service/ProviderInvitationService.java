@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.ProviderInvitation;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
@@ -130,14 +131,14 @@ public class ProviderInvitationService {
 
     private void requireEmailNotRegistered(String email) {
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email already used");
+            throw new LocalizedException("error.email.used", "Email already used");
         }
     }
 
     private void discardExistingExpiredOrReject(String email, LocalDateTime now) {
         invitationRepository.findByEmail(email).ifPresent(existing -> {
             if (!existing.isExpired(now)) {
-                throw new IllegalArgumentException("Invitation already exists");
+                throw new LocalizedException("error.invite.exists", "Invitation already exists");
             }
             invitationRepository.delete(existing);
         });
@@ -145,10 +146,10 @@ public class ProviderInvitationService {
 
     private ProviderInvitation requireValidInvitation(String token) {
         ProviderInvitation invitation = invitationRepository.findByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+                .orElseThrow(() -> new LocalizedException("error.invite.invalidToken", "Invalid token"));
 
         if (invitation.isExpired(applicationTimeService.currentUtcDateTime())) {
-            throw new IllegalArgumentException("Invitation has expired");
+            throw new LocalizedException("error.invite.expired", "Invitation has expired");
         }
 
         return invitation;

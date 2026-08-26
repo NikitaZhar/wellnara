@@ -7,6 +7,8 @@ import life.wellnara.model.UserRole;
 import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.AuthService;
 import life.wellnara.service.LoginAttemptService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,13 +23,10 @@ import java.util.Optional;
 @Controller
 public class AuthController {
 
-    private static final String INVALID_CREDENTIALS_MESSAGE = "Invalid login or password";
-    private static final String LOCKED_OUT_MESSAGE =
-            "Too many failed login attempts. Please try again later.";
-
     private final AuthService authService;
     private final SecuritySessionService securitySessionService;
     private final LoginAttemptService loginAttemptService;
+    private final MessageSource messageSource;
 
     /**
      * Creates auth controller.
@@ -35,13 +34,16 @@ public class AuthController {
      * @param authService            authentication service
      * @param securitySessionService service that establishes/clears the security context
      * @param loginAttemptService    guard against login brute-forcing
+     * @param messageSource          resolver of localized user-facing messages
      */
     public AuthController(AuthService authService,
                           SecuritySessionService securitySessionService,
-                          LoginAttemptService loginAttemptService) {
+                          LoginAttemptService loginAttemptService,
+                          MessageSource messageSource) {
         this.authService = authService;
         this.securitySessionService = securitySessionService;
         this.loginAttemptService = loginAttemptService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -71,7 +73,7 @@ public class AuthController {
                         HttpServletResponse response,
                         Model model) {
         if (loginAttemptService.isBlocked(username)) {
-            model.addAttribute("error", LOCKED_OUT_MESSAGE);
+            model.addAttribute("error", msg("error.login.lockedOut"));
             return "login";
         }
 
@@ -79,7 +81,7 @@ public class AuthController {
 
         if (authenticatedUser.isEmpty()) {
             loginAttemptService.recordFailure(username);
-            model.addAttribute("error", INVALID_CREDENTIALS_MESSAGE);
+            model.addAttribute("error", msg("error.login.invalidCredentials"));
             return "login";
         }
 
@@ -89,7 +91,7 @@ public class AuthController {
         String target = homeRouteForRole(user.getRole());
 
         if (target == null) {
-            model.addAttribute("error", "Unknown user role");
+            model.addAttribute("error", msg("error.login.unknownRole"));
             return "login";
         }
 
@@ -121,5 +123,9 @@ public class AuthController {
             return "redirect:/home";
         }
         return null;
+    }
+
+    private String msg(String code) {
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
     }
 }

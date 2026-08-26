@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.PasswordResetToken;
 import life.wellnara.model.User;
 import life.wellnara.repository.PasswordResetTokenRepository;
@@ -149,7 +150,7 @@ public class PasswordResetService {
                 .orElseThrow(() -> new IllegalStateException("This reset link is invalid or has expired"));
 
         if (!Objects.equals(newPassword, confirmNewPassword)) {
-            throw new IllegalArgumentException("New passwords do not match");
+            throw new LocalizedException("error.password.resetMismatch", "New passwords do not match");
         }
 
         authService.changePassword(token.getUser(), newPassword); // enforces PasswordPolicy

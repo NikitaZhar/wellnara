@@ -13,13 +13,14 @@
   entry in the section navigation (fragments/provider-nav).
 -->
 <header th:fragment="header(role)" class="app-header">
-    <a class="brand" th:href="@{/home}" aria-label="Wellnara home">
+    <a class="brand" th:href="@{/home}" th:aria-label="#{header.home.aria}">
         <span class="logo-mark" aria-hidden="true"></span>
-        <span class="wordmark">Wellnara</span>
+        <span class="wordmark" th:text="#{app.name}">Wellnara</span>
     </a>
     <div class="app-header-right">
+        <div th:replace="~{fragments/lang-switch :: switch}"></div>
         <span class="badge badge-primary" th:text="${role}">Role</span>
-        <a th:href="@{/auth/logout}" class="btn btn-secondary btn-sm">Log out</a>
+        <a th:href="@{/auth/logout}" class="btn btn-secondary btn-sm" th:text="#{header.logout}">Log out</a>
     </div>
 
     <!--
@@ -39,6 +40,19 @@
             } else {
                 guard();
             }
+        })();
+
+        // Localized submit confirmation: a form carrying data-confirm asks before it submits.
+        // The message is placed in the attribute (server-side, localized) instead of an inline
+        // event handler, which Thymeleaf blocks for string expressions.
+        (function () {
+            document.addEventListener('submit', function (event) {
+                var form = event.target;
+                var message = form && form.getAttribute ? form.getAttribute('data-confirm') : null;
+                if (message && !window.confirm(message)) {
+                    event.preventDefault();
+                }
+            }, true);
         })();
     </script>
 </header>

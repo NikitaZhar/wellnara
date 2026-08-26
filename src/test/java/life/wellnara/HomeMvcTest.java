@@ -48,7 +48,8 @@ class HomeMvcTest {
         mockMvc.perform(get("/home").session(session))
                 .andExpect(status().isOk())
                 .andExpect(view().name("provider-home"))
-                .andExpect(content().string(containsString("Review requests")));
+                // UI is localized; the default locale is Russian.
+                .andExpect(content().string(containsString("Смотреть заявки")));
     }
 
     @Test
@@ -60,8 +61,9 @@ class HomeMvcTest {
         mockMvc.perform(get("/home").session(session))
                 .andExpect(status().isOk())
                 .andExpect(view().name("client-home"))
-                .andExpect(content().string(containsString("Upcoming appointments")))
-                .andExpect(content().string(containsString("Wallet")));
+                // UI is localized; the default locale is Russian.
+                .andExpect(content().string(containsString("Ближайшие записи")))
+                .andExpect(content().string(containsString("Кошелёк")));
     }
 
     @Test

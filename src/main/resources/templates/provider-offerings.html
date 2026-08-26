@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Offerings</title>
+    <title th:text="#{poff.heading} + ' — ' + #{app.name}">Wellnara — Offerings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,15 +11,15 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 <div th:replace="~{fragments/provider-nav :: nav('offerings')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">My offerings</h1>
-            <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
+            <h1 class="page-title" th:text="#{poff.heading}">My offerings</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${providerName}">Provider</span></p>
         </div>
     </div>
 
@@ -29,58 +29,58 @@
 
     <section>
         <div class="section-head">
-            <h2>Create an offering</h2>
+            <h2 th:text="#{poff.create}">Create an offering</h2>
         </div>
 
         <div class="card">
             <form th:action="@{/provider/offerings}" method="post">
                 <div class="field">
-                    <label for="offeringName">Name</label>
-                    <input id="offeringName" type="text" name="name" placeholder="Consultation" required>
+                    <label for="offeringName" th:text="#{poff.name}">Name</label>
+                    <input id="offeringName" type="text" name="name" th:placeholder="#{poff.name.placeholder}" placeholder="Consultation" required>
                 </div>
                 <div class="field">
-                    <label for="offeringDescription">Description</label>
-                    <textarea id="offeringDescription" name="description" placeholder="What this session covers" required></textarea>
+                    <label for="offeringDescription" th:text="#{poff.description}">Description</label>
+                    <textarea id="offeringDescription" name="description" th:placeholder="#{poff.description.placeholder}" placeholder="What this session covers" required></textarea>
                 </div>
                 <div class="field-grid">
                     <div class="field">
-                        <label for="pricePerSession">Price per session</label>
+                        <label for="pricePerSession" th:text="#{poff.pricePerSession}">Price per session</label>
                         <div style="display:flex; align-items:center; gap:var(--s-2);">
                             <input id="pricePerSession" type="number" name="pricePerSession" step="0.01" min="0" placeholder="45.00" required style="flex:1;">
                             <span class="badge badge-primary" th:text="${providerCurrency}">EUR</span>
                         </div>
                     </div>
                     <div class="field">
-                        <label for="durationMinutes">Duration (min)</label>
+                        <label for="durationMinutes" th:text="#{poff.duration}">Duration (min)</label>
                         <input id="durationMinutes" type="number" name="durationMinutes" min="1" placeholder="60" required>
                     </div>
                 </div>
                 <div class="buffer-row">
                     <div class="field">
-                        <label for="prepMinutes">Prep before (min)</label>
+                        <label for="prepMinutes" th:text="#{poff.prepBefore}">Prep before (min)</label>
                         <input id="prepMinutes" type="number" name="prepMinutes" min="0" value="0">
                     </div>
                     <div class="field">
-                        <label for="wrapMinutes">Wrap-up after (min)</label>
+                        <label for="wrapMinutes" th:text="#{poff.wrapAfter}">Wrap-up after (min)</label>
                         <input id="wrapMinutes" type="number" name="wrapMinutes" min="0" value="15">
                     </div>
                 </div>
 
                 <div class="section-head">
-                    <h2>Package options <span style="font-weight:400; color:var(--text-faint);">(leave blank to disable)</span></h2>
+                    <h2><span th:text="#{poff.packageOptions}">Package options</span> <span style="font-weight:400; color:var(--text-faint);" th:text="#{poff.packageOptions.hint}">(leave blank to disable)</span></h2>
                 </div>
                 <div class="buffer-row">
                     <div class="field">
-                        <label for="packagePricePerSession">Package price / session</label>
+                        <label for="packagePricePerSession" th:text="#{poff.packagePrice}">Package price / session</label>
                         <input id="packagePricePerSession" type="number" name="packagePricePerSession" min="0" step="0.01" placeholder="—">
                     </div>
                     <div class="field">
-                        <label for="maxPackageSessions">Max sessions</label>
+                        <label for="maxPackageSessions" th:text="#{poff.maxSessions}">Max sessions</label>
                         <input id="maxPackageSessions" type="number" name="maxPackageSessions" min="1" placeholder="—">
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="submit" class="btn btn-primary" th:text="#{poff.createBtn}">Create</button>
                 </div>
             </form>
         </div>
@@ -88,12 +88,12 @@
 
     <section>
         <div class="section-head">
-            <h2>Offerings</h2>
+            <h2 th:text="#{poff.offerings}">Offerings</h2>
             <span class="count-pill" th:text="${#lists.size(offerings)}">0</span>
         </div>
 
         <div th:if="${#lists.isEmpty(offerings)}" class="empty">
-            <p>No offerings yet. Create your first offering above.</p>
+            <p th:text="#{poff.noOfferings}">No offerings yet. Create your first offering above.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(offerings)}">
@@ -109,11 +109,11 @@
                 <span class="amount">
                     <span th:text="${offering.pricePerSession}">0.00</span>
                     <span th:text="${offering.currency}">EUR</span> ·
-                    <span th:text="${offering.durationMinutes}">0</span> min
+                    <span th:text="${offering.durationMinutes}">0</span> <span th:text="#{coffer.min}">min</span>
                 </span>
 
-                <span class="badge badge-success" th:if="${offering.active}">Active</span>
-                <span class="badge badge-primary" th:unless="${offering.active}">Inactive</span>
+                <span class="badge badge-success" th:if="${offering.active}" th:text="#{poff.active}">Active</span>
+                <span class="badge badge-primary" th:unless="${offering.active}" th:text="#{poff.inactive}">Inactive</span>
             </div>
         </div>
     </section>

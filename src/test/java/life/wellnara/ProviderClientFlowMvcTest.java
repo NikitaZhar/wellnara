@@ -78,11 +78,11 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider/clients").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Invitation sent to client-one@example.com")));
+                .andExpect(content().string(containsString("Приглашение отправлено на client-one@example.com")));
 
         mockMvc.perform(get("/provider/clients").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Invitation sent to"))));
+                .andExpect(content().string(not(containsString("Приглашение отправлено"))));
 
         assertThat(clientInvitationRepository.existsByEmail("client-one@example.com")).isTrue();
     }
@@ -104,7 +104,7 @@ class ProviderClientFlowMvcTest {
                 .andExpect(model().attributeExists("token"))
                 .andExpect(model().attributeExists("email"))
                 .andExpect(model().attributeExists("error"))
-                .andExpect(content().string(containsString("Passwords do not match")));
+                .andExpect(content().string(containsString("Пароли не совпадают")));
 
         assertThat(userRepository.findByUsername("client-two")).isEmpty();
         assertThat(clientInvitationRepository.findByToken(invitation.getToken())).isPresent();
@@ -158,7 +158,7 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider/clients").session(providerSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("My clients")))
+                .andExpect(content().string(containsString("Мои клиенты")))
                 .andExpect(content().string(containsString("Client Three")))
                 .andExpect(content().string(containsString("client-three@example.com")));
 
@@ -178,7 +178,8 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/client/offerings").session((MockHttpSession) loggedClientSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Offerings")));
+                // UI is localized; the default locale is Russian, so the offerings heading reads "Услуги".
+                .andExpect(content().string(containsString("Услуги")));
 
         mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId()).with(csrf())
                         .session(providerSession))
@@ -217,7 +218,7 @@ class ProviderClientFlowMvcTest {
 
         mockMvc.perform(get("/provider/clients").session(updatedSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Email already used")));
+                .andExpect(content().string(containsString("Эта почта уже используется")));
     }
 
     @Test

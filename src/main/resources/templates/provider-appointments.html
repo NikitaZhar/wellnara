@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Appointments</title>
+    <title th:text="#{cappt.title}">Wellnara — Appointments</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -37,15 +37,15 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 <div th:replace="~{fragments/provider-nav :: nav('appointments')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Appointments</h1>
-            <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
+            <h1 class="page-title" th:text="#{cappt.heading}">Appointments</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${providerName}">Provider</span></p>
         </div>
     </div>
 
@@ -55,19 +55,19 @@
 
     <section id="confirmed">
         <div class="section-head">
-            <h2>Upcoming appointments</h2>
+            <h2 th:text="#{cappt.upcoming}">Upcoming appointments</h2>
             <span class="count-pill" th:text="${#lists.size(confirmedAppointments)}">0</span>
         </div>
 
         <!-- One-time nudge: only when there is something to sync and sync is not set up yet. Disappears once enabled. -->
         <div th:if="${not calendarFeedEnabled and not #lists.isEmpty(confirmedAppointments)}"
              class="card" style="display:flex; align-items:center; justify-content:space-between; gap:var(--s-3); margin-bottom:var(--s-4); background:var(--surface-2);">
-            <p class="page-sub" style="margin:0;">Get your confirmed sessions in your own calendar automatically — no need to add each one by hand.</p>
-            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/provider/profile#calendar-feed}" href="/provider/profile#calendar-feed">Sync my calendar</a>
+            <p class="page-sub" style="margin:0;" th:text="#{pappt.syncNudge}">Get your confirmed sessions in your own calendar automatically — no need to add each one by hand.</p>
+            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/provider/profile#calendar-feed}" href="/provider/profile#calendar-feed" th:text="#{cappt.syncMyCalendar}">Sync my calendar</a>
         </div>
 
         <div th:if="${#lists.isEmpty(confirmedAppointments)}" class="empty">
-            <p>No upcoming appointments.</p>
+            <p th:text="#{cappt.noUpcoming}">No upcoming appointments.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
@@ -78,11 +78,11 @@
                         <span th:text="${appointment.offeringName}">Offering</span>
                     </p>
                     <span th:if="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
-                          class="badge badge-warning">Needs outcome</span>
+                          class="badge badge-warning" th:text="#{pappt.needsOutcome}">Needs outcome</span>
                     <span th:if="${appointment.status.name() == 'SCHEDULED' and !appointment.completable}"
-                          class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                          class="badge badge-success" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">SCHEDULED</span>
                     <span th:if="${appointment.status.name() == 'CANCELLED'}"
-                          class="badge badge-danger" th:text="${appointment.status}">CANCELLED</span>
+                          class="badge badge-danger" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">CANCELLED</span>
                 </div>
                 <p class="appt-meta">
                     <span th:text="${appointment.localDate}">Date</span>,
@@ -91,40 +91,41 @@
                 <p class="appt-meta" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
                    th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                 <p class="appt-meta"
-                   th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
+                   th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}"
+                   th:text="#{pappt.cancelledByClient}">
                     Appointment cancelled by client.
                 </p>
 
                 <!-- Row 1: add this session to an external calendar. -->
                 <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}"
                      th:with="addLinks=${calendarAddLinks != null ? calendarAddLinks.get(appointment.id) : null}">
-                    <span class="cal-lead">Add to calendar:</span>
+                    <span class="cal-lead" th:text="#{cappt.addToCalendar}">Add to calendar:</span>
                     <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.google()}" target="_blank" rel="noopener">Google</a>
                     <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.outlook()}" target="_blank" rel="noopener">Outlook</a>
                     <a class="btn btn-secondary btn-sm"
-                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Apple / .ics</a>
+                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}" th:text="#{cappt.appleIcs}">Apple / .ics</a>
                 </div>
 
                 <!-- Row 2: record the outcome / cancel the appointment (separate from the calendar actions above). -->
                 <div class="appt-actions appt-manage" th:if="${appointment.status.name() == 'SCHEDULED'}">
-                    <span class="cal-lead">Manage appointment:</span>
+                    <span class="cal-lead" th:text="#{cappt.manageAppt}">Manage appointment:</span>
 
                     <button type="button" class="btn btn-secondary btn-sm"
                             th:if="${!appointment.completable}"
-                            data-reveal th:attr="data-target='cancel-' + ${appointment.id}">Cancel appointment</button>
+                            data-reveal th:attr="data-target='cancel-' + ${appointment.id}" th:text="#{pappt.cancelAppt}">Cancel appointment</button>
 
                     <form th:if="${appointment.completable}"
                           th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Mark this appointment as completed?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Completed</button>
+                          th:attr="data-confirm=#{pappt.complete.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.completed}">Completed</button>
                     </form>
 
                     <form th:if="${appointment.completable}"
                           th:action="@{/provider/appointments/{appointmentId}/no-show(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Mark this appointment as no-show?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">No-show</button>
+                          th:attr="data-confirm=#{pappt.noShow.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.noShow}">No-show</button>
                     </form>
                 </div>
 
@@ -132,15 +133,15 @@
                       th:id="'cancel-' + ${appointment.id}"
                       th:action="@{/provider/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
                       method="post"
-                      onsubmit="return confirm('Cancel this appointment?');">
-                    <textarea name="providerMessage" placeholder="Message to the client (optional)" rows="2" maxlength="1000"></textarea>
+                      th:attr="data-confirm=#{pappt.cancel.confirm}">
+                    <textarea name="providerMessage" th:placeholder="#{pappt.messageToClient}" placeholder="Message to the client (optional)" rows="2" maxlength="1000"></textarea>
                     <label class="block-check">
                         <input type="checkbox" name="blockSlot" value="true">
-                        I'm no longer available at this time (block this slot)
+                        <span th:text="#{pappt.blockSlot}">I'm no longer available at this time (block this slot)</span>
                     </label>
                     <div class="reveal-actions">
-                        <button type="submit" class="btn btn-secondary btn-sm">Confirm cancellation</button>
-                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='cancel-' + ${appointment.id}">Back</button>
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.confirmCancellation}">Confirm cancellation</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='cancel-' + ${appointment.id}" th:text="#{pappt.back}">Back</button>
                     </div>
                 </form>
 
@@ -148,8 +149,8 @@
                      th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancellationInitiator?.name() == 'CLIENT'}">
                     <form th:action="@{/provider/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Remove this appointment notification?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">OK</button>
+                          th:attr="data-confirm=#{pappt.removeNotification.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.ok}">OK</button>
                     </form>
                 </div>
             </div>

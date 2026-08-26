@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Home</title>
+    <title th:text="#{home.title}">Wellnara — Home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -19,14 +19,14 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Hello, <span th:text="${clientName}">there</span></h1>
-            <p class="page-sub">Here's your overview</p>
+            <h1 class="page-title"><span th:text="#{home.hello}">Hello,</span> <span th:text="${clientName}">there</span></h1>
+            <p class="page-sub" th:text="#{home.overview}">Here's your overview</p>
         </div>
     </div>
 
@@ -34,19 +34,19 @@
     <div class="grid-2">
         <section class="panel">
             <div class="panel-head">
-                <h2>Upcoming appointments</h2>
+                <h2 th:text="#{chome.upcoming}">Upcoming appointments</h2>
                 <span class="count-pill" th:text="${#lists.size(upcomingAppointments)}">0</span>
             </div>
             <div class="panel-body">
                 <div th:if="${#lists.isEmpty(upcomingAppointments)}" class="empty">
-                    <p>No upcoming appointments.</p>
+                    <p th:text="#{chome.noUpcoming}">No upcoming appointments.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
                 <div class="list-scroll" th:if="${not #lists.isEmpty(upcomingAppointments)}">
                     <div class="item" th:each="appointment : ${upcomingAppointments}">
                         <div class="item-head">
                             <p class="primary" th:text="${appointment.offeringName}">Offering</p>
-                            <span class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                            <span class="badge badge-success" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">SCHEDULED</span>
                         </div>
                         <p class="secondary">
                             <span th:text="${appointment.localDate}">Date</span>,
@@ -58,29 +58,29 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/client/appointments}">Open appointments →</a>
+                <a class="link-arrow" th:href="@{/client/appointments}" th:text="#{chome.openAppointments}">Open appointments →</a>
             </div>
         </section>
 
         <section class="panel">
             <div class="panel-head">
-                <h2>My requests</h2>
+                <h2 th:text="#{chome.myRequests}">My requests</h2>
                 <span class="count-pill" th:text="${requestUpdateCount}">0</span>
             </div>
             <div class="panel-body">
                 <div th:if="${#lists.isEmpty(requestUpdates) and #lists.isEmpty(pendingPackages)}" class="empty">
-                    <p>No requests or updates.</p>
+                    <p th:text="#{chome.noRequests}">No requests or updates.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
                 <div class="list-scroll" th:if="${not #lists.isEmpty(requestUpdates) or not #lists.isEmpty(pendingPackages)}">
                     <div class="item" th:each="pkg : ${pendingPackages}">
                         <div class="item-head">
                             <p class="primary" th:text="${pkg.offeringName}">Offering</p>
-                            <span class="badge badge-primary">Awaiting approval</span>
+                            <span class="badge badge-primary" th:text="#{chome.awaitingApproval}">Awaiting approval</span>
                         </div>
                         <p class="secondary">
-                            <span th:text="${pkg.sessions}">0</span> sessions ·
-                            <span th:text="${pkg.price}">0.00</span> <span th:text="${pkg.currency}">EUR</span> reserved
+                            <span th:text="${pkg.sessions}">0</span> <span th:text="#{home.sessions}">sessions</span> ·
+                            <span th:text="${pkg.price}">0.00</span> <span th:text="${pkg.currency}">EUR</span> <span th:text="#{chome.reserved}">reserved</span>
                         </p>
                     </div>
                     <div class="item" th:each="req : ${requestUpdates}">
@@ -88,7 +88,7 @@
                             <p class="primary" th:text="${req.offeringName}">Offering</p>
                             <span class="badge"
                                   th:classappend="${req.status.name() == 'REQUESTED' ? 'badge-primary' : (req.status.name() == 'COMPLETED' ? 'badge-success' : 'badge-danger')}"
-                                  th:text="${req.status}">STATUS</span>
+                                  th:text="#{'appointmentStatus.__${req.status.name()}__'}">STATUS</span>
                         </div>
                         <p class="secondary">
                             <span th:text="${req.localDate}">Date</span>,
@@ -98,7 +98,7 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/client/requests}">Review requests →</a>
+                <a class="link-arrow" th:href="@{/client/requests}" th:text="#{chome.reviewRequests}">Review requests →</a>
             </div>
         </section>
     </div>
@@ -107,45 +107,48 @@
     <a class="nav-card" th:href="@{/client/offerings}"
        style="flex-direction:row; align-items:center; justify-content:space-between; gap:var(--s-4); margin-top:var(--s-6);">
         <div>
-            <p class="nc-title">Offerings from <span th:text="${providerName} ?: 'your provider'">your provider</span></p>
-            <p class="nc-sub"><span th:text="${availableOfferingCount}">0</span> available</p>
+            <p class="nc-title"><span th:text="#{chome.offeringsFrom}">Offerings from</span> <span th:text="${providerName} ?: #{chome.yourProvider}">your provider</span></p>
+            <p class="nc-sub"><span th:text="${availableOfferingCount}">0</span> <span th:text="#{chome.available}">available</span></p>
             <p class="nc-sub" th:if="${#lists.size(bookablePackages) == 1}"
                style="color:var(--sea-primary-dark); font-weight:500;">
                 <span th:text="${bookablePackages[0].offeringName}">Service</span> —
-                <span th:text="${bookablePackages[0].remaining}">0</span> session(s) left in your package
+                <span th:text="${bookablePackages[0].remaining}">0</span> <span th:text="#{chome.sessionsLeft}">session(s) left in your package</span>
             </p>
             <p class="nc-sub" th:if="${#lists.size(bookablePackages) > 1}"
-               style="color:var(--sea-primary-dark); font-weight:500;"
-               th:text="'You have ' + ${#lists.size(bookablePackages)} + ' active packages'">You have active packages</p>
+               style="color:var(--sea-primary-dark); font-weight:500;">
+                <span th:text="#{chome.activePackagesPrefix}">You have</span>
+                <span th:text="${#lists.size(bookablePackages)}">0</span>
+                <span th:text="#{chome.activePackagesSuffix}">active packages</span>
+            </p>
         </div>
-        <span class="nc-go">Browse →</span>
+        <span class="nc-go" th:text="#{chome.browse}">Browse →</span>
     </a>
 
     <!-- Wallet (info) and Profile (edit) — half width each. -->
     <div class="grid-2" style="margin-top:var(--s-6);">
         <div class="card">
-            <p class="card-title">Wallet</p>
+            <p class="card-title" th:text="#{chome.wallet}">Wallet</p>
             <div class="wallet-strip">
-                <span><span class="k">Available</span><span class="v" th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span></span>
-                <span><span class="k">Held</span><span class="v" th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span></span>
+                <span><span class="k" th:text="#{chome.wallet.available}">Available</span><span class="v" th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span></span>
+                <span><span class="k" th:text="#{chome.wallet.held}">Held</span><span class="v" th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span></span>
             </div>
             <div class="wallet-extra" th:if="${wallet.hasPackages}">
-                Package sessions:
+                <span th:text="#{chome.wallet.packageSessions}">Package sessions:</span>
                 <ul class="list-mini">
                     <li th:each="pkg : ${wallet.packages}">
                         <span th:text="${pkg.offeringName}">Offering</span> —
-                        <span th:text="${pkg.available}">0</span> available
-                        <span th:if="${pkg.held > 0}">(<span th:text="${pkg.held}">0</span> held)</span>
+                        <span th:text="${pkg.available}">0</span> <span th:text="#{chome.wallet.availableSuffix}">available</span>
+                        <span th:if="${pkg.held > 0}">(<span th:text="${pkg.held}">0</span> <span th:text="#{chome.wallet.heldPrefix}">held</span>)</span>
                     </li>
                 </ul>
             </div>
-            <p class="wallet-extra" th:unless="${wallet.hasHistory}">No wallet movements yet.</p>
+            <p class="wallet-extra" th:unless="${wallet.hasHistory}" th:text="#{chome.wallet.noMovements}">No wallet movements yet.</p>
         </div>
 
         <div class="card">
-            <p class="card-title">Profile</p>
-            <p style="margin:0 0 var(--s-3); font-size:14px; color:var(--text-muted);">Update your name, phone and password.</p>
-            <a class="link-arrow" th:href="@{/client/profile}">Edit profile →</a>
+            <p class="card-title" th:text="#{chome.profile}">Profile</p>
+            <p style="margin:0 0 var(--s-3); font-size:14px; color:var(--text-muted);" th:text="#{chome.profile.sub}">Update your name, phone and password.</p>
+            <a class="link-arrow" th:href="@{/client/profile}" th:text="#{chome.profile.edit}">Edit profile →</a>
         </div>
     </div>
 

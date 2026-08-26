@@ -287,3 +287,12 @@ a { color:var(--sea-primary-dark); }
 @media (prefers-reduced-motion: reduce) {
   * { transition:none !important; animation:none !important; }
 }
+
+/* Language switch (EN / RU) — used in the app header and on pre-auth screens. */
+.lang-switch { display:inline-flex; align-items:center; gap:2px; padding:2px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-pill); }
+.lang-btn { appearance:none; border:none; background:transparent; cursor:pointer; padding:3px 10px; border-radius:var(--r-pill); font:inherit; font-size:13px; font-weight:500; line-height:1; color:var(--text-muted); }
+.lang-btn:hover { color:var(--sea-primary-dark); }
+.lang-btn.is-active { background:var(--sea-primary); color:#fff; }
+.lang-btn:focus-visible { outline:none; box-shadow:0 0 0 3px var(--sea-primary-tint); }
+/* On the pre-auth hero the switch sits at the top-right corner of the card. */
+.auth-hero .lang-switch { position:absolute; right:14px; top:14px; z-index:1; }

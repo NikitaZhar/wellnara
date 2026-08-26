@@ -8,12 +8,12 @@
     <div th:replace="~{fragments/provider-nav :: nav('clients')}"></div>
   Pass the active section key: clients | offerings | appointments | availability | profile.
 -->
-<nav th:fragment="nav(active)" class="section-nav" aria-label="Provider sections">
+<nav th:fragment="nav(active)" class="section-nav" th:aria-label="#{nav.aria.provider}">
     <a th:href="@{/home}" class="section-nav-link section-nav-home">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5"/>
         </svg>
-        Home
+        <span th:text="#{nav.home}">Home</span>
     </a>
 
     <a th:href="@{/provider/clients}" class="section-nav-link"
@@ -22,7 +22,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
         </svg>
-        Clients
+        <span th:text="#{nav.clients}">Clients</span>
     </a>
 
     <a th:href="@{/provider/offerings}" class="section-nav-link"
@@ -31,7 +31,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82zM7 7h.01"/>
         </svg>
-        Offerings
+        <span th:text="#{nav.offerings}">Offerings</span>
     </a>
 
     <a th:href="@{/provider/appointments}" class="section-nav-link"
@@ -40,7 +40,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 4h18v18H3zM16 2v4M8 2v4M3 10h18"/>
         </svg>
-        Upcoming
+        <span th:text="#{nav.upcoming}">Upcoming</span>
     </a>
 
     <a th:href="@{/provider/requests}" class="section-nav-link"
@@ -49,7 +49,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        Requests
+        <span th:text="#{nav.requests}">Requests</span>
     </a>
 
     <a th:href="@{/provider/availability}" class="section-nav-link"
@@ -58,7 +58,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
         </svg>
-        Availability
+        <span th:text="#{nav.availability}">Availability</span>
     </a>
 
     <a th:href="@{/provider/profile}" class="section-nav-link"
@@ -67,7 +67,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
         </svg>
-        Profile
+        <span th:text="#{nav.profile}">Profile</span>
     </a>
 </nav>
 

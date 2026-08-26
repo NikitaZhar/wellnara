@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Something went wrong</title>
+    <title th:text="#{error.title}">Wellnara — Something went wrong</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -71,20 +71,21 @@
 <main class="auth-page">
     <div class="auth-card">
         <div class="auth-hero">
+            <div th:replace="~{fragments/lang-switch :: switch}"></div>
             <div class="auth-brand">
                 <span class="dot" aria-hidden="true"></span>
-                <span class="name">Wellnara</span>
+                <span class="name" th:text="#{app.name}">Wellnara</span>
             </div>
         </div>
 
         <div class="auth-body">
-            <span class="err-code">Error <span th:text="${statusCode}">500</span></span>
-            <h1 class="auth-title" th:text="${statusReason}">Something went wrong</h1>
+            <span class="err-code"><span th:text="#{error.code}">Error</span> <span th:text="${statusCode}">500</span></span>
+            <h1 class="auth-title" th:text="${statusReason} ?: #{error.heading}">Something went wrong</h1>
             <p class="auth-sub" th:if="${message}" th:text="${message}">Please try again in a moment.</p>
 
             <div class="err-actions">
-                <a class="btn btn-primary" th:href="@{/home}">Back to home</a>
-                <a class="btn btn-ghost" th:href="@{/auth/login}">Sign in</a>
+                <a class="btn btn-primary" th:href="@{/home}" th:text="#{error.backHome}">Back to home</a>
+                <a class="btn btn-ghost" th:href="@{/auth/login}" th:text="#{error.signIn}">Sign in</a>
             </div>
         </div>
     </div>

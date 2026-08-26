@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ServicePackage;
@@ -88,7 +89,8 @@ public class ClientPackageBookingService {
         Offering offering = clientOfferingService.getOfferingOfClientProvider(client, offeringId);
 
         if (!availabilityService.getBookableTimes(provider, offering, selectedDate).contains(selectedTime)) {
-            throw new IllegalArgumentException("That time is no longer available. Pick another slot.");
+            throw new LocalizedException("error.package.slotGone",
+                    "That time is no longer available. Pick another slot.");
         }
 
         walletCommandService.requestPackage(client, offeringId, sessions, startUtc, null);

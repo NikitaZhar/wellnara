@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Requests</title>
+    <title th:text="#{creq.title}">Wellnara — Requests</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -29,15 +29,15 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 <div th:replace="~{fragments/provider-nav :: nav('requests')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Requests</h1>
-            <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
+            <h1 class="page-title" th:text="#{creq.requests}">Requests</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${providerName}">Provider</span></p>
         </div>
     </div>
 
@@ -53,13 +53,13 @@
          single-session appointment requests. Grouped by state, not by type. -->
     <section>
         <div class="section-head">
-            <h2>Requests</h2>
+            <h2 th:text="#{creq.requests}">Requests</h2>
             <span class="count-pill"
                   th:text="${#lists.size(packageRequests) + #lists.size(appointments)}">0</span>
         </div>
 
         <div th:if="${#lists.isEmpty(packageRequests) and #lists.isEmpty(appointments)}" class="empty">
-            <p>No pending requests.</p>
+            <p th:text="#{creq.noPending}">No pending requests.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(packageRequests) or not #lists.isEmpty(appointments)}">
@@ -68,26 +68,26 @@
                 <div class="appt-head">
                     <p class="appt-title">
                         <span th:text="${req.clientName}">Client</span> ·
-                        Package: <span th:text="${req.offeringName}">Offering</span>
+                        <span th:text="#{phome.packagePrefix}">Package:</span> <span th:text="${req.offeringName}">Offering</span>
                     </p>
-                    <span class="badge badge-primary">REQUESTED</span>
+                    <span class="badge badge-primary" th:text="#{packageStatus.REQUESTED}">REQUESTED</span>
                 </div>
                 <p class="appt-meta">
-                    <span th:text="${req.sessions}">0</span> sessions ·
+                    <span th:text="${req.sessions}">0</span> <span th:text="#{home.sessions}">sessions</span> ·
                     <span th:text="${req.price}">0.00</span> <span th:text="${req.currency}">EUR</span>
                 </p>
                 <p class="appt-meta" th:if="${req.firstSessionStart != null}">
-                    First session: <span th:text="${req.firstSessionStart.toLocalDate()}">2026-08-25</span>
-                    at <span th:text="${req.firstSessionStart.toLocalTime()}">09:00</span>
+                    <span th:text="#{creq.firstSession}">First session:</span> <span th:text="${req.firstSessionStart.toLocalDate()}">2026-08-25</span>
+                    <span th:text="#{common.at}">at</span> <span th:text="${req.firstSessionStart.toLocalTime()}">09:00</span>
                 </p>
                 <div class="appt-actions">
                     <form th:action="@{/provider/packages/{id}/accept(id=${req.packageId})}" method="post"
-                          onsubmit="return confirm('Approve this package? The reserved amount will be charged.');">
-                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                          th:attr="data-confirm=#{preq.approvePackage.confirm}">
+                        <button type="submit" class="btn btn-primary btn-sm" th:text="#{preq.accept}">Accept</button>
                     </form>
                     <form th:action="@{/provider/packages/{id}/reject(id=${req.packageId})}" method="post"
-                          onsubmit="return confirm('Decline this package? The reserved amount is released.');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Reject</button>
+                          th:attr="data-confirm=#{preq.declinePackage.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{preq.reject}">Reject</button>
                     </form>
                 </div>
             </div>
@@ -99,7 +99,7 @@
                         <span th:text="${appointment.clientName}">Client</span> ·
                         <span th:text="${appointment.offeringName}">Offering</span>
                     </p>
-                    <span class="badge badge-primary" th:text="${appointment.status}">STATUS</span>
+                    <span class="badge badge-primary" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">STATUS</span>
                 </div>
                 <p class="appt-meta">
                     <span th:text="${appointment.localDate}">Date</span>,
@@ -111,22 +111,22 @@
                 <div class="appt-actions">
                     <form th:action="@{/provider/appointments/{appointmentId}/accept(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Accept this appointment request?');">
-                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                          th:attr="data-confirm=#{preq.acceptAppt.confirm}">
+                        <button type="submit" class="btn btn-primary btn-sm" th:text="#{preq.accept}">Accept</button>
                     </form>
 
                     <button type="button" class="btn btn-secondary btn-sm"
-                            data-reveal th:attr="data-target='reject-' + ${appointment.id}">Reject</button>
+                            data-reveal th:attr="data-target='reject-' + ${appointment.id}" th:text="#{preq.reject}">Reject</button>
                 </div>
 
                 <form class="reveal" style="display:none" th:id="'reject-' + ${appointment.id}"
                       th:action="@{/provider/appointments/{appointmentId}/reject(appointmentId=${appointment.id})}"
                       method="post"
-                      onsubmit="return confirm('Are you sure you want to reject this appointment request?');">
-                    <textarea name="rejectionReason" placeholder="Reason for rejection" rows="2" required maxlength="1000"></textarea>
+                      th:attr="data-confirm=#{preq.rejectAppt.confirm}">
+                    <textarea name="rejectionReason" th:placeholder="#{preq.rejectionReason}" placeholder="Reason for rejection" rows="2" required maxlength="1000"></textarea>
                     <div class="reveal-actions">
-                        <button type="submit" class="btn btn-secondary btn-sm">Confirm reject</button>
-                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='reject-' + ${appointment.id}">Back</button>
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{preq.confirmReject}">Confirm reject</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-hide th:attr="data-target='reject-' + ${appointment.id}" th:text="#{pappt.back}">Back</button>
                     </div>
                 </form>
             </div>

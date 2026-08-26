@@ -1,9 +1,12 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.service.ClientPackageBookingService;
 import life.wellnara.service.WalletCommandService;
 import life.wellnara.web.CurrentUser;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,17 +24,21 @@ public class ProviderPackageController {
 
     private final ClientPackageBookingService clientPackageBookingService;
     private final WalletCommandService walletCommandService;
+    private final MessageSource messageSource;
 
     /**
      * Creates the provider package controller.
      *
      * @param clientPackageBookingService service approving a package with its first booking
      * @param walletCommandService        service for declining a package request
+     * @param messageSource               resolver of localized user-facing messages
      */
     public ProviderPackageController(ClientPackageBookingService clientPackageBookingService,
-                                     WalletCommandService walletCommandService) {
+                                     WalletCommandService walletCommandService,
+                                     MessageSource messageSource) {
         this.clientPackageBookingService = clientPackageBookingService;
         this.walletCommandService = walletCommandService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -54,7 +61,8 @@ public class ProviderPackageController {
         } catch (IllegalArgumentException notBookable) {
             // The chosen first-session slot is gone, or the request is not this
             // provider's — surface it so the provider can decline or ask to rebook.
-            redirectAttributes.addFlashAttribute("packageError", notBookable.getMessage());
+            redirectAttributes.addFlashAttribute("packageError",
+                    LocalizedException.resolve(notBookable, messageSource, LocaleContextHolder.getLocale()));
         } catch (IllegalStateException alreadyHandled) {
             // Already processed (e.g. double submit) — nothing to add.
         }

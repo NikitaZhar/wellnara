@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Home</title>
+    <title th:text="#{home.title}">Wellnara — Home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,14 +11,14 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Hello, <span th:text="${providerName}">there</span></h1>
-            <p class="page-sub">Here's your overview</p>
+            <h1 class="page-title"><span th:text="#{home.hello}">Hello,</span> <span th:text="${providerName}">there</span></h1>
+            <p class="page-sub" th:text="#{home.overview}">Here's your overview</p>
         </div>
     </div>
 
@@ -27,12 +27,12 @@
 
         <section class="panel">
             <div class="panel-head">
-                <h2>Requests</h2>
+                <h2 th:text="#{phome.requests}">Requests</h2>
                 <span class="count-pill" th:text="${pendingRequestCount}">0</span>
             </div>
             <div class="panel-body">
                 <div th:if="${#lists.isEmpty(pendingRequests) and #lists.isEmpty(packageRequests)}" class="empty">
-                    <p>No pending requests.</p>
+                    <p th:text="#{phome.noRequests}">No pending requests.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
                 <div class="list-scroll" th:if="${not #lists.isEmpty(pendingRequests) or not #lists.isEmpty(packageRequests)}">
@@ -40,12 +40,12 @@
                         <div class="item-head">
                             <p class="primary">
                                 <span th:text="${pkg.clientName}">Client</span> ·
-                                Package: <span th:text="${pkg.offeringName}">Offering</span>
+                                <span th:text="#{phome.packagePrefix}">Package:</span> <span th:text="${pkg.offeringName}">Offering</span>
                             </p>
-                            <span class="badge badge-primary">REQUESTED</span>
+                            <span class="badge badge-primary" th:text="#{packageStatus.REQUESTED}">REQUESTED</span>
                         </div>
                         <p class="secondary">
-                            <span th:text="${pkg.sessions}">0</span> sessions ·
+                            <span th:text="${pkg.sessions}">0</span> <span th:text="#{home.sessions}">sessions</span> ·
                             <span th:text="${pkg.price}">0.00</span> <span th:text="${pkg.currency}">EUR</span>
                         </p>
                     </div>
@@ -55,7 +55,7 @@
                                 <span th:text="${req.clientName}">Client</span> ·
                                 <span th:text="${req.offeringName}">Offering</span>
                             </p>
-                            <span class="badge badge-primary" th:text="${req.status}">REQUESTED</span>
+                            <span class="badge badge-primary" th:text="#{'appointmentStatus.__${req.status.name()}__'}">REQUESTED</span>
                         </div>
                         <p class="secondary">
                             <span th:text="${req.localDate}">Date</span>,
@@ -65,18 +65,18 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/provider/requests}">Review requests →</a>
+                <a class="link-arrow" th:href="@{/provider/requests}" th:text="#{phome.reviewRequests}">Review requests →</a>
             </div>
         </section>
 
         <section class="panel">
             <div class="panel-head">
-                <h2>Upcoming appointments</h2>
+                <h2 th:text="#{phome.upcoming}">Upcoming appointments</h2>
                 <span class="count-pill" th:text="${#lists.size(upcomingAppointments)}">0</span>
             </div>
             <div class="panel-body">
                 <div th:if="${#lists.isEmpty(upcomingAppointments)}" class="empty">
-                    <p>No upcoming appointments.</p>
+                    <p th:text="#{phome.noUpcoming}">No upcoming appointments.</p>
                 </div>
                 <!-- Scrollable list: two rows stay visible, the rest scroll into view. -->
                 <div class="list-scroll" th:if="${not #lists.isEmpty(upcomingAppointments)}">
@@ -88,7 +88,7 @@
                             </p>
                             <span class="badge"
                                   th:classappend="${appointment.status.name() == 'SCHEDULED' ? 'badge-success' : 'badge-danger'}"
-                                  th:text="${appointment.status}">SCHEDULED</span>
+                                  th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">SCHEDULED</span>
                         </div>
                         <p class="secondary">
                             <span th:text="${appointment.localDate}">Date</span>,
@@ -100,7 +100,7 @@
                 </div>
             </div>
             <div class="panel-foot">
-                <a class="link-arrow" th:href="@{/provider/appointments}">View upcoming →</a>
+                <a class="link-arrow" th:href="@{/provider/appointments}" th:text="#{phome.viewUpcoming}">View upcoming →</a>
             </div>
         </section>
 
@@ -108,7 +108,7 @@
 
     <!-- Manage: the remaining workspace areas -->
     <div class="section-head">
-        <h2>Manage</h2>
+        <h2 th:text="#{home.manage}">Manage</h2>
     </div>
 
     <div class="grid-cards">
@@ -117,36 +117,36 @@
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </span>
-            <p class="nc-title">Clients</p>
-            <p class="nc-sub"><span th:text="${clientCount}">0</span> client(s) · manage</p>
-            <span class="nc-go">Open →</span>
+            <p class="nc-title" th:text="#{phome.card.clients}">Clients</p>
+            <p class="nc-sub"><span th:text="${clientCount}">0</span> <span th:text="#{phome.card.clients.sub}">client(s) · manage</span></p>
+            <span class="nc-go" th:text="#{home.open}">Open →</span>
         </a>
 
         <a class="nav-card" th:href="@{/provider/offerings}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>
             </span>
-            <p class="nc-title">Offerings</p>
-            <p class="nc-sub"><span th:text="${activeOfferingCount}">0</span> active · manage</p>
-            <span class="nc-go">Open →</span>
+            <p class="nc-title" th:text="#{phome.card.offerings}">Offerings</p>
+            <p class="nc-sub"><span th:text="${activeOfferingCount}">0</span> <span th:text="#{phome.card.offerings.sub}">active · manage</span></p>
+            <span class="nc-go" th:text="#{home.open}">Open →</span>
         </a>
 
         <a class="nav-card" th:href="@{/provider/availability}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v18H3zM16 2v4M8 2v4M3 10h18M12 14v4M9 16h6"/></svg>
             </span>
-            <p class="nc-title">Availability</p>
-            <p class="nc-sub">Set your weekly hours</p>
-            <span class="nc-go">Open →</span>
+            <p class="nc-title" th:text="#{phome.card.availability}">Availability</p>
+            <p class="nc-sub" th:text="#{phome.card.availability.sub}">Set your weekly hours</p>
+            <span class="nc-go" th:text="#{home.open}">Open →</span>
         </a>
 
         <a class="nav-card" th:href="@{/provider/profile}">
             <span class="nc-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
             </span>
-            <p class="nc-title">Profile</p>
-            <p class="nc-sub">Account &amp; password</p>
-            <span class="nc-go">Open →</span>
+            <p class="nc-title" th:text="#{phome.card.profile}">Profile</p>
+            <p class="nc-sub" th:text="#{phome.card.profile.sub}">Account &amp; password</p>
+            <span class="nc-go" th:text="#{home.open}">Open →</span>
         </a>
 
     </div>

@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
 import life.wellnara.repository.UserProfileRepository;
@@ -71,13 +72,13 @@ public class UserProfileService {
 
         if (passwordChangeRequested) {
             if (!authService.verifyPassword(user, currentPassword)) {
-                throw new IllegalArgumentException("Current password is incorrect");
+                throw new LocalizedException("error.password.currentIncorrect", "Current password is incorrect");
             }
             if (!StringUtils.hasText(newPassword)) {
-                throw new IllegalArgumentException("New password is required");
+                throw new LocalizedException("error.password.newRequired", "New password is required");
             }
             if (!newPassword.equals(confirmNewPassword)) {
-                throw new IllegalArgumentException("New passwords do not match");
+                throw new LocalizedException("error.password.resetMismatch", "New passwords do not match");
             }
         }
 

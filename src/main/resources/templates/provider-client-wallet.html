@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Client wallet</title>
+    <title th:text="#{pcw.title}">Wellnara — Client wallet</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,13 +11,13 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 
 <main class="page">
 
-    <a class="back-link" th:href="@{/provider/clients}">← Back to clients</a>
+    <a class="back-link" th:href="@{/provider/clients}" th:text="#{pcw.back}">← Back to clients</a>
     <div class="page-head">
-        <h1 class="page-title">Wallet — <span th:text="${wallet.clientName}">Client</span></h1>
+        <h1 class="page-title"><span th:text="#{pcw.walletOf}">Wallet —</span> <span th:text="${wallet.clientName}">Client</span></h1>
     </div>
 
     <div th:if="${walletActionError}" class="alert alert-danger" role="alert">
@@ -27,24 +27,24 @@
     <!-- Balance -->
     <div class="grid-2">
         <div class="metric">
-            <p class="k">Available</p>
+            <p class="k" th:text="#{pcw.available}">Available</p>
             <p class="v">
                 <span th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
             </p>
         </div>
         <div class="metric">
-            <p class="k">Held (reserved)</p>
+            <p class="k" th:text="#{pcw.held}">Held (reserved)</p>
             <p class="v">
                 <span th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
             </p>
         </div>
     </div>
-    <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;">No wallet yet — the first top-up creates it.</p>
+    <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;" th:text="#{pcw.noWallet}">No wallet yet — the first top-up creates it.</p>
 
     <!-- Package sessions -->
     <div th:if="${wallet.hasPackages}">
         <div class="section-head">
-            <h2>Package sessions</h2>
+            <h2 th:text="#{pcw.packageSessions}">Package sessions</h2>
         </div>
         <div class="panel">
             <div class="panel-body">
@@ -52,16 +52,16 @@
                     <div class="who">
                         <p class="primary" th:text="${pkg.offeringName}">Offering</p>
                         <p class="secondary">
-                            Available <span th:text="${pkg.available}">0</span> ·
-                            Held <span th:text="${pkg.held}">0</span> ·
-                            <span th:text="${pkg.total}">0</span> total
+                            <span th:text="#{pcw.availableLabel}">Available</span> <span th:text="${pkg.available}">0</span> ·
+                            <span th:text="#{pcw.heldLabel}">Held</span> <span th:text="${pkg.held}">0</span> ·
+                            <span th:text="${pkg.total}">0</span> <span th:text="#{pcw.total}">total</span>
                         </p>
                     </div>
                     <form th:action="@{/provider/clients/{clientId}/packages/{packageId}/refund(clientId=${clientId},packageId=${pkg.packageId})}"
                           method="post" class="inline-form" style="gap:var(--s-2); align-items:flex-end; margin:0;"
-                          onsubmit="return confirm('Refund this package? Unused sessions will be voided.');">
-                        <input type="number" name="amount" step="0.01" min="0.01" placeholder="Refund" style="width:110px;" required>
-                        <button type="submit" class="btn btn-secondary btn-sm">Refund</button>
+                          th:attr="data-confirm=#{pcw.refund.confirm}">
+                        <input type="number" name="amount" step="0.01" min="0.01" th:placeholder="#{pcw.refundPlaceholder}" placeholder="Refund" style="width:110px;" required>
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pcw.refund}">Refund</button>
                     </form>
                 </div>
             </div>
@@ -70,61 +70,61 @@
 
     <!-- Top up -->
     <div class="section-head">
-        <h2>Top up balance</h2>
+        <h2 th:text="#{pcw.topUp}">Top up balance</h2>
     </div>
     <section class="card">
         <form th:action="@{/provider/clients/{clientId}/wallet/top-up(clientId=${clientId})}" method="post" class="inline-form">
             <div class="field">
-                <label for="amount">Amount (<span th:text="${wallet.currency}">EUR</span>)</label>
+                <label for="amount"><span th:text="#{pcw.amount}">Amount</span> (<span th:text="${wallet.currency}">EUR</span>)</label>
                 <input id="amount" type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
             </div>
             <div class="field">
-                <label for="comment">Comment (optional)</label>
-                <input id="comment" type="text" name="comment" placeholder="e.g. bank transfer">
+                <label for="comment" th:text="#{pcw.comment}">Comment (optional)</label>
+                <input id="comment" type="text" name="comment" th:placeholder="#{pcw.commentPlaceholder}" placeholder="e.g. bank transfer">
             </div>
-            <button type="submit" class="btn btn-primary">Top up</button>
+            <button type="submit" class="btn btn-primary" th:text="#{pcw.topUpBtn}">Top up</button>
         </form>
     </section>
 
     <!-- Sell package (only when the provider has packageable services) -->
     <div th:if="${not #lists.isEmpty(packageableOfferings)}">
         <div class="section-head">
-            <h2>Sell package</h2>
+            <h2 th:text="#{pcw.sellPackage}">Sell package</h2>
         </div>
         <section class="card">
             <form th:action="@{/provider/clients/{clientId}/packages(clientId=${clientId})}" method="post" class="inline-form">
                 <div class="field">
-                    <label for="pkgOffering">Service</label>
+                    <label for="pkgOffering" th:text="#{pcw.service}">Service</label>
                     <select id="pkgOffering" name="offeringId" required>
                         <option th:each="o : ${packageableOfferings}" th:value="${o.id}" th:text="${o.name}">Service</option>
                     </select>
                 </div>
                 <div class="field">
-                    <label for="pkgSessions">Sessions</label>
-                    <input id="pkgSessions" type="number" name="sessions" min="1" placeholder="e.g. 10" required>
+                    <label for="pkgSessions" th:text="#{pcw.sessionsLabel}">Sessions</label>
+                    <input id="pkgSessions" type="number" name="sessions" min="1" th:placeholder="#{pcw.sessionsPlaceholder}" placeholder="e.g. 10" required>
                 </div>
                 <div class="field">
-                    <label for="pkgPrice">Total price (optional)</label>
-                    <input id="pkgPrice" type="number" name="price" step="0.01" min="0.01" placeholder="package price">
+                    <label for="pkgPrice" th:text="#{pcw.totalPrice}">Total price (optional)</label>
+                    <input id="pkgPrice" type="number" name="price" step="0.01" min="0.01" th:placeholder="#{pcw.pricePlaceholder}" placeholder="package price">
                 </div>
                 <div class="field">
-                    <label for="pkgComment">Comment (optional)</label>
-                    <input id="pkgComment" type="text" name="comment" placeholder="e.g. bank transfer">
+                    <label for="pkgComment" th:text="#{pcw.comment}">Comment (optional)</label>
+                    <input id="pkgComment" type="text" name="comment" th:placeholder="#{pcw.commentPlaceholder}" placeholder="e.g. bank transfer">
                 </div>
-                <button type="submit" class="btn btn-primary">Sell package</button>
+                <button type="submit" class="btn btn-primary" th:text="#{pcw.sellPackageBtn}">Sell package</button>
             </form>
         </section>
     </div>
 
     <!-- Payment history -->
     <div class="section-head">
-        <h2>Payment history</h2>
+        <h2 th:text="#{pcw.paymentHistory}">Payment history</h2>
     </div>
 
     <div class="panel">
         <div class="panel-body">
             <div th:unless="${wallet.hasHistory}" class="empty">
-                <p>No movements yet.</p>
+                <p th:text="#{pcw.noMovements}">No movements yet.</p>
             </div>
             <div class="item row-between" th:if="${wallet.hasHistory}" th:each="row : ${wallet.history}">
                 <div class="who">
@@ -141,7 +141,7 @@
                         <span th:text="${row.currency}">EUR</span>
                     </span>
                     <span th:if="${row.session}">
-                        <span th:text="${row.sessionCount}">0</span> session(s)
+                        <span th:text="${row.sessionCount}">0</span> <span th:text="#{pcw.sessionsSuffix}">session(s)</span>
                     </span>
                 </span>
             </div>

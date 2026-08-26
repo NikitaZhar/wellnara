@@ -1,6 +1,9 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.service.PasswordResetService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,14 +21,17 @@ public class PasswordResetController {
     private static final String RESET_VIEW = "reset-password";
 
     private final PasswordResetService passwordResetService;
+    private final MessageSource messageSource;
 
     /**
      * Creates password reset controller.
      *
      * @param passwordResetService service driving the reset flow
+     * @param messageSource        resolver of localized user-facing messages
      */
-    public PasswordResetController(PasswordResetService passwordResetService) {
+    public PasswordResetController(PasswordResetService passwordResetService, MessageSource messageSource) {
         this.passwordResetService = passwordResetService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -94,7 +100,8 @@ public class PasswordResetController {
         } catch (IllegalArgumentException passwordError) {
             model.addAttribute("token", token);
             model.addAttribute("tokenValid", true);
-            model.addAttribute("error", passwordError.getMessage());
+            model.addAttribute("error",
+                    LocalizedException.resolve(passwordError, messageSource, LocaleContextHolder.getLocale()));
             return RESET_VIEW;
         }
     }

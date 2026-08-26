@@ -86,7 +86,7 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("inviteError"))
                 .andExpect(model().attributeExists("users"))
-                .andExpect(content().string(containsString("Email already used")));
+                .andExpect(content().string(containsString("Эта почта уже используется")));
     }
 
     @Test
@@ -103,11 +103,11 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Provider invitation was sent to new-provider@example.com")));
+                .andExpect(content().string(containsString("Приглашение специалисту отправлено на new-provider@example.com")));
 
         mockMvc.perform(get("/admin").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Provider invitation was sent to"))));
+                .andExpect(content().string(not(containsString("Приглашение специалисту отправлено"))));
     }
 
     @Test
@@ -127,7 +127,7 @@ class ProviderAdminFlowMvcTest {
                 .andExpect(model().attributeExists("token"))
                 .andExpect(model().attributeExists("email"))
                 .andExpect(model().attributeExists("error"))
-                .andExpect(content().string(containsString("Passwords do not match")));
+                .andExpect(content().string(containsString("Пароли не совпадают")));
 
         assertThat(userRepository.findByUsername("provider-mismatch")).isEmpty();
         assertThat(invitationRepository.findByToken(token)).isPresent();
@@ -165,7 +165,7 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/provider/clients").session((MockHttpSession) registrationSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("My clients")))
+                .andExpect(content().string(containsString("Мои клиенты")))
                 .andExpect(content().string(containsString("Successful Provider")));
 
         mockMvc.perform(get("/auth/logout").session((MockHttpSession) registrationSession))
@@ -184,7 +184,7 @@ class ProviderAdminFlowMvcTest {
 
         mockMvc.perform(get("/provider/clients").session((MockHttpSession) loginSession))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("My clients")))
+                .andExpect(content().string(containsString("Мои клиенты")))
                 .andExpect(content().string(containsString("Successful Provider")));
     }
 

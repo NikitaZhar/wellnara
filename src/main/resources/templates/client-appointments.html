@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Appointments</title>
+    <title th:text="#{cappt.title}">Wellnara — Appointments</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -25,41 +25,41 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
 <div th:replace="~{fragments/client-nav :: nav('appointments')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Appointments</h1>
-            <p class="page-sub">Signed in as <span th:text="${clientName}">Client</span></p>
+            <h1 class="page-title" th:text="#{cappt.heading}">Appointments</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${clientName}">Client</span></p>
         </div>
     </div>
 
     <!-- Confirmed (scheduled) appointments — the client's committed calendar, shown first. -->
     <section>
         <div class="section-head">
-            <h2>Upcoming appointments</h2>
+            <h2 th:text="#{cappt.upcoming}">Upcoming appointments</h2>
             <span class="count-pill" th:text="${#lists.size(confirmedAppointments)}">0</span>
         </div>
 
         <!-- One-time nudge: only when there is something to sync and sync is not set up yet. Disappears once enabled. -->
         <div th:if="${not calendarFeedEnabled and not #lists.isEmpty(confirmedAppointments)}"
              class="card" style="display:flex; align-items:center; justify-content:space-between; gap:var(--s-3); margin-bottom:var(--s-4); background:var(--surface-2);">
-            <p class="page-sub" style="margin:0;">Get these sessions in your own calendar automatically — no need to add each one by hand.</p>
-            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/client/profile#calendar-feed}" href="/client/profile#calendar-feed">Sync my calendar</a>
+            <p class="page-sub" style="margin:0;" th:text="#{cappt.syncNudge}">Get these sessions in your own calendar automatically — no need to add each one by hand.</p>
+            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/client/profile#calendar-feed}" href="/client/profile#calendar-feed" th:text="#{cappt.syncMyCalendar}">Sync my calendar</a>
         </div>
 
         <div th:if="${#lists.isEmpty(confirmedAppointments)}" class="empty">
-            <p>No upcoming appointments.</p>
+            <p th:text="#{cappt.noUpcoming}">No upcoming appointments.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
             <div class="appt" th:each="appointment : ${confirmedAppointments}">
                 <div class="appt-head">
                     <p class="appt-title" th:text="${appointment.offeringName}">Offering</p>
-                    <span class="badge badge-success" th:text="${appointment.status}">SCHEDULED</span>
+                    <span class="badge badge-success" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">SCHEDULED</span>
                 </div>
                 <p class="appt-meta">
                     <span th:text="${appointment.localDate}">Date</span>,
@@ -69,39 +69,39 @@
                    th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
                 <!-- Row 1: add this session to an external calendar. -->
                 <div class="appt-actions" th:with="addLinks=${calendarAddLinks != null ? calendarAddLinks.get(appointment.id) : null}">
-                    <span class="cal-lead">Add to calendar:</span>
+                    <span class="cal-lead" th:text="#{cappt.addToCalendar}">Add to calendar:</span>
                     <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.google()}" target="_blank" rel="noopener">Google</a>
                     <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.outlook()}" target="_blank" rel="noopener">Outlook</a>
                     <a class="btn btn-secondary btn-sm"
-                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}">Apple / .ics</a>
+                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}" th:text="#{cappt.appleIcs}">Apple / .ics</a>
                 </div>
 
                 <!-- Row 2: manage the appointment itself (separate from the calendar actions above). -->
                 <div class="appt-actions appt-manage">
-                    <span class="cal-lead">Manage appointment:</span>
+                    <span class="cal-lead" th:text="#{cappt.manageAppt}">Manage appointment:</span>
 
                     <!-- Reschedule: only far enough ahead; the current time is released and the payment is kept. -->
                     <form th:if="${appointment.reschedulable}"
                           th:action="@{/client/appointments/{appointmentId}/reschedule(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Reschedule this appointment? Your current time will be released so you can pick a new one. Your payment is kept.');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Reschedule</button>
+                          th:attr="data-confirm=#{cappt.reschedule.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{cappt.reschedule}">Reschedule</button>
                     </form>
 
                     <!-- Cancel within 24h: payment is not refunded, so warn before confirming. -->
                     <form th:if="${appointment.cancelForfeitsPayment}"
                           th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('If you cancel less than 24 hours before the appointment, your payment will not be refunded. Cancel anyway?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+                          th:attr="data-confirm=#{cappt.cancelForfeit.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{cappt.cancel}">Cancel</button>
                     </form>
 
                     <!-- Cancel 24h+ ahead: payment is refunded, plain confirmation. -->
                     <form th:unless="${appointment.cancelForfeitsPayment}"
                           th:action="@{/client/appointments/{appointmentId}/cancel(appointmentId=${appointment.id})}"
                           method="post"
-                          onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
-                        <button type="submit" class="btn btn-secondary btn-sm">Cancel</button>
+                          th:attr="data-confirm=#{cappt.cancel.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{cappt.cancel}">Cancel</button>
                     </form>
                 </div>
             </div>

@@ -2,11 +2,14 @@ package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.ProviderInvitationService;
 import life.wellnara.service.wallet.CurrencyCodes;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,17 +24,25 @@ public class ProviderRegistrationController {
 
     private final ProviderInvitationService service;
     private final SecuritySessionService securitySessionService;
+    private final MessageSource messageSource;
 
     /**
      * Creates provider registration controller.
      *
      * @param service                provider invitation service
      * @param securitySessionService service that establishes the security context
+     * @param messageSource          resolver of localized user-facing messages
      */
     public ProviderRegistrationController(ProviderInvitationService service,
-    		SecuritySessionService securitySessionService) {
+    		SecuritySessionService securitySessionService,
+    		MessageSource messageSource) {
         this.service = service;
         this.securitySessionService = securitySessionService;
+        this.messageSource = messageSource;
+    }
+
+    private String localize(IllegalArgumentException exception) {
+        return LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale());
     }
 
     /**
@@ -50,7 +61,7 @@ public class ProviderRegistrationController {
             addCurrencyAttributes(model, CurrencyCodes.DEFAULT);
             return "provider-register";
         } catch (IllegalArgumentException exception) {
-            model.addAttribute("error", exception.getMessage());
+            model.addAttribute("error", localize(exception));
             return "login";
         }
     }
@@ -90,13 +101,14 @@ public class ProviderRegistrationController {
         try {
             email = service.getEmailByToken(token);
         } catch (IllegalArgumentException exception) {
-            model.addAttribute("error", exception.getMessage());
+            model.addAttribute("error", localize(exception));
             return "login";
         }
 
         if (!password.equals(confirmPassword)) {
             return renderRegisterError(model, token, email, name, firstName, lastName, phone,
-                    currency, whatsappUrl, telegramUrl, "Passwords do not match");
+                    currency, whatsappUrl, telegramUrl,
+                    messageSource.getMessage("error.password.mismatchForm", null, LocaleContextHolder.getLocale()));
         }
 
         try {
@@ -106,7 +118,7 @@ public class ProviderRegistrationController {
             return "redirect:/home";
         } catch (IllegalArgumentException exception) {
             return renderRegisterError(model, token, email, name, firstName, lastName, phone,
-                    currency, whatsappUrl, telegramUrl, exception.getMessage());
+                    currency, whatsappUrl, telegramUrl, localize(exception));
         }
     }
 

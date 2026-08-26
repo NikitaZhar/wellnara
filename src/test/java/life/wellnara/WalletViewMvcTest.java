@@ -57,8 +57,9 @@ class WalletViewMvcTest {
                         .session(authenticatedSession(provider)))
                 .andExpect(status().isOk())
                 .andExpect(view().name("provider-client-wallet"))
-                .andExpect(content().string(containsString("Payment history")))
-                .andExpect(content().string(containsString("100.00")));
+                .andExpect(content().string(containsString("История платежей")))
+                // Amounts follow the active locale; the default is Russian, which uses a comma decimal separator.
+                .andExpect(content().string(containsString("100,00")));
     }
 
     @Test
@@ -96,7 +97,8 @@ class WalletViewMvcTest {
         mockMvc.perform(get("/home").session(authenticatedSession(client)))
                 .andExpect(status().isOk())
                 .andExpect(view().name("client-home"))
-                .andExpect(content().string(containsString("100.00")));
+                // Amounts follow the active locale; the default is Russian, which uses a comma decimal separator.
+                .andExpect(content().string(containsString("100,00")));
     }
 
     // ===== helpers =====

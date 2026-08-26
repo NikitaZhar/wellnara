@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Language switch (English / Russian).
+  Usage on any page:
+    <div th:replace="~{fragments/lang-switch :: switch}"></div>
+
+  The buttons reload the current page with a ?lang=xx parameter, which
+  LocaleChangeInterceptor reads and stores in a cookie, so the choice persists
+  across pages and sessions. The active language is highlighted using the
+  request locale (#locale), and the whole URL (path + existing query) is kept.
+-->
+<div th:fragment="switch" class="lang-switch" role="group" th:aria-label="#{lang.aria}">
+    <button type="button" class="lang-btn"
+            th:classappend="${#locale.language == 'en'} ? ' is-active'"
+            th:aria-pressed="${#locale.language == 'en'}"
+            onclick="wellnaraSetLang('en')" th:text="#{lang.en}">EN</button>
+    <button type="button" class="lang-btn"
+            th:classappend="${#locale.language == 'ru'} ? ' is-active'"
+            th:aria-pressed="${#locale.language == 'ru'}"
+            onclick="wellnaraSetLang('ru')" th:text="#{lang.ru}">RU</button>
+    <script>
+        if (typeof window.wellnaraSetLang !== 'function') {
+            window.wellnaraSetLang = function (lang) {
+                var url = new URL(window.location.href);
+                url.searchParams.set('lang', lang);
+                window.location.href = url.toString();
+            };
+        }
+    </script>
+</div>
+
+</body>
+</html>

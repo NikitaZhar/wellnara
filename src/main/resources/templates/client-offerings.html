@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Offerings</title>
+    <title th:text="#{coff.heading} + ' — ' + #{app.name}">Wellnara — Offerings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,15 +11,15 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
 <div th:replace="~{fragments/client-nav :: nav('offerings')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Offerings</h1>
-            <p class="page-sub">Your provider: <span style="color:var(--text); font-weight:500;" th:text="${providerName} ?: '—'">Provider</span><span
+            <h1 class="page-title" th:text="#{coff.heading}">Offerings</h1>
+            <p class="page-sub"><span th:text="#{coff.yourProvider}">Your provider:</span> <span style="color:var(--text); font-weight:500;" th:text="${providerName} ?: '—'">Provider</span><span
                     th:if="${providerWhatsapp}"> · <a th:href="${providerWhatsapp}" target="_blank" rel="noopener noreferrer" style="color:var(--sea-primary-dark); font-weight:500;">WhatsApp</a></span><span
                     th:if="${providerTelegram}"> · <a th:href="${providerTelegram}" target="_blank" rel="noopener noreferrer" style="color:var(--sea-primary-dark); font-weight:500;">Telegram</a></span></p>
         </div>
@@ -27,7 +27,7 @@
 
     <section th:if="${not #lists.isEmpty(activePackages)}" style="margin-bottom:var(--s-6);">
         <div class="section-head">
-            <h2>My packages</h2>
+            <h2 th:text="#{coff.myPackages}">My packages</h2>
             <span class="count-pill" th:text="${#lists.size(activePackages)}">0</span>
         </div>
         <div class="list">
@@ -35,25 +35,25 @@
                 <div class="who">
                     <p class="primary" th:text="${pkg.offeringName}">Service</p>
                     <p class="secondary">
-                        <span th:text="${pkg.remaining}">0</span> of <span th:text="${pkg.total}">0</span> left
-                        <span th:if="${pkg.pending > 0}"> · <span th:text="${pkg.pending}">0</span> booked</span>
+                        <span th:text="${pkg.remaining}">0</span> <span th:text="#{coff.of}">of</span> <span th:text="${pkg.total}">0</span> <span th:text="#{coff.left}">left</span>
+                        <span th:if="${pkg.pending > 0}"> · <span th:text="${pkg.pending}">0</span> <span th:text="#{coff.booked}">booked</span></span>
                     </p>
                 </div>
                 <a th:if="${pkg.canBookNext()}" class="btn btn-primary btn-sm"
-                   th:href="@{/client/offerings/{offeringId}(offeringId=${pkg.offeringId})}">Book next</a>
-                <span th:unless="${pkg.canBookNext()}" class="badge badge-primary">All booked</span>
+                   th:href="@{/client/offerings/{offeringId}(offeringId=${pkg.offeringId})}" th:text="#{coff.bookNext}">Book next</a>
+                <span th:unless="${pkg.canBookNext()}" class="badge badge-primary" th:text="#{coff.allBooked}">All booked</span>
             </div>
         </div>
     </section>
 
     <section>
         <div class="section-head">
-            <h2>Available offerings</h2>
+            <h2 th:text="#{coff.available}">Available offerings</h2>
             <span class="count-pill" th:text="${#lists.size(offerings)}">0</span>
         </div>
 
         <div th:if="${#lists.isEmpty(offerings)}" class="empty">
-            <p>No offerings available yet.</p>
+            <p th:text="#{coff.noOfferings}">No offerings available yet.</p>
         </div>
 
         <div class="list" th:if="${not #lists.isEmpty(offerings)}">

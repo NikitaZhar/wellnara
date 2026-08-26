@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Profile</title>
+    <title th:text="#{cprof.title}">Wellnara — Profile</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,20 +11,20 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
 <div th:replace="~{fragments/client-nav :: nav('profile')}"></div>
 
 <main class="page page-narrow">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">Profile</h1>
-            <p class="page-sub">Signed in as <span th:text="${clientName}">Client</span></p>
+            <h1 class="page-title" th:text="#{cprof.heading}">Profile</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${clientName}">Client</span></p>
         </div>
     </div>
 
     <div th:if="${param.profileUpdated != null}" class="alert alert-success" role="status">
-        <p style="margin:0;">Profile updated.</p>
+        <p style="margin:0;" th:text="#{cprof.updated}">Profile updated.</p>
     </div>
 
     <div th:if="${profileError}" class="alert alert-danger" role="alert">
@@ -33,11 +33,11 @@
 
     <section>
         <div class="section-head">
-            <h2>Account</h2>
+            <h2 th:text="#{cprof.account}">Account</h2>
         </div>
         <div class="card">
-            <p class="page-sub" style="margin:0;">Login: <span th:text="${clientLogin}" style="color:var(--text); font-weight:500;">login</span></p>
-            <p class="page-sub" style="margin:4px 0 0;">Email: <span th:text="${clientEmail}" style="color:var(--text); font-weight:500;">email</span></p>
+            <p class="page-sub" style="margin:0;"><span th:text="#{cprof.login}">Login:</span> <span th:text="${clientLogin}" style="color:var(--text); font-weight:500;">login</span></p>
+            <p class="page-sub" style="margin:4px 0 0;"><span th:text="#{cprof.email}">Email:</span> <span th:text="${clientEmail}" style="color:var(--text); font-weight:500;">email</span></p>
         </div>
     </section>
 
@@ -45,52 +45,53 @@
 
         <section>
             <div class="section-head">
-                <h2>Personal details</h2>
+                <h2 th:text="#{cprof.personal}">Personal details</h2>
             </div>
 
             <div class="card">
                 <div class="field-grid">
                     <div class="field">
-                        <label for="firstName">First name</label>
+                        <label for="firstName" th:text="#{register.firstName}">First name</label>
                         <input id="firstName" type="text" name="firstName" th:value="${profileFirstName}" required>
                     </div>
                     <div class="field">
-                        <label for="lastName">Last name</label>
+                        <label for="lastName" th:text="#{register.lastName}">Last name</label>
                         <input id="lastName" type="text" name="lastName" th:value="${profileLastName}" required>
                     </div>
                 </div>
 
                 <div class="field">
-                    <label for="phone">Phone (optional)</label>
+                    <label for="phone" th:text="#{register.phone}">Phone (optional)</label>
                     <input id="phone" type="tel" name="phone" th:value="${profilePhone}"
                            autocomplete="tel" placeholder="+421904746337"
                            pattern="\+[1-9]\d{1,14}"
+                           th:title="#{register.phone.hint}"
                            title="International format, e.g. +421904746337">
-                    <span class="hint">International format, e.g. +421904746337</span>
+                    <span class="hint" th:text="#{register.phone.hint}">International format, e.g. +421904746337</span>
                 </div>
             </div>
         </section>
 
         <section>
             <div class="section-head">
-                <h2>Password</h2>
+                <h2 th:text="#{cprof.password}">Password</h2>
             </div>
 
             <div class="card">
-                <p class="page-sub" style="margin:0 0 var(--s-4);">Fill in the three fields to change your password. Leave them blank to keep your current one.</p>
+                <p class="page-sub" style="margin:0 0 var(--s-4);" th:text="#{cprof.passwordHint}">Fill in the three fields to change your password. Leave them blank to keep your current one.</p>
 
                 <div class="field">
-                    <label for="currentPassword">Current password</label>
+                    <label for="currentPassword" th:text="#{cprof.currentPassword}">Current password</label>
                     <input id="currentPassword" type="password" name="currentPassword" autocomplete="current-password">
                 </div>
 
                 <div class="field-grid">
                     <div class="field">
-                        <label for="newPassword">New password</label>
+                        <label for="newPassword" th:text="#{cprof.newPassword}">New password</label>
                         <input id="newPassword" type="password" name="newPassword" autocomplete="new-password">
                     </div>
                     <div class="field">
-                        <label for="confirmNewPassword">Repeat new password</label>
+                        <label for="confirmNewPassword" th:text="#{cprof.repeatNewPassword}">Repeat new password</label>
                         <input id="confirmNewPassword" type="password" name="confirmNewPassword" autocomplete="new-password">
                     </div>
                 </div>
@@ -98,16 +99,16 @@
         </section>
 
         <div class="form-actions">
-            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-primary" type="submit" th:text="#{cprof.save}">Save</button>
         </div>
     </form>
 
     <section id="calendar-feed">
         <div class="section-head">
-            <h2>Sync with your calendar</h2>
+            <h2 th:text="#{cprof.calendarSync}">Sync with your calendar</h2>
         </div>
         <div class="card">
-            <p class="page-sub" style="margin:0 0 var(--s-4);">
+            <p class="page-sub" style="margin:0 0 var(--s-4);" th:text="#{cprof.calendarIntro}">
                 Subscribe once and your upcoming sessions appear in your calendar automatically — new bookings
                 and changes keep syncing on their own, on your phone, tablet and computer.
             </p>
@@ -115,24 +116,24 @@
             <!-- Feed on: one add button per calendar family, plus a copyable link for anything else. -->
             <div th:if="${calendarFeedEnabled}">
                 <div class="form-actions" style="justify-content:flex-start; margin:0 0 var(--s-4);">
-                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedGoogleUrl}" target="_blank" rel="noopener">Subscribe in Google Calendar</a>
-                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedWebcalUrl}">Subscribe in Apple Calendar / Outlook</a>
+                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedGoogleUrl}" target="_blank" rel="noopener" th:text="#{cprof.subscribeGoogle}">Subscribe in Google Calendar</a>
+                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedWebcalUrl}" th:text="#{cprof.subscribeApple}">Subscribe in Apple Calendar / Outlook</a>
                     <button type="button" class="btn btn-secondary btn-sm"
-                            th:attr="data-url=${calendarFeedUrl}"
-                            onclick="const u=this.getAttribute('data-url');navigator.clipboard&amp;&amp;navigator.clipboard.writeText(u);this.textContent='Link copied';">Copy link</button>
+                            th:attr="data-url=${calendarFeedUrl},data-copied=#{cprof.linkCopied}"
+                            onclick="const u=this.getAttribute('data-url');navigator.clipboard&amp;&amp;navigator.clipboard.writeText(u);this.textContent=this.getAttribute('data-copied');" th:text="#{cprof.copyLink}">Copy link</button>
                 </div>
 
                 <div style="margin-top:var(--s-6); padding-top:var(--s-4); border-top:1px solid var(--border);">
                     <div class="form-actions" style="justify-content:space-between; align-items:center; margin:0;">
-                        <p class="page-sub" style="margin:0;">Lost your link or think it leaked? Reset it to get a new one — the old link stops working.</p>
+                        <p class="page-sub" style="margin:0;" th:text="#{cprof.resetHint}">Lost your link or think it leaked? Reset it to get a new one — the old link stops working.</p>
                         <div style="display:flex; gap:var(--s-2);">
                             <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;"
-                                  onsubmit="return confirm('Reset the link? Your current link stops working and you will need to add the calendar again everywhere you use it. Only do this if the link may have leaked.');">
-                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);">Reset link</button>
+                                  th:attr="data-confirm=#{cprof.reset.confirm}">
+                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);" th:text="#{cprof.resetLink}">Reset link</button>
                             </form>
                             <form th:action="@{/profile/calendar/disable}" method="post" style="margin:0;"
-                                  onsubmit="return confirm('Turn off calendar sync? The link will stop working until you turn it back on.');">
-                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);">Turn off</button>
+                                  th:attr="data-confirm=#{cprof.disable.confirm}">
+                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);" th:text="#{cprof.turnOff}">Turn off</button>
                             </form>
                         </div>
                     </div>
@@ -142,7 +143,7 @@
             <!-- Feed off or never set up: offer to enable it. -->
             <div th:unless="${calendarFeedEnabled}">
                 <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;">
-                    <button class="btn btn-primary btn-sm" type="submit">Sync with my calendar</button>
+                    <button class="btn btn-primary btn-sm" type="submit" th:text="#{cprof.syncMyCalendar}">Sync with my calendar</button>
                 </form>
             </div>
         </div>

@@ -2,10 +2,13 @@ package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.security.SecuritySessionService;
 import life.wellnara.service.ClientInvitationService;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,17 +23,25 @@ public class ClientRegistrationController {
 
 	private final ClientInvitationService clientInvitationService;
 	private final SecuritySessionService securitySessionService;
+	private final MessageSource messageSource;
 
 	/**
 	 * Creates client registration controller.
 	 *
 	 * @param clientInvitationService service for client invitation flow
 	 * @param securitySessionService  service that establishes the security context
+	 * @param messageSource           resolver of localized user-facing messages
 	 */
 	public ClientRegistrationController(ClientInvitationService clientInvitationService,
-			SecuritySessionService securitySessionService) {
+			SecuritySessionService securitySessionService,
+			MessageSource messageSource) {
 		this.clientInvitationService = clientInvitationService;
 		this.securitySessionService = securitySessionService;
+		this.messageSource = messageSource;
+	}
+
+	private String localize(IllegalArgumentException exception) {
+		return LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale());
 	}
 
 	/**
@@ -48,7 +59,7 @@ public class ClientRegistrationController {
 			model.addAttribute("email", email);
 			return "client-register";
 		} catch (IllegalArgumentException exception) {
-			model.addAttribute("error", exception.getMessage());
+			model.addAttribute("error", localize(exception));
 			return "login";
 		}
 	}
@@ -81,7 +92,7 @@ public class ClientRegistrationController {
 		try {
 			email = clientInvitationService.getEmailByToken(token);
 		} catch (IllegalArgumentException exception) {
-			model.addAttribute("error", exception.getMessage());
+			model.addAttribute("error", localize(exception));
 			return "login";
 		}
 
@@ -89,7 +100,8 @@ public class ClientRegistrationController {
 			model.addAttribute("token", token);
 			model.addAttribute("email", email);
 			addProfileAttributes(model, name, firstName, lastName, phone);
-			model.addAttribute("error", "Passwords do not match");
+			model.addAttribute("error",
+					messageSource.getMessage("error.password.mismatchForm", null, LocaleContextHolder.getLocale()));
 			return "client-register";
 		}
 
@@ -101,7 +113,7 @@ public class ClientRegistrationController {
 			model.addAttribute("token", token);
 			model.addAttribute("email", email);
 			addProfileAttributes(model, name, firstName, lastName, phone);
-			model.addAttribute("error", exception.getMessage());
+			model.addAttribute("error", localize(exception));
 			return "client-register";
 		}
 	}

@@ -1,8 +1,11 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.web.CurrentUser;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +27,7 @@ public class ProfileController {
     private final UserProfileService userProfileService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
+    private final MessageSource messageSource;
 
     /**
      * Creates profile controller.
@@ -33,13 +37,16 @@ public class ProfileController {
      *                                   to re-render the profile page when the update fails
      * @param calendarFeedModelAssembler assembler for the calendar feed section, used
      *                                   to re-render the profile page when the update fails
+     * @param messageSource              resolver of localized user-facing messages
      */
     public ProfileController(UserProfileService userProfileService,
                              ProviderPageModelAssembler providerPageModelAssembler,
-                             CalendarFeedModelAssembler calendarFeedModelAssembler) {
+                             CalendarFeedModelAssembler calendarFeedModelAssembler,
+                             MessageSource messageSource) {
         this.userProfileService = userProfileService;
         this.providerPageModelAssembler = providerPageModelAssembler;
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -87,7 +94,8 @@ public class ProfileController {
             model.addAttribute("profilePhone", phone);
             model.addAttribute("profileWhatsapp", whatsappUrl);
             model.addAttribute("profileTelegram", telegramUrl);
-            model.addAttribute("profileError", exception.getMessage());
+            model.addAttribute("profileError",
+                    LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return PROFILE_VIEW;
         }
     }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Provider registration</title>
+    <title th:text="#{register.provider.title}">Wellnara — Provider registration</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -36,15 +36,16 @@
 <main class="auth-page">
     <div class="auth-card">
         <div class="auth-hero">
+            <div th:replace="~{fragments/lang-switch :: switch}"></div>
             <div class="auth-brand">
                 <span class="dot" aria-hidden="true"></span>
-                <span class="name">Wellnara</span>
+                <span class="name" th:text="#{app.name}">Wellnara</span>
             </div>
         </div>
 
         <div class="auth-body">
-            <h1 class="auth-title">Create your account</h1>
-            <p class="auth-sub">Registering <span th:text="${email}">you@example.com</span></p>
+            <h1 class="auth-title" th:text="#{register.heading}">Create your account</h1>
+            <p class="auth-sub"><span th:text="#{register.registering}">Registering</span> <span th:text="${email}">you@example.com</span></p>
 
             <div th:if="${error}" class="alert alert-danger" role="alert">
                 <span th:text="${error}">Something went wrong.</span>
@@ -54,46 +55,47 @@
                 <input type="hidden" name="token" th:value="${token}"/>
 
                 <div class="field">
-                    <label for="name">Login</label>
-                    <input id="name" type="text" name="name" th:value="${name}" placeholder="Choose a login" required autofocus>
+                    <label for="name" th:text="#{register.login}">Login</label>
+                    <input id="name" type="text" name="name" th:value="${name}" th:placeholder="#{register.login.placeholder}" placeholder="Choose a login" required autofocus>
                 </div>
 
                 <div class="field-grid">
                     <div class="field">
-                        <label for="firstName">First name</label>
+                        <label for="firstName" th:text="#{register.firstName}">First name</label>
                         <input id="firstName" type="text" name="firstName" th:value="${firstName}" required>
                     </div>
                     <div class="field">
-                        <label for="lastName">Last name</label>
+                        <label for="lastName" th:text="#{register.lastName}">Last name</label>
                         <input id="lastName" type="text" name="lastName" th:value="${lastName}" required>
                     </div>
                 </div>
 
                 <div class="field">
-                    <label for="phone">Phone (optional)</label>
+                    <label for="phone" th:text="#{register.phone}">Phone (optional)</label>
                     <input id="phone" type="tel" name="phone" th:value="${phone}"
                            autocomplete="tel" placeholder="+421904746337"
                            pattern="\+[1-9]\d{1,14}"
+                           th:title="#{register.phone.hint}"
                            title="International format, e.g. +421904746337">
-                    <span class="hint">International format, e.g. +421904746337</span>
+                    <span class="hint" th:text="#{register.phone.hint}">International format, e.g. +421904746337</span>
                 </div>
 
                 <div class="field">
-                    <label for="whatsappUrl">WhatsApp link (optional)</label>
+                    <label for="whatsappUrl" th:text="#{register.whatsapp}">WhatsApp link (optional)</label>
                     <input id="whatsappUrl" type="url" name="whatsappUrl" th:value="${whatsappUrl}"
                            placeholder="https://wa.me/1234567890">
-                    <span class="hint">Shown to your clients later. You can add it now or in your profile.</span>
+                    <span class="hint" th:text="#{register.contactHint}">Shown to your clients later. You can add it now or in your profile.</span>
                 </div>
 
                 <div class="field">
-                    <label for="telegramUrl">Telegram link (optional)</label>
+                    <label for="telegramUrl" th:text="#{register.telegram}">Telegram link (optional)</label>
                     <input id="telegramUrl" type="url" name="telegramUrl" th:value="${telegramUrl}"
                            placeholder="https://t.me/yourname">
-                    <span class="hint">Shown to your clients later. You can add it now or in your profile.</span>
+                    <span class="hint" th:text="#{register.contactHint}">Shown to your clients later. You can add it now or in your profile.</span>
                 </div>
 
                 <div class="field">
-                    <label for="currency">Wallet currency</label>
+                    <label for="currency" th:text="#{register.currency}">Wallet currency</label>
                     <select id="currency" name="currency" required>
                         <option th:each="c : ${supportedCurrencies}" th:value="${c}" th:text="${c}"
                                 th:selected="${c == selectedCurrency}"></option>
@@ -102,16 +104,16 @@
 
                 <div class="field-grid">
                     <div class="field">
-                        <label for="password">Password</label>
+                        <label for="password" th:text="#{register.password}">Password</label>
                         <input id="password" type="password" name="password" autocomplete="new-password" required>
                     </div>
                     <div class="field">
-                        <label for="confirmPassword">Repeat password</label>
+                        <label for="confirmPassword" th:text="#{register.confirmPassword}">Repeat password</label>
                         <input id="confirmPassword" type="password" name="confirmPassword" autocomplete="new-password" required>
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Register</button>
+                <button type="submit" class="btn btn-primary" th:text="#{register.submit}">Register</button>
             </form>
         </div>
     </div>

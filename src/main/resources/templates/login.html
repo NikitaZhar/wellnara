@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Sign in</title>
+    <title th:text="#{login.title}">Wellnara — Sign in</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -64,18 +64,19 @@
 <main class="auth-page">
     <div class="auth-card">
         <div class="auth-hero">
+            <div th:replace="~{fragments/lang-switch :: switch}"></div>
             <div class="auth-brand">
                 <span class="dot" aria-hidden="true"></span>
-                <span class="name">Wellnara</span>
+                <span class="name" th:text="#{app.name}">Wellnara</span>
             </div>
         </div>
 
         <div class="auth-body">
-            <h1 class="auth-title">Welcome</h1>
-            <p class="auth-sub">A calm space for your wellbeing</p>
+            <h1 class="auth-title" th:text="#{login.welcome}">Welcome</h1>
+            <p class="auth-sub" th:text="#{login.tagline}">A calm space for your wellbeing</p>
 
             <div th:if="${param.passwordReset}" class="alert alert-success" role="status">
-                <span>Your password has been updated. Please sign in.</span>
+                <span th:text="#{login.passwordReset}">Your password has been updated. Please sign in.</span>
             </div>
 
             <div th:if="${error}" class="alert alert-danger" role="alert">
@@ -84,19 +85,19 @@
 
             <form th:action="@{/auth/login}" method="post">
                 <div class="field">
-                    <label for="username">Login</label>
-                    <input id="username" type="text" name="username" placeholder="Enter your login" autocomplete="username" required autofocus>
+                    <label for="username" th:text="#{login.username}">Login</label>
+                    <input id="username" type="text" name="username" th:placeholder="#{login.username.placeholder}" placeholder="Enter your login" autocomplete="username" required autofocus>
                 </div>
 
                 <div class="field">
-                    <label for="password">Password</label>
+                    <label for="password" th:text="#{login.password}">Password</label>
                     <input id="password" type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Log in</button>
+                <button type="submit" class="btn btn-primary" th:text="#{login.submit}">Log in</button>
             </form>
 
-            <p class="auth-alt"><a th:href="@{/auth/forgot-password}">Forgot password?</a></p>
+            <p class="auth-alt"><a th:href="@{/auth/forgot-password}" th:text="#{login.forgot}">Forgot password?</a></p>
         </div>
     </div>
 </main>

@@ -1,9 +1,12 @@
 package life.wellnara.controller;
 
 import jakarta.servlet.http.HttpSession;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.service.AdminUserService;
 import life.wellnara.service.ProviderInvitationService;
 import life.wellnara.service.email.InvitationNotificationService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -22,6 +25,7 @@ public class ProviderInvitationController {
     private final ProviderInvitationService providerInvitationService;
     private final AdminUserService adminUserService;
     private final InvitationNotificationService invitationNotificationService;
+    private final MessageSource messageSource;
 
     /**
      * Creates the provider invitation controller.
@@ -29,13 +33,20 @@ public class ProviderInvitationController {
      * @param providerInvitationService     provider invitation flow
      * @param adminUserService              admin user operations
      * @param invitationNotificationService sends invitation emails
+     * @param messageSource                 resolver of localized user-facing messages
      */
     public ProviderInvitationController(ProviderInvitationService providerInvitationService,
                                         AdminUserService adminUserService,
-                                        InvitationNotificationService invitationNotificationService) {
+                                        InvitationNotificationService invitationNotificationService,
+                                        MessageSource messageSource) {
         this.providerInvitationService = providerInvitationService;
         this.adminUserService = adminUserService;
         this.invitationNotificationService = invitationNotificationService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String code, Object... args) {
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 
     /**
@@ -54,17 +65,17 @@ public class ProviderInvitationController {
             String token = providerInvitationService.invite(email);
             invitationNotificationService.sendProviderInvitation(email, token);
 
-            session.setAttribute("providerInviteSuccessMessage", "Provider invitation was sent to " + email);
+            session.setAttribute("providerInviteSuccessMessage", msg("error.invite.provider.sent", email));
             return "redirect:/admin";
         } catch (IllegalArgumentException exception) {
             session.removeAttribute("providerInviteSuccessMessage");
-            model.addAttribute("inviteError", exception.getMessage());
+            model.addAttribute("inviteError",
+                    LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
             return "admin";
         } catch (MailException exception) {
             session.removeAttribute("providerInviteSuccessMessage");
-            model.addAttribute("inviteError",
-                    "Invitation for " + email + " was created, but the email could not be sent. Try again shortly.");
+            model.addAttribute("inviteError", msg("error.invite.mailFailed", email));
             model.addAttribute("users", adminUserService.getAllUsersExceptAdmins());
             return "admin";
         }

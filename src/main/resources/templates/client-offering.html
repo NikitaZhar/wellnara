@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Offering</title>
+    <title th:text="#{coffer.title}">Wellnara — Offering</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -11,16 +11,16 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Client')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
 
 <main class="page">
 
-    <a class="back-link" th:href="@{/client/offerings}">← Back to offerings</a>
+    <a class="back-link" th:href="@{/client/offerings}" th:text="#{coffer.back}">← Back to offerings</a>
 
     <div class="page-head">
         <div>
             <h1 class="page-title" th:text="${offering.name}">Offering</h1>
-            <p class="page-sub"><span th:text="${offering.durationMinutes}">0</span> min</p>
+            <p class="page-sub"><span th:text="${offering.durationMinutes}">0</span> <span th:text="#{coffer.min}">min</span></p>
         </div>
     </div>
 
@@ -30,7 +30,7 @@
 
     <section>
         <div class="card">
-            <p style="margin:0; color:var(--text-muted); font-size:14px;">Description</p>
+            <p style="margin:0; color:var(--text-muted); font-size:14px;" th:text="#{coffer.description}">Description</p>
             <p style="margin:4px 0 0;" th:text="${offering.description}">Description</p>
         </div>
     </section>
@@ -40,31 +40,31 @@
          this service (duration + buffers applied) live in the form below. -->
     <section>
         <div class="section-head">
-            <h2>Provider's availability</h2>
+            <h2 th:text="#{coffer.providerAvailability}">Provider's availability</h2>
         </div>
 
         <div th:if="${#lists.isEmpty(calendarTerms)}" class="empty">
-            <p>No available times.</p>
+            <p th:text="#{coffer.noTimes}">No available times.</p>
         </div>
 
         <th:block th:if="${not #lists.isEmpty(calendarTerms)}">
-            <p style="color:var(--text-muted); font-size:14px; margin:0 0 var(--s-3);">
+            <p style="color:var(--text-muted); font-size:14px; margin:0 0 var(--s-3);" th:text="#{coffer.openHoursHint}">
                 The provider's open hours — pick your exact session time in the form below.
             </p>
             <div class="availability-scroll">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>Day</th>
-                            <th>Start</th>
-                            <th>End</th>
+                            <th th:text="#{coffer.date}">Date</th>
+                            <th th:text="#{coffer.day}">Day</th>
+                            <th th:text="#{coffer.start}">Start</th>
+                            <th th:text="#{coffer.end}">End</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="term : ${calendarTerms}">
                             <td th:text="${term.date}">2026-08-12</td>
-                            <td th:text="${term.date.dayOfWeek}">MONDAY</td>
+                            <td th:text="#{'dayOfWeek.__${term.date.dayOfWeek.name()}__'}">MONDAY</td>
                             <td th:text="${term.startTime}">09:00</td>
                             <td th:text="${term.endTime}">18:00</td>
                         </tr>
@@ -81,16 +81,16 @@
     <th:block th:if="${packageSessionsLeft > 0}">
         <div class="alert" role="status"
              style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
-            <p style="margin:0;">You have <span th:text="${packageSessionsLeft}">0</span> session(s) left in this package — booking uses one of them.</p>
+            <p style="margin:0;"><span th:text="#{coffer.sessionsLeftPrefix}">You have</span> <span th:text="${packageSessionsLeft}">0</span> <span th:text="#{coffer.sessionsLeftSuffix}">session(s) left in this package — booking uses one of them.</span></p>
         </div>
 
         <section>
             <div class="section-head">
-                <h2>Book your next session</h2>
+                <h2 th:text="#{coffer.bookNextHeading}">Book your next session</h2>
             </div>
 
             <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
-                <p>No bookable times for this service yet.</p>
+                <p th:text="#{coffer.noBookable}">No bookable times for this service yet.</p>
             </div>
 
             <div class="card" th:if="${not #lists.isEmpty(bookableDateOptions)}">
@@ -101,8 +101,8 @@
                     <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
 
                     <div class="form-actions" style="justify-content:flex-start;">
-                        <button type="submit" class="btn btn-primary">Send request</button>
-                        <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
+                        <button type="submit" class="btn btn-primary" th:text="#{coffer.sendRequest}">Send request</button>
+                        <a class="btn btn-secondary" th:href="@{/client/offerings}" th:text="#{coffer.cancel}">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -117,16 +117,16 @@
 
         <div th:if="${pendingPackageForOffering}" class="alert" role="status"
              style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
-            <p style="margin:0;">You have a request for this service awaiting your provider's approval.</p>
+            <p style="margin:0;" th:text="#{coffer.pendingApproval}">You have a request for this service awaiting your provider's approval.</p>
         </div>
 
         <section th:unless="${pendingPackageForOffering}">
             <div class="section-head">
-                <h2>Book this service</h2>
+                <h2 th:text="#{coffer.bookThis}">Book this service</h2>
             </div>
 
             <div th:if="${#lists.isEmpty(bookableDateOptions)}" class="empty">
-                <p>No bookable times for this service yet.</p>
+                <p th:text="#{coffer.noBookable}">No bookable times for this service yet.</p>
             </div>
 
             <form th:if="${not #lists.isEmpty(bookableDateOptions)}"
@@ -144,31 +144,31 @@
                     <!-- Number of sessions + running total, kept compact on one row -->
                     <div class="booking-summary">
                         <div class="field">
-                            <label for="sessions">Number of sessions</label>
+                            <label for="sessions" th:text="#{coffer.numSessions}">Number of sessions</label>
                             <input id="sessions" name="sessions" type="number"
                                    min="1" th:max="${offering.effectiveMaxPackageSessions()}"
                                    value="1" required>
                         </div>
                         <div class="booking-total">
-                            <span class="booking-total-label">Total</span>
+                            <span class="booking-total-label" th:text="#{coffer.total}">Total</span>
                             <span id="priceLine" class="booking-total-value"
                                   th:text="${offering.totalPriceFor(1)} + ' ' + ${walletCurrency}">0.00 EUR</span>
                         </div>
                     </div>
                     <p id="fundsLine" class="alert alert-danger" role="alert" hidden
-                       style="margin:var(--s-3) 0 0;">Not enough funds in your wallet for this selection.</p>
+                       style="margin:var(--s-3) 0 0;" th:text="#{coffer.notEnoughFunds}">Not enough funds in your wallet for this selection.</p>
 
                     <hr class="card-divider">
 
                     <!-- Time of the first session -->
-                    <p class="card-title">Pick a time for the first session</p>
+                    <p class="card-title" th:text="#{coffer.pickFirst}">Pick a time for the first session</p>
                     <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
 
-                    <p class="hint" style="margin:var(--s-3) 0 var(--s-4);">The price is reserved on your wallet and sent to your provider for approval. Once approved, the first session is booked and you can book the rest one at a time.</p>
+                    <p class="hint" style="margin:var(--s-3) 0 var(--s-4);" th:text="#{coffer.reserveHint}">The price is reserved on your wallet and sent to your provider for approval. Once approved, the first session is booked and you can book the rest one at a time.</p>
 
                     <div class="form-actions" style="justify-content:flex-start;">
-                        <button type="submit" id="sendRequest" class="btn btn-primary">Send request</button>
-                        <a class="btn btn-secondary" th:href="@{/client/offerings}">Cancel</a>
+                        <button type="submit" id="sendRequest" class="btn btn-primary" th:text="#{coffer.sendRequest}">Send request</button>
+                        <a class="btn btn-secondary" th:href="@{/client/offerings}" th:text="#{coffer.cancel}">Cancel</a>
                     </div>
                 </div>
             </form>

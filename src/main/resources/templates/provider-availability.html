@@ -1,9 +1,25 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wellnara — Availability</title>
+    <title th:text="#{avail.title}">Wellnara — Availability</title>
+
+    <!-- Localized strings + active locale tag for the script below. -->
+    <script th:inline="javascript">
+        window.WELLNARA_I18N = {
+            timezonePrefix: /*[[#{avail.timezonePrefix}]]*/ 'Times shown in your timezone',
+            open: /*[[#{avail.open}]]*/ 'Open',
+            closed: /*[[#{avail.closed}]]*/ 'Closed',
+            available: /*[[#{avail.available}]]*/ 'Available',
+            unavailable: /*[[#{avail.unavailable}]]*/ 'Unavailable',
+            noTimesYet: /*[[#{avail.noTimesYet}]]*/ 'No available times yet. Set your hours below.',
+            startOption: /*[[#{avail.startOption}]]*/ 'Start',
+            endOption: /*[[#{avail.endOption}]]*/ 'End',
+            removeOneTime: /*[[#{avail.removeOneTimeAria}]]*/ 'Remove one-time change',
+            localeTag: /*[[${#locale.toLanguageTag()}]]*/ 'en-GB'
+        };
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
@@ -20,7 +36,7 @@
 
             const hint = document.getElementById('timezoneHint');
             if (hint) {
-                hint.textContent = 'Times shown in your timezone · ' + zone;
+                hint.textContent = window.WELLNARA_I18N.timezonePrefix + ' · ' + zone;
             }
         }
 
@@ -68,8 +84,8 @@
                 return;
             }
 
-            startSelect.innerHTML = '<option value="">Start</option>';
-            endSelect.innerHTML = '<option value="">End</option>';
+            startSelect.innerHTML = '<option value="">' + window.WELLNARA_I18N.startOption + '</option>';
+            endSelect.innerHTML = '<option value="">' + window.WELLNARA_I18N.endOption + '</option>';
 
             for (let hour = 9; hour <= 18; hour++) {
                 for (let minute = 0; minute < 60; minute += 15) {
@@ -103,7 +119,7 @@
 
             const state = row.querySelector('.wk-state');
             if (state) {
-                state.textContent = open ? 'Open' : 'Closed';
+                state.textContent = open ? window.WELLNARA_I18N.open : window.WELLNARA_I18N.closed;
             }
         }
 
@@ -173,13 +189,13 @@
 
                 const label = document.createElement('span');
                 label.textContent = o.date + ' · ' + o.startTime + '–' + o.endTime + ' · ' +
-                    (o.type === 'AVAILABLE' ? 'Available' : 'Unavailable');
+                    (o.type === 'AVAILABLE' ? window.WELLNARA_I18N.available : window.WELLNARA_I18N.unavailable);
                 chip.appendChild(label);
 
                 const remove = document.createElement('button');
                 remove.type = 'button';
                 remove.className = 'ov-remove';
-                remove.setAttribute('aria-label', 'Remove one-time change');
+                remove.setAttribute('aria-label', window.WELLNARA_I18N.removeOneTime);
                 remove.textContent = '✕';
                 remove.addEventListener('click', function () {
                     stagedOverrides.splice(i, 1);
@@ -267,7 +283,7 @@
 
         function formatDay(isoDate) {
             const date = new Date(isoDate + 'T00:00:00');
-            return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+            return date.toLocaleDateString(window.WELLNARA_I18N.localeTag, { weekday: 'short', day: 'numeric', month: 'short' });
         }
 
         function renderTerms(terms) {
@@ -292,7 +308,7 @@
             });
 
             if (days.length === 0) {
-                box.innerHTML = '<div class="empty"><p>No available times yet. Set your hours below.</p></div>';
+                box.innerHTML = '<div class="empty"><p>' + window.WELLNARA_I18N.noTimesYet + '</p></div>';
                 return;
             }
 
@@ -401,15 +417,15 @@
 </head>
 <body>
 
-<div th:replace="~{fragments/app-header :: header('Provider')}"></div>
+<div th:replace="~{fragments/app-header :: header(#{role.provider})}"></div>
 <div th:replace="~{fragments/provider-nav :: nav('availability')}"></div>
 
 <main class="page">
 
     <div class="page-head">
         <div>
-            <h1 class="page-title">My availability</h1>
-            <p class="page-sub">Signed in as <span th:text="${providerName}">Provider</span></p>
+            <h1 class="page-title" th:text="#{avail.heading}">My availability</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${providerName}">Provider</span></p>
         </div>
     </div>
 
@@ -424,13 +440,13 @@
          th:attr="data-type=${o.type},data-date=${o.overrideDate},data-start=${o.startTime},data-end=${o.endTime}"></div>
 
     <!-- Result: available times, updates live as the form below is edited. -->
-    <h2 class="av-section">Available times</h2>
-    <p class="av-section-cap">Updates live as you edit below.</p>
+    <h2 class="av-section" th:text="#{avail.availableTimes}">Available times</h2>
+    <p class="av-section-cap" th:text="#{avail.updatesLive}">Updates live as you edit below.</p>
     <div class="list" id="availableTimes"></div>
 
     <!-- Edit area, clearly separated from the result above. -->
-    <h2 class="av-section">Edit availability</h2>
-    <p class="av-section-cap">Add, change, or remove your available time below, then save.</p>
+    <h2 class="av-section" th:text="#{avail.editHeading}">Edit availability</h2>
+    <p class="av-section-cap" th:text="#{avail.editCap}">Add, change, or remove your available time below, then save.</p>
 
     <form id="calendarForm" th:action="@{/provider/calendar}" method="post"
           th:attr="data-preview-url=@{/provider/calendar/preview}" autocomplete="off">
@@ -439,20 +455,20 @@
 
         <div class="av-group">
             <svg class="av-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            <h3>Recurring hours</h3>
+            <h3 th:text="#{avail.recurringHours}">Recurring hours</h3>
         </div>
-        <p class="av-group-cap">Repeats every week until you change it.</p>
+        <p class="av-group-cap" th:text="#{avail.recurringCap}">Repeats every week until you change it.</p>
 
         <section>
-            <p class="av-sub">Period</p>
+            <p class="av-sub" th:text="#{avail.period}">Period</p>
             <div class="card">
                 <div class="avail-controls">
                     <div class="field">
-                        <label for="planningFrom">From</label>
+                        <label for="planningFrom" th:text="#{avail.from}">From</label>
                         <input id="planningFrom" type="date" name="planningFrom" th:value="${planningFrom}" required autocomplete="off">
                     </div>
                     <div class="field">
-                        <label for="planningTo">To</label>
+                        <label for="planningTo" th:text="#{avail.to}">To</label>
                         <input id="planningTo" type="date" name="planningTo" th:value="${planningTo}" required autocomplete="off">
                     </div>
                 </div>
@@ -461,14 +477,14 @@
         </section>
 
         <section>
-            <p class="av-sub">Weekly hours</p>
+            <p class="av-sub" th:text="#{avail.weeklyHours}">Weekly hours</p>
             <div class="card">
                 <div class="wk-day">
-                    <span class="wk-name">Monday</span>
+                    <span class="wk-name" th:text="#{dayOfWeek.MONDAY}">Monday</span>
                     <label class="wk-switch">
-                        <input type="checkbox" class="wk-toggle" data-day="monday" aria-label="Monday open or closed">
+                        <input type="checkbox" class="wk-toggle" data-day="monday" th:aria-label="#{dayOfWeek.MONDAY} + ' — ' + #{avail.openClosedAria}" aria-label="Monday open or closed">
                         <span class="wk-track"><span class="wk-knob"></span></span>
-                        <span class="wk-state">Closed</span>
+                        <span class="wk-state" th:text="#{avail.closed}">Closed</span>
                     </label>
                     <span class="wk-times">
                         <input id="monday-start" name="mondayStart" type="time" th:value="${calendarForm.mondayStart}" autocomplete="off">
@@ -477,11 +493,11 @@
                     </span>
                 </div>
                 <div class="wk-day">
-                    <span class="wk-name">Tuesday</span>
+                    <span class="wk-name" th:text="#{dayOfWeek.TUESDAY}">Tuesday</span>
                     <label class="wk-switch">
-                        <input type="checkbox" class="wk-toggle" data-day="tuesday" aria-label="Tuesday open or closed">
+                        <input type="checkbox" class="wk-toggle" data-day="tuesday" th:aria-label="#{dayOfWeek.TUESDAY} + ' — ' + #{avail.openClosedAria}" aria-label="Tuesday open or closed">
                         <span class="wk-track"><span class="wk-knob"></span></span>
-                        <span class="wk-state">Closed</span>
+                        <span class="wk-state" th:text="#{avail.closed}">Closed</span>
                     </label>
                     <span class="wk-times">
                         <input id="tuesday-start" name="tuesdayStart" type="time" th:value="${calendarForm.tuesdayStart}" autocomplete="off">
@@ -490,11 +506,11 @@
                     </span>
                 </div>
                 <div class="wk-day">
-                    <span class="wk-name">Wednesday</span>
+                    <span class="wk-name" th:text="#{dayOfWeek.WEDNESDAY}">Wednesday</span>
                     <label class="wk-switch">
-                        <input type="checkbox" class="wk-toggle" data-day="wednesday" aria-label="Wednesday open or closed">
+                        <input type="checkbox" class="wk-toggle" data-day="wednesday" th:aria-label="#{dayOfWeek.WEDNESDAY} + ' — ' + #{avail.openClosedAria}" aria-label="Wednesday open or closed">
                         <span class="wk-track"><span class="wk-knob"></span></span>
-                        <span class="wk-state">Closed</span>
+                        <span class="wk-state" th:text="#{avail.closed}">Closed</span>
                     </label>
                     <span class="wk-times">
                         <input id="wednesday-start" name="wednesdayStart" type="time" th:value="${calendarForm.wednesdayStart}" autocomplete="off">
@@ -503,11 +519,11 @@
                     </span>
                 </div>
                 <div class="wk-day">
-                    <span class="wk-name">Thursday</span>
+                    <span class="wk-name" th:text="#{dayOfWeek.THURSDAY}">Thursday</span>
                     <label class="wk-switch">
-                        <input type="checkbox" class="wk-toggle" data-day="thursday" aria-label="Thursday open or closed">
+                        <input type="checkbox" class="wk-toggle" data-day="thursday" th:aria-label="#{dayOfWeek.THURSDAY} + ' — ' + #{avail.openClosedAria}" aria-label="Thursday open or closed">
                         <span class="wk-track"><span class="wk-knob"></span></span>
-                        <span class="wk-state">Closed</span>
+                        <span class="wk-state" th:text="#{avail.closed}">Closed</span>
                     </label>
                     <span class="wk-times">
                         <input id="thursday-start" name="thursdayStart" type="time" th:value="${calendarForm.thursdayStart}" autocomplete="off">
@@ -516,11 +532,11 @@
                     </span>
                 </div>
                 <div class="wk-day">
-                    <span class="wk-name">Friday</span>
+                    <span class="wk-name" th:text="#{dayOfWeek.FRIDAY}">Friday</span>
                     <label class="wk-switch">
-                        <input type="checkbox" class="wk-toggle" data-day="friday" aria-label="Friday open or closed">
+                        <input type="checkbox" class="wk-toggle" data-day="friday" th:aria-label="#{dayOfWeek.FRIDAY} + ' — ' + #{avail.openClosedAria}" aria-label="Friday open or closed">
                         <span class="wk-track"><span class="wk-knob"></span></span>
-                        <span class="wk-state">Closed</span>
+                        <span class="wk-state" th:text="#{avail.closed}">Closed</span>
                     </label>
                     <span class="wk-times">
                         <input id="friday-start" name="fridayStart" type="time" th:value="${calendarForm.fridayStart}" autocomplete="off">
@@ -534,42 +550,42 @@
         <section>
             <div class="av-group">
                 <svg class="av-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 9h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM12 14h.01"/></svg>
-                <h3>One-time changes</h3>
+                <h3 th:text="#{avail.oneTimeChanges}">One-time changes</h3>
             </div>
-            <p class="av-group-cap">Applies to a single date — overrides your weekly hours.</p>
+            <p class="av-group-cap" th:text="#{avail.oneTimeCap}">Applies to a single date — overrides your weekly hours.</p>
             <div class="card">
                 <div class="avail-controls">
                     <div class="field">
-                        <label>Type</label>
-                        <div class="seg" id="overrideType" data-value="AVAILABLE" role="group" aria-label="Change type">
-                            <button type="button" class="seg-opt is-on" data-val="AVAILABLE" onclick="setOverrideType(this)">Available</button>
-                            <button type="button" class="seg-opt" data-val="UNAVAILABLE" onclick="setOverrideType(this)">Unavailable</button>
+                        <label th:text="#{avail.type}">Type</label>
+                        <div class="seg" id="overrideType" data-value="AVAILABLE" role="group" th:aria-label="#{avail.changeTypeAria}" aria-label="Change type">
+                            <button type="button" class="seg-opt is-on" data-val="AVAILABLE" onclick="setOverrideType(this)" th:text="#{avail.available}">Available</button>
+                            <button type="button" class="seg-opt" data-val="UNAVAILABLE" onclick="setOverrideType(this)" th:text="#{avail.unavailable}">Unavailable</button>
                         </div>
                     </div>
                     <div class="field">
-                        <label for="overrideDate">Date</label>
+                        <label for="overrideDate" th:text="#{avail.date}">Date</label>
                         <input id="overrideDate" type="date" th:min="${today}">
                     </div>
                     <div class="field">
-                        <label for="overrideStartTime">From</label>
-                        <select id="overrideStartTime"><option value="">Start</option></select>
+                        <label for="overrideStartTime" th:text="#{avail.from}">From</label>
+                        <select id="overrideStartTime"><option value="" th:text="#{avail.startOption}">Start</option></select>
                     </div>
                     <div class="field">
-                        <label for="overrideEndTime">To</label>
-                        <select id="overrideEndTime"><option value="">End</option></select>
+                        <label for="overrideEndTime" th:text="#{avail.to}">To</label>
+                        <select id="overrideEndTime"><option value="" th:text="#{avail.endOption}">End</option></select>
                     </div>
                 </div>
 
-                <p class="hint" style="margin:var(--s-2) 0 var(--s-4);">Pick a date and time range — the change is added automatically.</p>
+                <p class="hint" style="margin:var(--s-2) 0 var(--s-4);" th:text="#{avail.oneTimeHint}">Pick a date and time range — the change is added automatically.</p>
 
-                <div id="stagedOverridesEmpty" class="empty" style="padding:var(--s-6) var(--s-4);"><p>No one-time changes.</p></div>
+                <div id="stagedOverridesEmpty" class="empty" style="padding:var(--s-6) var(--s-4);"><p th:text="#{avail.noOneTime}">No one-time changes.</p></div>
                 <div class="ov-chips" id="stagedOverridesBody"></div>
                 <div id="stagedOverridesInputs" style="display: none;"></div>
             </div>
         </section>
 
         <div class="form-actions" style="justify-content:flex-start;">
-            <button class="btn btn-primary" type="submit">Save</button>
+            <button class="btn btn-primary" type="submit" th:text="#{avail.save}">Save</button>
         </div>
     </form>
 
