@@ -101,82 +101,6 @@ public class WalletCommandService {
     }
 
     /**
-     * Sells a package of pre-paid sessions of a packageable offering to a client's
-     * wallet. Payment is handled outside the system (as for a top-up), so no money
-     * ledger entry is written — only the session grant.
-     *
-     * @param provider      provider selling the package
-     * @param clientId      client who receives the package
-     * @param offeringId    offering the sessions apply to (must belong to the provider and be packageable)
-     * @param sessions      number of sessions (within the offering's min/max)
-     * @param priceOverride total price, or {@code null} to use the offering's package price
-     * @param comment       optional free-text note
-     * @throws IllegalArgumentException if any actor/offering check fails, the offering
-     *                                  is not packageable, the count is out of range, or
-     *                                  the price is not positive
-     */
-    @Transactional
-    public void sellPackage(User provider,
-                            Long clientId,
-                            Long offeringId,
-                            int sessions,
-                            BigDecimal priceOverride,
-                            String comment) {
-        User managedProvider = requireProvider(provider);
-        User client = requireLinkedClient(managedProvider, clientId);
-        Offering offering = requireProviderOffering(managedProvider, offeringId);
-        requirePackageable(offering);
-        requireSessionsInRange(offering, sessions);
-        BigDecimal price = requirePositiveMoney(
-                priceOverride != null ? priceOverride : offering.packagePriceFor(sessions));
-
-        Wallet wallet = getOrCreateWallet(managedProvider, client);
-        ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
-                wallet, offering, sessions, price, wallet.getCurrency(), managedProvider, now(), comment, PackageStatus.ACTIVE, null));
-        walletEntryRepository.save(WalletEntry.session(
-                wallet, WalletEntryType.PACKAGE_GRANT, sessions, servicePackage, null, managedProvider, now(), comment));
-    }
-
-    /**
-     * Refunds a package to the client: credits the wallet with the given amount and
-     * voids the package's still-unused sessions so they cannot be booked after the
-     * refund. Sessions already booked (held) are left to run their course.
-     *
-     * <p>This is the only path that returns money against a package, and it is
-     * provider-initiated — a client can never turn package sessions back into money.
-     *
-     * @param provider     provider issuing the refund
-     * @param packageId    package being refunded (must belong to the provider)
-     * @param refundAmount amount credited to the client's wallet (positive)
-     * @param comment      optional free-text note
-     * @throws IllegalArgumentException if the package is not found, does not belong
-     *                                  to the provider, or the amount is not positive
-     */
-    @Transactional
-    public void refundPackage(User provider, Long packageId, BigDecimal refundAmount, String comment) {
-        User managedProvider = requireProvider(provider);
-        ServicePackage servicePackage = servicePackageRepository.findById(packageId)
-                .orElseThrow(() -> new LocalizedException("error.wallet.packageNotFound", "Package not found"));
-        Wallet wallet = servicePackage.getWallet();
-        requireProviderOwnsWallet(managedProvider, wallet);
-        if (servicePackage.getStatus() != PackageStatus.ACTIVE) {
-            throw new LocalizedException("error.wallet.packageNotActive", "Only an active package can be refunded");
-        }
-        BigDecimal money = requirePositiveMoney(refundAmount);
-
-        int unusedSessions = ledgerCalculator
-                .foldSessions(walletEntryRepository.findAllByServicePackageOrderByIdAsc(servicePackage))
-                .getAvailable();
-
-        walletEntryRepository.save(WalletEntry.money(
-                wallet, WalletEntryType.ADJUSTMENT, money, null, managedProvider, now(), comment));
-        if (unusedSessions > 0) {
-            walletEntryRepository.save(WalletEntry.session(
-                    wallet, WalletEntryType.PACKAGE_REVOKE, unusedSessions, servicePackage, null, managedProvider, now(), comment));
-        }
-    }
-
-    /**
      * A client requests a package of {@code sessions} sessions of an offering and
      * picks the start of its first session. The price is the offering's total for
      * the chosen count ({@link Offering#totalPriceFor}): a single session at the
@@ -358,12 +282,6 @@ public class WalletCommandService {
             throw new LocalizedException("error.wallet.amountScale", "Amount has too many decimal places");
         }
         return amount;
-    }
-
-    private void requirePackageable(Offering offering) {
-        if (!offering.isPackageable()) {
-            throw new LocalizedException("error.wallet.notPackageable", "This service is not sold as a package");
-        }
     }
 
     private void requireSessionsInRange(Offering offering, int sessions) {

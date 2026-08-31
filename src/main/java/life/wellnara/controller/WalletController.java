@@ -1,9 +1,7 @@
 package life.wellnara.controller;
 
 import life.wellnara.exception.LocalizedException;
-import life.wellnara.model.Offering;
 import life.wellnara.model.User;
-import life.wellnara.service.OfferingService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.service.WalletCommandService;
 import life.wellnara.service.WalletQueryService;
@@ -21,18 +19,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 /**
- * Provider actions on a client's wallet: view the wallet, top it up and sell packages.
+ * Provider actions on a client's wallet: view the wallet and top it up.
  *
  * <p>Thin controller — all rules and role checks live in the services. The
  * {@code /provider/**} security rule already restricts these routes to
  * providers; the services re-check ownership. The read page
  * ({@code GET .../wallet}) is served from {@link WalletQueryService}; the
- * money-in actions from {@link WalletCommandService}. On both success and
- * failure a money-in action stays on the client's wallet page, so the provider
- * sees the updated balance (or the error) in place.
+ * top-up from {@link WalletCommandService}. On both success and failure the
+ * top-up stays on the client's wallet page, so the provider sees the updated
+ * balance (or the error) in place.
  */
 @Controller
 public class WalletController {
@@ -43,7 +40,6 @@ public class WalletController {
     private final WalletCommandService walletCommandService;
     private final WalletQueryService walletQueryService;
     private final UserProfileService userProfileService;
-    private final OfferingService offeringService;
     private final MessageSource messageSource;
 
     /**
@@ -52,24 +48,20 @@ public class WalletController {
      * @param walletCommandService service for provider wallet operations
      * @param walletQueryService   service for read-only wallet views
      * @param userProfileService   service resolving the provider display name
-     * @param offeringService      service listing the provider's offerings
      * @param messageSource        resolver of localized user-facing messages
      */
     public WalletController(WalletCommandService walletCommandService,
                             WalletQueryService walletQueryService,
                             UserProfileService userProfileService,
-                            OfferingService offeringService,
                             MessageSource messageSource) {
         this.walletCommandService = walletCommandService;
         this.walletQueryService = walletQueryService;
         this.userProfileService = userProfileService;
-        this.offeringService = offeringService;
         this.messageSource = messageSource;
     }
 
     /**
-     * Treats blank optional form fields (e.g. an unset package price) as
-     * {@code null} so numeric request parameters bind cleanly.
+     * Treats a blank optional comment as {@code null} so it binds cleanly.
      *
      * @param binder the request data binder
      */
@@ -79,8 +71,8 @@ public class WalletController {
     }
 
     /**
-     * Shows a client's wallet to the provider: balance, remaining package sessions,
-     * the full movement history and the top-up form.
+     * Shows a client's wallet to the provider: balance, the full movement history
+     * and the top-up form.
      *
      * @param clientId    client whose wallet is shown
      * @param currentUser authenticated provider
@@ -120,54 +112,6 @@ public class WalletController {
     }
 
     /**
-     * Sells a package of pre-paid sessions to a client.
-     *
-     * @param clientId    client who receives the package
-     * @param offeringId  packageable offering the sessions apply to
-     * @param sessions    number of sessions (within the offering's min/max)
-     * @param price       total price, or blank to use the offering's package price
-     * @param comment     optional note
-     * @param currentUser authenticated provider
-     * @param model       MVC model
-     * @return redirect back to the client's wallet page, or that page re-rendered with an error
-     */
-    @PostMapping("/provider/clients/{clientId}/packages")
-    public String sellPackage(@PathVariable Long clientId,
-                              @RequestParam Long offeringId,
-                              @RequestParam Integer sessions,
-                              @RequestParam(required = false) BigDecimal price,
-                              @RequestParam(required = false) String comment,
-                              @CurrentUser User currentUser,
-                              Model model) {
-        return execute(currentUser, clientId, model,
-                provider -> walletCommandService.sellPackage(
-                        provider, clientId, offeringId, sessions, price, comment));
-    }
-
-    /**
-     * Refunds a package to a client: credits the wallet and voids the package's
-     * still-unused sessions.
-     *
-     * @param clientId    client whose package is refunded
-     * @param packageId   package being refunded
-     * @param amount      positive amount credited to the wallet
-     * @param comment     optional note
-     * @param currentUser authenticated provider
-     * @param model       MVC model
-     * @return redirect back to the client's wallet page, or that page re-rendered with an error
-     */
-    @PostMapping("/provider/clients/{clientId}/packages/{packageId}/refund")
-    public String refundPackage(@PathVariable Long clientId,
-                                @PathVariable Long packageId,
-                                @RequestParam BigDecimal amount,
-                                @RequestParam(required = false) String comment,
-                                @CurrentUser User currentUser,
-                                Model model) {
-        return execute(currentUser, clientId, model,
-                provider -> walletCommandService.refundPackage(provider, packageId, amount, comment));
-    }
-
-    /**
      * Runs a money-in action and keeps the provider on the client's wallet page:
      * a redirect on success (so the updated balance is fetched fresh), or the same
      * page re-rendered with the error. Falls back to the clients list only if the
@@ -192,14 +136,6 @@ public class WalletController {
         model.addAttribute("wallet", walletQueryService.getWalletForProvider(provider, clientId));
         model.addAttribute("clientId", clientId);
         model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
-        model.addAttribute("packageableOfferings", packageableOfferings(provider));
-    }
-
-    private List<Offering> packageableOfferings(User provider) {
-        return offeringService.getOfferingsOfProvider(provider).stream()
-                .filter(Offering::isActive)
-                .filter(Offering::isPackageable)
-                .toList();
     }
 
     /**

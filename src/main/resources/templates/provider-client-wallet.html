@@ -41,33 +41,6 @@
     </div>
     <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;" th:text="#{pcw.noWallet}">No wallet yet — the first top-up creates it.</p>
 
-    <!-- Package sessions -->
-    <div th:if="${wallet.hasPackages}">
-        <div class="section-head">
-            <h2 th:text="#{pcw.packageSessions}">Package sessions</h2>
-        </div>
-        <div class="panel">
-            <div class="panel-body">
-                <div class="item row-between" th:each="pkg : ${wallet.packages}">
-                    <div class="who">
-                        <p class="primary" th:text="${pkg.offeringName}">Offering</p>
-                        <p class="secondary">
-                            <span th:text="#{pcw.availableLabel}">Available</span> <span th:text="${pkg.available}">0</span> ·
-                            <span th:text="#{pcw.heldLabel}">Held</span> <span th:text="${pkg.held}">0</span> ·
-                            <span th:text="${pkg.total}">0</span> <span th:text="#{pcw.total}">total</span>
-                        </p>
-                    </div>
-                    <form th:action="@{/provider/clients/{clientId}/packages/{packageId}/refund(clientId=${clientId},packageId=${pkg.packageId})}"
-                          method="post" class="inline-form" style="gap:var(--s-2); align-items:flex-end; margin:0;"
-                          th:attr="data-confirm=#{pcw.refund.confirm}">
-                        <input type="number" name="amount" step="0.01" min="0.01" th:placeholder="#{pcw.refundPlaceholder}" placeholder="Refund" style="width:110px;" required>
-                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pcw.refund}">Refund</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Top up -->
     <div class="section-head">
         <h2 th:text="#{pcw.topUp}">Top up balance</h2>
@@ -85,36 +58,6 @@
             <button type="submit" class="btn btn-primary" th:text="#{pcw.topUpBtn}">Top up</button>
         </form>
     </section>
-
-    <!-- Sell package (only when the provider has packageable services) -->
-    <div th:if="${not #lists.isEmpty(packageableOfferings)}">
-        <div class="section-head">
-            <h2 th:text="#{pcw.sellPackage}">Sell package</h2>
-        </div>
-        <section class="card">
-            <form th:action="@{/provider/clients/{clientId}/packages(clientId=${clientId})}" method="post" class="inline-form">
-                <div class="field">
-                    <label for="pkgOffering" th:text="#{pcw.service}">Service</label>
-                    <select id="pkgOffering" name="offeringId" required>
-                        <option th:each="o : ${packageableOfferings}" th:value="${o.id}" th:text="${o.name}">Service</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="pkgSessions" th:text="#{pcw.sessionsLabel}">Sessions</label>
-                    <input id="pkgSessions" type="number" name="sessions" min="1" th:placeholder="#{pcw.sessionsPlaceholder}" placeholder="e.g. 10" required>
-                </div>
-                <div class="field">
-                    <label for="pkgPrice" th:text="#{pcw.totalPrice}">Total price (optional)</label>
-                    <input id="pkgPrice" type="number" name="price" step="0.01" min="0.01" th:placeholder="#{pcw.pricePlaceholder}" placeholder="package price">
-                </div>
-                <div class="field">
-                    <label for="pkgComment" th:text="#{pcw.comment}">Comment (optional)</label>
-                    <input id="pkgComment" type="text" name="comment" th:placeholder="#{pcw.commentPlaceholder}" placeholder="e.g. bank transfer">
-                </div>
-                <button type="submit" class="btn btn-primary" th:text="#{pcw.sellPackageBtn}">Sell package</button>
-            </form>
-        </section>
-    </div>
 
     <!-- Payment history -->
     <div class="section-head">

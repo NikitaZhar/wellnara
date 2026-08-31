@@ -88,7 +88,10 @@ class WalletQueryServiceTest {
         User client = linkedClient(provider, "client-pkg-view");
         Offering offering = offering(provider);
 
-        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, new BigDecimal("400.00"), null);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("1000.00"), null);
+        Long packageId = walletCommandService.requestPackage(
+                client, offering.getId(), 10, LocalDateTime.of(2026, 6, 1, 10, 0), null).getId();
+        walletCommandService.acceptPackageRequest(provider, packageId);
 
         ClientWalletView view = walletQueryService.getWalletOfClient(client);
 
@@ -186,8 +189,13 @@ class WalletQueryServiceTest {
         User client = linkedClient(provider, "client-agg");
         Offering offering = offering(provider);
 
-        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 10, null, null);
-        walletCommandService.sellPackage(provider, client.getId(), offering.getId(), 5, null, null);
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("1000.00"), null);
+        Long firstPackageId = walletCommandService.requestPackage(
+                client, offering.getId(), 10, LocalDateTime.of(2026, 6, 1, 10, 0), null).getId();
+        walletCommandService.acceptPackageRequest(provider, firstPackageId);
+        Long secondPackageId = walletCommandService.requestPackage(
+                client, offering.getId(), 5, LocalDateTime.of(2026, 6, 2, 10, 0), null).getId();
+        walletCommandService.acceptPackageRequest(provider, secondPackageId);
 
         List<ClientPackageView> packages = walletQueryService.getActivePackagesOfClient(client);
 
