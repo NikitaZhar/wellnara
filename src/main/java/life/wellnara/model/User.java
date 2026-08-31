@@ -44,6 +44,16 @@ public class User {
     private String currency;
 
     /**
+     * Preferred UI and notification language as an ISO 639 code (e.g. {@code ru}
+     * or {@code en}), captured from the active locale at registration.
+     *
+     * <p>{@code null} when the user has no stored preference; the application then
+     * falls back to the default language.
+     */
+    @Column(length = 8)
+    private String language;
+
+    /**
      * Required by JPA.
      */
     public User() {
@@ -91,5 +101,13 @@ public class User {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 }

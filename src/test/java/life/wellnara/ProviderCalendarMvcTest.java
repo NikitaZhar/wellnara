@@ -146,7 +146,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayStart", "12:00")
                         .param("mondayEnd", "12:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Monday end time must be after start time")));
+                .andExpect(content().string(containsString("Понедельник: конец должен быть позже начала")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -171,7 +171,7 @@ class ProviderCalendarMvcTest {
                         .param("tuesdayStart", "15:00")
                         .param("tuesdayEnd", "11:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Tuesday end time must be after start time")));
+                .andExpect(content().string(containsString("Вторник: конец должен быть позже начала")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -195,7 +195,7 @@ class ProviderCalendarMvcTest {
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("wednesdayStart", "09:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Wednesday must have both start and end time")));
+                .andExpect(content().string(containsString("Среда: нужно указать и начало, и конец")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -219,7 +219,7 @@ class ProviderCalendarMvcTest {
                         .param("providerTimezone", "Europe/Bratislava")
                         .param("thursdayEnd", "13:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Thursday must have both start and end time")));
+                .andExpect(content().string(containsString("Четверг: нужно указать и начало, и конец")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -242,7 +242,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Start date is required")));
+                .andExpect(content().string(containsString("Укажите дату начала")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -265,7 +265,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("End date is required")));
+                .andExpect(content().string(containsString("Укажите дату окончания")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -289,7 +289,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("End date must not be before start date")));
+                .andExpect(content().string(containsString("Дата окончания не может быть раньше даты начала")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -312,7 +312,7 @@ class ProviderCalendarMvcTest {
                         .param("mondayStart", "09:00")
                         .param("mondayEnd", "13:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Timezone is required")));
+                .andExpect(content().string(containsString("Укажите часовой пояс")));
 
         assertThat(availabilityPeriodRepository.findAllByProvider(provider)).isEmpty();
     }
@@ -345,7 +345,7 @@ class ProviderCalendarMvcTest {
                         .param("tuesdayStart", "15:00")
                         .param("tuesdayEnd", "11:00"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Tuesday end time must be after start time")));
+                .andExpect(content().string(containsString("Вторник: конец должен быть позже начала")));
 
         List<AvailabilityPeriod> periods = availabilityPeriodRepository.findAllByProvider(provider);
 

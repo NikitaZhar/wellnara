@@ -2,8 +2,11 @@ package life.wellnara.service;
 
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.DateTimeException;
@@ -18,6 +21,21 @@ import java.util.Map;
  */
 @Component
 public class ProviderCalendarValidator {
+
+    private final MessageSource messageSource;
+
+    /**
+     * Creates provider calendar validator.
+     *
+     * @param messageSource resolver of localized user-facing messages
+     */
+    public ProviderCalendarValidator(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
+    }
 
     /**
      * Validates provider calendar form.
@@ -54,39 +72,39 @@ public class ProviderCalendarValidator {
                                              AvailabilityOverrideType type,
                                              LocalDate currentDate) {
         if (provider == null) {
-            throw new IllegalArgumentException("Provider is required");
+            throw new LocalizedException("error.calendar.providerRequired", "Provider is required");
         }
 
         if (date == null) {
-            throw new IllegalArgumentException("Date is required");
+            throw new LocalizedException("error.calendar.dateRequired", "Date is required");
         }
 
         if (currentDate == null) {
-            throw new IllegalArgumentException("Current date is required");
+            throw new LocalizedException("error.calendar.currentDateRequired", "Current date is required");
         }
 
         if (date.isBefore(currentDate)) {
-            throw new IllegalArgumentException("Date must not be in the past");
+            throw new LocalizedException("error.calendar.datePast", "Date must not be in the past");
         }
 
         if (startTime == null) {
-            throw new IllegalArgumentException("Start time is required");
+            throw new LocalizedException("error.calendar.startRequired", "Start time is required");
         }
 
         if (endTime == null) {
-            throw new IllegalArgumentException("End time is required");
+            throw new LocalizedException("error.calendar.endRequired", "End time is required");
         }
 
         if (!endTime.isAfter(startTime)) {
-            throw new IllegalArgumentException("End time must be after start time");
+            throw new LocalizedException("error.calendar.endAfterStart", "End time must be after start time");
         }
 
         if (startTime.getMinute() % 15 != 0 || endTime.getMinute() % 15 != 0) {
-            throw new IllegalArgumentException("Time must use 15-minute intervals");
+            throw new LocalizedException("error.calendar.interval15", "Time must use 15-minute intervals");
         }
 
         if (type == null) {
-            throw new IllegalArgumentException("Override type is required");
+            throw new LocalizedException("error.calendar.typeRequired", "Override type is required");
         }
     }
 
@@ -104,20 +122,20 @@ public class ProviderCalendarValidator {
     private void validateRequiredCalendarFields(Map<String, String> errors,
                                                 ProviderCalendarForm form) {
         if (form.getPlanningFrom() == null) {
-            errors.put("planningFrom", "Start date is required");
+            errors.put("planningFrom", msg("error.calendar.planningFromRequired"));
         }
 
         if (form.getPlanningTo() == null) {
-            errors.put("planningTo", "End date is required");
+            errors.put("planningTo", msg("error.calendar.planningToRequired"));
         }
 
         if (form.getProviderTimezone() == null || form.getProviderTimezone().isBlank()) {
-            errors.put("providerTimezone", "Timezone is required");
+            errors.put("providerTimezone", msg("error.calendar.timezoneRequired"));
             return;
         }
 
         if (!isValidTimezone(form.getProviderTimezone())) {
-            errors.put("providerTimezone", "Timezone is invalid");
+            errors.put("providerTimezone", msg("error.calendar.timezoneInvalid"));
         }
     }
 
@@ -125,39 +143,39 @@ public class ProviderCalendarValidator {
                                            ProviderCalendarForm form,
                                            LocalDate currentDate) {
         if (currentDate == null) {
-            errors.put("currentDate", "Current date is required");
+            errors.put("currentDate", msg("error.calendar.currentDateRequired"));
             return;
         }
 
         if (form.getPlanningFrom() != null && form.getPlanningFrom().isBefore(currentDate)) {
-            errors.put("planningFrom", "Start date must not be before today");
+            errors.put("planningFrom", msg("error.calendar.planningFromPast"));
         }
 
         if (form.getPlanningTo() != null && form.getPlanningTo().isBefore(currentDate)) {
-            errors.put("planningTo", "End date must not be before today");
+            errors.put("planningTo", msg("error.calendar.planningToPast"));
         }
 
         if (form.getPlanningFrom() != null
                 && form.getPlanningTo() != null
                 && form.getPlanningTo().isBefore(form.getPlanningFrom())) {
-            errors.put("planningTo", "End date must not be before start date");
+            errors.put("planningTo", msg("error.calendar.planningToBeforeFrom"));
         }
     }
 
     private void validateWeekdayTimeRanges(Map<String, String> errors,
                                            ProviderCalendarForm form) {
-        validateTimeRange(errors, "monday", form.getMondayStart(), form.getMondayEnd(), "Monday");
-        validateTimeRange(errors, "tuesday", form.getTuesdayStart(), form.getTuesdayEnd(), "Tuesday");
-        validateTimeRange(errors, "wednesday", form.getWednesdayStart(), form.getWednesdayEnd(), "Wednesday");
-        validateTimeRange(errors, "thursday", form.getThursdayStart(), form.getThursdayEnd(), "Thursday");
-        validateTimeRange(errors, "friday", form.getFridayStart(), form.getFridayEnd(), "Friday");
+        validateTimeRange(errors, "monday", form.getMondayStart(), form.getMondayEnd(), "dayOfWeek.MONDAY");
+        validateTimeRange(errors, "tuesday", form.getTuesdayStart(), form.getTuesdayEnd(), "dayOfWeek.TUESDAY");
+        validateTimeRange(errors, "wednesday", form.getWednesdayStart(), form.getWednesdayEnd(), "dayOfWeek.WEDNESDAY");
+        validateTimeRange(errors, "thursday", form.getThursdayStart(), form.getThursdayEnd(), "dayOfWeek.THURSDAY");
+        validateTimeRange(errors, "friday", form.getFridayStart(), form.getFridayEnd(), "dayOfWeek.FRIDAY");
     }
 
     private void validateTimeRange(Map<String, String> errors,
                                    String fieldPrefix,
                                    LocalTime start,
                                    LocalTime end,
-                                   String dayLabel) {
+                                   String dayKey) {
         if (start == null && end == null) {
             return;
         }
@@ -167,12 +185,12 @@ public class ProviderCalendarValidator {
         }
 
         if (start == null || end == null) {
-            errors.put(fieldPrefix, dayLabel + " must have both start and end time");
+            errors.put(fieldPrefix, msg("error.calendar.dayBothTimes", msg(dayKey)));
             return;
         }
 
         if (!end.isAfter(start)) {
-            errors.put(fieldPrefix, dayLabel + " end time must be after start time");
+            errors.put(fieldPrefix, msg("error.calendar.dayEndAfterStart", msg(dayKey)));
         }
     }
 

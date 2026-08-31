@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,7 +22,7 @@ class AppointmentTimeFormatterTest {
     @DisplayName("Summer instant renders in the provider zone with the daylight label")
     void rendersSummerZoneLabel() {
         String formatted = formatter.format(
-                Instant.parse("2026-08-17T13:00:00Z"), ZoneId.of("Europe/Bratislava"));
+                Instant.parse("2026-08-17T13:00:00Z"), ZoneId.of("Europe/Bratislava"), Locale.ENGLISH);
 
         assertThat(formatted).isEqualTo("Mon, 17 Aug 2026 15:00 CEST");
     }
@@ -30,7 +31,7 @@ class AppointmentTimeFormatterTest {
     @DisplayName("Winter instant renders with the standard-time label and shifted hour")
     void rendersWinterZoneLabel() {
         String formatted = formatter.format(
-                Instant.parse("2026-01-17T13:00:00Z"), ZoneId.of("Europe/Bratislava"));
+                Instant.parse("2026-01-17T13:00:00Z"), ZoneId.of("Europe/Bratislava"), Locale.ENGLISH);
 
         assertThat(formatted).isEqualTo("Sat, 17 Jan 2026 14:00 CET");
     }
@@ -39,7 +40,7 @@ class AppointmentTimeFormatterTest {
     @DisplayName("A different zone shifts the hour and label accordingly")
     void rendersOtherZone() {
         String formatted = formatter.format(
-                Instant.parse("2026-08-17T13:00:00Z"), ZoneId.of("America/New_York"));
+                Instant.parse("2026-08-17T13:00:00Z"), ZoneId.of("America/New_York"), Locale.ENGLISH);
 
         assertThat(formatted).isEqualTo("Mon, 17 Aug 2026 09:00 EDT");
     }

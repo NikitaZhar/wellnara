@@ -1,8 +1,11 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.web.CurrentUser;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,17 +25,21 @@ public class ProviderAppointmentController {
 
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
+    private final MessageSource messageSource;
 
     /**
      * Creates provider appointment controller.
      *
      * @param appointmentService service for appointment operations
      * @param providerPageModelAssembler assembler for provider page model
+     * @param messageSource resolver of localized user-facing messages
      */
     public ProviderAppointmentController(AppointmentService appointmentService,
-                                         ProviderPageModelAssembler providerPageModelAssembler) {
+                                         ProviderPageModelAssembler providerPageModelAssembler,
+                                         MessageSource messageSource) {
         this.appointmentService = appointmentService;
         this.providerPageModelAssembler = providerPageModelAssembler;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -199,7 +206,7 @@ public class ProviderAppointmentController {
             return redirect;
         } catch (IllegalArgumentException exception) {
             providerPageModelAssembler.populateAppointments(model, currentUser);
-            model.addAttribute("appointmentActionError", exception.getMessage());
+            model.addAttribute("appointmentActionError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return errorView;
         }
     }

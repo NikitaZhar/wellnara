@@ -1,5 +1,6 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.service.AppointmentService;
 import life.wellnara.service.ClientPackageBookingService;
@@ -9,6 +10,8 @@ import life.wellnara.service.UserProfileService;
 import life.wellnara.service.calendar.AppointmentCalendarLinkService;
 import life.wellnara.web.CurrentUser;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,6 +53,7 @@ public class ClientController {
     private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final AppointmentCalendarLinkService appointmentCalendarLinkService;
     private final ClientPackageBookingService clientPackageBookingService;
+    private final MessageSource messageSource;
 
     /**
      * Creates client controller.
@@ -62,6 +66,7 @@ public class ClientController {
      * @param calendarFeedModelAssembler     assembler for the calendar feed section
      * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
      * @param clientPackageBookingService    service coordinating package purchase with first booking
+     * @param messageSource                  resolver of localized user-facing messages
      */
     public ClientController(ClientOfferingService clientOfferingService,
                             AppointmentService appointmentService,
@@ -70,7 +75,8 @@ public class ClientController {
                             ClientPageModelAssembler clientPageModelAssembler,
                             CalendarFeedModelAssembler calendarFeedModelAssembler,
                             AppointmentCalendarLinkService appointmentCalendarLinkService,
-                            ClientPackageBookingService clientPackageBookingService) {
+                            ClientPackageBookingService clientPackageBookingService,
+                            MessageSource messageSource) {
         this.clientOfferingService = clientOfferingService;
         this.appointmentService = appointmentService;
         this.providerCalendarService = providerCalendarService;
@@ -79,6 +85,7 @@ public class ClientController {
         this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.appointmentCalendarLinkService = appointmentCalendarLinkService;
         this.clientPackageBookingService = clientPackageBookingService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -212,7 +219,7 @@ public class ClientController {
             return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
-            model.addAttribute("appointmentError", exception.getMessage());
+            model.addAttribute("appointmentError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return OFFERING_VIEW;
         }
     }
@@ -255,7 +262,7 @@ public class ClientController {
             return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
-            model.addAttribute("appointmentError", exception.getMessage());
+            model.addAttribute("appointmentError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return OFFERING_VIEW;
         }
     }
@@ -318,7 +325,7 @@ public class ClientController {
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);
-            model.addAttribute("profileError", exception.getMessage());
+            model.addAttribute("profileError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return PROFILE_VIEW;
         }
     }

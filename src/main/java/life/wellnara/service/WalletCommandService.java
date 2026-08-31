@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.User;
@@ -155,11 +156,11 @@ public class WalletCommandService {
     public void refundPackage(User provider, Long packageId, BigDecimal refundAmount, String comment) {
         User managedProvider = requireProvider(provider);
         ServicePackage servicePackage = servicePackageRepository.findById(packageId)
-                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.packageNotFound", "Package not found"));
         Wallet wallet = servicePackage.getWallet();
         requireProviderOwnsWallet(managedProvider, wallet);
         if (servicePackage.getStatus() != PackageStatus.ACTIVE) {
-            throw new IllegalArgumentException("Only an active package can be refunded");
+            throw new LocalizedException("error.wallet.packageNotActive", "Only an active package can be refunded");
         }
         BigDecimal money = requirePositiveMoney(refundAmount);
 
@@ -200,19 +201,19 @@ public class WalletCommandService {
                                          LocalDateTime firstSessionStartUtc,
                                          String comment) {
         User provider = providerClientLinkRepository.findByClient(client)
-                .orElseThrow(() -> new IllegalArgumentException("Client is not linked to a provider"))
+                .orElseThrow(() -> new LocalizedException("error.wallet.clientNoProvider", "Client is not linked to a provider"))
                 .getProvider();
         Offering offering = requireProviderOffering(provider, offeringId);
         requireSessionsInRange(offering, sessions);
         BigDecimal price = offering.totalPriceFor(sessions);
 
         Wallet wallet = walletRepository.findByClient(client)
-                .orElseThrow(() -> new IllegalArgumentException("Insufficient funds for this package"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.insufficientFunds", "Insufficient funds for this package"));
         BigDecimal available = ledgerCalculator
                 .foldMoney(wallet.getCurrency(), walletEntryRepository.findAllByWalletOrderByIdAsc(wallet))
                 .getAvailable();
         if (available.compareTo(price) < 0) {
-            throw new IllegalArgumentException("Insufficient funds for this package");
+            throw new LocalizedException("error.wallet.insufficientFunds", "Insufficient funds for this package");
         }
 
         ServicePackage servicePackage = servicePackageRepository.save(new ServicePackage(
@@ -279,9 +280,9 @@ public class WalletCommandService {
     @Transactional
     public void cancelPackageRequestByClient(User client, Long packageId) {
         ServicePackage servicePackage = servicePackageRepository.findById(packageId)
-                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.packageNotFound", "Package not found"));
         if (!servicePackage.getWallet().getClient().getId().equals(client.getId())) {
-            throw new IllegalArgumentException("Package does not belong to client");
+            throw new LocalizedException("error.wallet.packageNotClient", "Package does not belong to client");
         }
 
         servicePackage.reject();
@@ -294,14 +295,14 @@ public class WalletCommandService {
 
     private ServicePackage requireOwnedPackage(User provider, Long packageId) {
         ServicePackage servicePackage = servicePackageRepository.findById(packageId)
-                .orElseThrow(() -> new IllegalArgumentException("Package not found"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.packageNotFound", "Package not found"));
         requireProviderOwnsWallet(provider, servicePackage.getWallet());
         return servicePackage;
     }
 
     private void requireProviderOwnsWallet(User provider, Wallet wallet) {
         if (!wallet.getProvider().getId().equals(provider.getId())) {
-            throw new IllegalArgumentException("Wallet does not belong to provider");
+            throw new LocalizedException("error.wallet.walletNotProvider", "Wallet does not belong to provider");
         }
     }
 
@@ -313,14 +314,14 @@ public class WalletCommandService {
 
     private User requireProvider(User provider) {
         if (provider == null) {
-            throw new IllegalArgumentException("Provider is required");
+            throw new LocalizedException("error.wallet.providerRequired", "Provider is required");
         }
 
         User managed = userRepository.findById(provider.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Provider not found"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.providerNotFound", "Provider not found"));
 
         if (managed.getRole() != UserRole.PROVIDER) {
-            throw new IllegalArgumentException("Only a provider can manage a wallet");
+            throw new LocalizedException("error.wallet.onlyProvider", "Only a provider can manage a wallet");
         }
 
         return managed;
@@ -328,48 +329,48 @@ public class WalletCommandService {
 
     private User requireLinkedClient(User provider, Long clientId) {
         User client = userRepository.findById(clientId)
-                .orElseThrow(() -> new IllegalArgumentException("Client not found"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.clientNotFound", "Client not found"));
 
         providerClientLinkRepository.findByProviderAndClientId(provider, clientId)
-                .orElseThrow(() -> new IllegalArgumentException("Client is not linked to provider"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.clientNotLinked", "Client is not linked to provider"));
 
         return client;
     }
 
     private Offering requireProviderOffering(User provider, Long offeringId) {
         return offeringRepository.findByProviderAndId(provider, offeringId)
-                .orElseThrow(() -> new IllegalArgumentException("Offering not found for provider"));
+                .orElseThrow(() -> new LocalizedException("error.wallet.offeringNotFound", "Offering not found for provider"));
     }
 
     private String requireProviderCurrency(User provider) {
         String currency = provider.getCurrency();
         if (currency == null || currency.isBlank()) {
-            throw new IllegalArgumentException("Provider currency is not set");
+            throw new LocalizedException("error.wallet.currencyNotSet", "Provider currency is not set");
         }
         return currency;
     }
 
     private BigDecimal requirePositiveMoney(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new LocalizedException("error.wallet.amountPositive", "Amount must be positive");
         }
         if (amount.scale() > MAX_MONEY_SCALE) {
-            throw new IllegalArgumentException("Amount has too many decimal places");
+            throw new LocalizedException("error.wallet.amountScale", "Amount has too many decimal places");
         }
         return amount;
     }
 
     private void requirePackageable(Offering offering) {
         if (!offering.isPackageable()) {
-            throw new IllegalArgumentException("This service is not sold as a package");
+            throw new LocalizedException("error.wallet.notPackageable", "This service is not sold as a package");
         }
     }
 
     private void requireSessionsInRange(Offering offering, int sessions) {
         int max = offering.effectiveMaxPackageSessions();
         if (sessions < 1 || sessions > max) {
-            throw new IllegalArgumentException(
-                    "Number of sessions must be between 1 and " + max);
+            throw new LocalizedException("error.wallet.sessionsRange",
+                    "Number of sessions must be between 1 and " + max, max);
         }
     }
 

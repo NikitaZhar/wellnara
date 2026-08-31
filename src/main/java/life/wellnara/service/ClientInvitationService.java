@@ -10,6 +10,7 @@ import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -120,6 +121,7 @@ public class ClientInvitationService {
         client.setUsername(name);
         client.setPassword(passwordEncoder.encode(password));
         client.setRole(UserRole.CLIENT);
+        client.setLanguage(LocaleContextHolder.getLocale().getLanguage());
 
         User savedClient = userRepository.save(client);
         userProfileService.createProfile(savedClient, firstName, lastName, phone);

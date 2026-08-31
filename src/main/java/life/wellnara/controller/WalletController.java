@@ -1,5 +1,6 @@
 package life.wellnara.controller;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.service.OfferingService;
@@ -8,6 +9,8 @@ import life.wellnara.service.WalletCommandService;
 import life.wellnara.service.WalletQueryService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.WebDataBinder;
@@ -41,6 +44,7 @@ public class WalletController {
     private final WalletQueryService walletQueryService;
     private final UserProfileService userProfileService;
     private final OfferingService offeringService;
+    private final MessageSource messageSource;
 
     /**
      * Creates wallet controller.
@@ -49,15 +53,18 @@ public class WalletController {
      * @param walletQueryService   service for read-only wallet views
      * @param userProfileService   service resolving the provider display name
      * @param offeringService      service listing the provider's offerings
+     * @param messageSource        resolver of localized user-facing messages
      */
     public WalletController(WalletCommandService walletCommandService,
                             WalletQueryService walletQueryService,
                             UserProfileService userProfileService,
-                            OfferingService offeringService) {
+                            OfferingService offeringService,
+                            MessageSource messageSource) {
         this.walletCommandService = walletCommandService;
         this.walletQueryService = walletQueryService;
         this.userProfileService = userProfileService;
         this.offeringService = offeringService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -173,7 +180,7 @@ public class WalletController {
         } catch (IllegalArgumentException exception) {
             try {
                 populateWalletPage(model, currentUser, clientId);
-                model.addAttribute("walletActionError", exception.getMessage());
+                model.addAttribute("walletActionError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
                 return WALLET_VIEW;
             } catch (IllegalArgumentException notLinked) {
                 return CLIENTS_REDIRECT;

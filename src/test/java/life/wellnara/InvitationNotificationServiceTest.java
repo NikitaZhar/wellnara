@@ -6,6 +6,8 @@ import org.mockito.ArgumentCaptor;
 
 import life.wellnara.service.email.EmailService;
 import life.wellnara.service.email.InvitationNotificationService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.support.ResourceBundleMessageSource;
 
 import static org.mockito.ArgumentMatchers.any;
 
@@ -26,12 +28,19 @@ class InvitationNotificationServiceTest {
     private static final String BASE_URL = "https://app.wellnara.life";
     private static final String TOKEN = "11111111-2222-3333-4444-555555555555";
 
+    private static MessageSource messageSource() {
+        ResourceBundleMessageSource source = new ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        return source;
+    }
+
     @Test
     @DisplayName("Should send provider invitation to the recipient with a registration link carrying the token")
     void shouldSendProviderInvitationWithRegistrationLink() {
         EmailService emailService = mock(EmailService.class);
         InvitationNotificationService notificationService =
-                new InvitationNotificationService(emailService, BASE_URL);
+                new InvitationNotificationService(emailService, BASE_URL, messageSource());
 
         notificationService.sendProviderInvitation("provider@example.com", TOKEN);
 
@@ -48,7 +57,7 @@ class InvitationNotificationServiceTest {
     void shouldSendClientInvitationWithRegistrationLink() {
         EmailService emailService = mock(EmailService.class);
         InvitationNotificationService notificationService =
-                new InvitationNotificationService(emailService, BASE_URL);
+                new InvitationNotificationService(emailService, BASE_URL, messageSource());
 
         notificationService.sendClientInvitation("client@example.com", TOKEN);
 

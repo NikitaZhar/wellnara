@@ -1,6 +1,7 @@
 package life.wellnara.service;
 
 import life.wellnara.dto.PackagePricing;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
@@ -156,7 +157,7 @@ public class OfferingService {
      */
     private void requireNonNegativeBuffers(int prepMinutes, int wrapMinutes) {
         if (prepMinutes < 0 || wrapMinutes < 0) {
-            throw new IllegalArgumentException("Preparation and wrap-up time cannot be negative");
+            throw new LocalizedException("error.offering.prepWrapNegative", "Preparation and wrap-up time cannot be negative");
         }
     }
 
@@ -181,18 +182,18 @@ public class OfferingService {
 
         BigDecimal packagePrice = packagePricing.pricePerSession();
         if (packagePrice.signum() <= 0) {
-            throw new IllegalArgumentException("Package price per session must be positive");
+            throw new LocalizedException("error.offering.packagePricePositive", "Package price per session must be positive");
         }
         if (packagePrice.compareTo(offering.getPricePerSession()) > 0) {
-            throw new IllegalArgumentException("Package price per session cannot exceed the single-session price");
+            throw new LocalizedException("error.offering.packagePriceTooHigh", "Package price per session cannot exceed the single-session price");
         }
 
         Integer max = packagePricing.maxSessions();
         if (max != null && max < 1) {
-            throw new IllegalArgumentException("Maximum package sessions must be at least 1");
+            throw new LocalizedException("error.offering.maxSessionsMin", "Maximum package sessions must be at least 1");
         }
         if (max != null && max > Offering.PACKAGE_SESSIONS_CAP) {
-            throw new IllegalArgumentException("Maximum package sessions cannot exceed " + Offering.PACKAGE_SESSIONS_CAP);
+            throw new LocalizedException("error.offering.maxSessionsCap", "Maximum package sessions cannot exceed " + Offering.PACKAGE_SESSIONS_CAP, Offering.PACKAGE_SESSIONS_CAP);
         }
 
         offering.setPackagePricePerSession(packagePrice);
@@ -208,7 +209,7 @@ public class OfferingService {
      */
     private Offering getOwnedOffering(User provider, Long offeringId) {
         return offeringRepository.findByProviderAndId(provider, offeringId)
-                .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
+                .orElseThrow(() -> new LocalizedException("error.offering.notFound", "Offering not found"));
     }
 
     /**
@@ -218,14 +219,14 @@ public class OfferingService {
      */
     private void validateProvider(User provider) {
         if (provider.getRole() != UserRole.PROVIDER) {
-            throw new IllegalArgumentException("Only provider can manage offerings");
+            throw new LocalizedException("error.offering.onlyProvider", "Only provider can manage offerings");
         }
     }
 
     private String requireProviderCurrency(User provider) {
         String currency = provider.getCurrency();
         if (currency == null || currency.isBlank()) {
-            throw new IllegalArgumentException("Provider currency is not set");
+            throw new LocalizedException("error.offering.currencyNotSet", "Provider currency is not set");
         }
         return currency;
     }

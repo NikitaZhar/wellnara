@@ -9,6 +9,7 @@ import life.wellnara.repository.UserRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 import life.wellnara.service.wallet.CurrencyCodes;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -120,6 +121,7 @@ public class ProviderInvitationService {
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(UserRole.PROVIDER);
         user.setCurrency(CurrencyCodes.normalize(currency));
+        user.setLanguage(LocaleContextHolder.getLocale().getLanguage());
 
         User savedUser = userRepository.save(user);
         userProfileService.createProfile(savedUser, firstName, lastName, phone);

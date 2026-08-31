@@ -3,6 +3,8 @@ package life.wellnara.service.calendar;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.service.time.ApplicationTimeService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -30,17 +32,25 @@ public class CalendarEventFactory {
 
     private final CalendarLinkBuilder linkBuilder;
     private final ApplicationTimeService applicationTimeService;
+    private final MessageSource messageSource;
 
     /**
      * Creates the calendar event factory.
      *
      * @param linkBuilder            builder for the manage link embedded in the event
      * @param applicationTimeService source of the generation timestamp
+     * @param messageSource          resolver of localized calendar event text
      */
     public CalendarEventFactory(CalendarLinkBuilder linkBuilder,
-                                ApplicationTimeService applicationTimeService) {
+                                ApplicationTimeService applicationTimeService,
+                                MessageSource messageSource) {
         this.linkBuilder = linkBuilder;
         this.applicationTimeService = applicationTimeService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
 
     /**
@@ -98,7 +108,7 @@ public class CalendarEventFactory {
                               boolean forProvider,
                               int prepMinutes,
                               int wrapMinutes) {
-        String manageLine = "Manage this appointment in Wellnara: " + linkBuilder.appointmentsLink(audience);
+        String manageLine = msg("calendar.event.manage", linkBuilder.appointmentsLink(audience));
 
         if (!forProvider || (prepMinutes == 0 && wrapMinutes == 0)) {
             return manageLine;
@@ -128,17 +138,15 @@ public class CalendarEventFactory {
                 .plusMinutes(appointment.getOffering().getDurationMinutes());
 
         StringBuilder note = new StringBuilder()
-                .append("Session ")
-                .append(sessionStartLocal.format(timeFormat))
-                .append("–")
-                .append(sessionEndLocal.format(timeFormat))
-                .append('.');
+                .append(msg("calendar.event.session",
+                        sessionStartLocal.format(timeFormat),
+                        sessionEndLocal.format(timeFormat)));
 
         if (prepMinutes > 0) {
-            note.append(" Prep ").append(prepMinutes).append(" min before.");
+            note.append(' ').append(msg("calendar.event.prep", prepMinutes));
         }
         if (wrapMinutes > 0) {
-            note.append(" Wrap-up ").append(wrapMinutes).append(" min after.");
+            note.append(' ').append(msg("calendar.event.wrap", wrapMinutes));
         }
 
         return note.toString();

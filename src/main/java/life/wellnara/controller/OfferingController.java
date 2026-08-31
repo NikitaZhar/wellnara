@@ -1,11 +1,14 @@
 package life.wellnara.controller;
 
 import life.wellnara.dto.PackagePricing;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.service.OfferingService;
 import life.wellnara.web.CurrentUser;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.WebDataBinder;
@@ -29,6 +32,7 @@ public class OfferingController {
 
 	private final OfferingService offeringService;
 	private final ProviderPageModelAssembler providerPageModelAssembler;
+	private final MessageSource messageSource;
 
 	/**
 	 * Treats blank optional form fields (e.g. unset package pricing) as {@code null}
@@ -49,9 +53,11 @@ public class OfferingController {
 	 *                                   page when an offering operation is rejected
 	 */
 	public OfferingController(OfferingService offeringService,
-			ProviderPageModelAssembler providerPageModelAssembler) {
+			ProviderPageModelAssembler providerPageModelAssembler,
+			MessageSource messageSource) {
 		this.offeringService = offeringService;
 		this.providerPageModelAssembler = providerPageModelAssembler;
+		this.messageSource = messageSource;
 	}
 
 	/**
@@ -93,7 +99,7 @@ public class OfferingController {
 	        return OFFERINGS_REDIRECT;
 	    } catch (IllegalArgumentException exception) {
 	        providerPageModelAssembler.populateOfferings(model, currentUser);
-	        model.addAttribute("offeringError", exception.getMessage());
+	        model.addAttribute("offeringError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
 	        return OFFERINGS_VIEW;
 	    }
 	}
@@ -155,7 +161,7 @@ public class OfferingController {
 		} catch (IllegalArgumentException exception) {
 			model.addAttribute("offering",
 					offeringService.getOfferingOfProvider(currentUser, offeringId));
-			model.addAttribute("offeringError", exception.getMessage());
+			model.addAttribute("offeringError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
 			return OFFERING_EDIT_VIEW;
 		}
 	}

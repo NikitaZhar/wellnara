@@ -1,6 +1,8 @@
 package life.wellnara.service.email;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -9,23 +11,31 @@ import org.springframework.stereotype.Service;
  * Owns the invitation message: it turns a registration token into a registration link
  * and a localized email body, then delegates delivery to {@link EmailService}.
  * Controllers orchestrate the flow but no longer construct email content themselves.
+ *
+ * <p>The invitation is written in the language of the request that triggered it
+ * (the inviter's active locale), since the recipient has no account and therefore
+ * no stored language yet.
  */
 @Service
 public class InvitationNotificationService {
 
     private final EmailService emailService;
     private final String publicBaseUrl;
+    private final MessageSource messageSource;
 
     /**
      * Creates the invitation notification service.
      *
      * @param emailService  low-level email delivery
      * @param publicBaseUrl public application base URL used to build registration links
+     * @param messageSource resolver of localized email text
      */
     public InvitationNotificationService(EmailService emailService,
-                                         @Value("${wellnara.public-base-url}") String publicBaseUrl) {
+                                         @Value("${wellnara.public-base-url}") String publicBaseUrl,
+                                         MessageSource messageSource) {
         this.emailService = emailService;
         this.publicBaseUrl = publicBaseUrl;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -38,8 +48,8 @@ public class InvitationNotificationService {
         String registrationLink = publicBaseUrl + "/provider/register?token=" + token;
         emailService.sendPlainTextEmail(
                 recipientEmail,
-                "Wellnara provider invitation",
-                buildProviderBody(registrationLink));
+                msg("email.invite.provider.subject"),
+                msg("email.invite.provider.body", registrationLink));
     }
 
     /**
@@ -52,31 +62,11 @@ public class InvitationNotificationService {
         String registrationLink = publicBaseUrl + "/client/register?token=" + token;
         emailService.sendPlainTextEmail(
                 recipientEmail,
-                "Wellnara client invitation",
-                buildClientBody(registrationLink));
+                msg("email.invite.client.subject"),
+                msg("email.invite.client.body", registrationLink));
     }
 
-    private String buildProviderBody(String registrationLink) {
-        return """
-                You have been invited to register as a provider on Wellnara.
-
-                Please use the following link to complete your registration:
-
-                %s
-
-                If you did not expect this invitation, you can ignore this email.
-                """.formatted(registrationLink);
-    }
-
-    private String buildClientBody(String registrationLink) {
-        return """
-                You have been invited to register as a client on Wellnara.
-
-                Please use the following link to complete your registration:
-
-                %s
-
-                If you did not expect this invitation, you can ignore this email.
-                """.formatted(registrationLink);
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
 }

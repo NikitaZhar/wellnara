@@ -10,12 +10,18 @@ import life.wellnara.service.calendar.CalendarEventFactory;
 import life.wellnara.service.calendar.CalendarEventStatus;
 import life.wellnara.service.calendar.CalendarLinkBuilder;
 import life.wellnara.service.time.ApplicationTimeService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.support.ResourceBundleMessageSource;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -37,7 +43,24 @@ class CalendarEventFactoryTest {
             new CalendarLinkBuilder("https://app.wellnara.life");
     private final ApplicationTimeService applicationTimeService = mock(ApplicationTimeService.class);
     private final CalendarEventFactory factory =
-            new CalendarEventFactory(linkBuilder, applicationTimeService);
+            new CalendarEventFactory(linkBuilder, applicationTimeService, messageSource());
+
+    private static MessageSource messageSource() {
+        ResourceBundleMessageSource source = new ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        return source;
+    }
+
+    @BeforeEach
+    void pinEnglishLocale() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+    }
+
+    @AfterEach
+    void resetLocale() {
+        LocaleContextHolder.resetLocaleContext();
+    }
 
     @Test
     @DisplayName("A scheduled appointment maps to a confirmed event with stable UID and derived times")

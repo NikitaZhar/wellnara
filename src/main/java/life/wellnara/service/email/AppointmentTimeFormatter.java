@@ -20,20 +20,21 @@ import java.util.Objects;
 @Component
 public class AppointmentTimeFormatter {
 
-    private static final DateTimeFormatter FORMAT =
-            DateTimeFormatter.ofPattern("EEE, d MMM yyyy HH:mm z", Locale.ENGLISH);
+    private static final String PATTERN = "EEE, d MMM yyyy HH:mm z";
 
     /**
      * Formats the given instant in the given zone with an explicit zone label.
      *
      * @param instant appointment start instant
      * @param zone    provider calendar time zone
+     * @param locale  language for the month and day names
      * @return formatted date-time, e.g. {@code Mon, 17 Aug 2026 15:00 CEST}
      */
-    public String format(Instant instant, ZoneId zone) {
+    public String format(Instant instant, ZoneId zone, Locale locale) {
         Objects.requireNonNull(instant, "instant is required");
         Objects.requireNonNull(zone, "zone is required");
+        Objects.requireNonNull(locale, "locale is required");
 
-        return FORMAT.format(instant.atZone(zone));
+        return DateTimeFormatter.ofPattern(PATTERN, locale).format(instant.atZone(zone));
     }
 }

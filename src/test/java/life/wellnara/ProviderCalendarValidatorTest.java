@@ -6,12 +6,18 @@ import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.service.ProviderCalendarValidator;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.support.ResourceBundleMessageSource;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -21,7 +27,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class ProviderCalendarValidatorTest {
 
-    private final ProviderCalendarValidator validator = new ProviderCalendarValidator();
+    private final ProviderCalendarValidator validator = new ProviderCalendarValidator(messageSource());
+
+    private static MessageSource messageSource() {
+        ResourceBundleMessageSource source = new ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        return source;
+    }
+
+    @BeforeEach
+    void pinEnglishLocale() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+    }
+
+    @AfterEach
+    void resetLocale() {
+        LocaleContextHolder.resetLocaleContext();
+    }
     
     private final LocalDate currentDate = LocalDate.of(2026, 1, 1);
 

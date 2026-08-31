@@ -18,11 +18,14 @@ import life.wellnara.service.email.EmailService;
 import life.wellnara.service.time.ApplicationTimeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,10 +51,18 @@ class AppointmentNotificationServiceTest {
     private final CalendarEventFactory calendarEventFactory = mock(CalendarEventFactory.class);
     private final ICalendarSerializer iCalendarSerializer = mock(ICalendarSerializer.class);
     private final EmailService emailService = mock(EmailService.class);
+    private final MessageSource messageSource = messageSource();
 
     private final AppointmentNotificationService service = new AppointmentNotificationService(
             appointmentRepository, userProfileService, applicationTimeService, timeFormatter,
-            calendarEventFactory, iCalendarSerializer, emailService);
+            calendarEventFactory, iCalendarSerializer, emailService, messageSource);
+
+    private static MessageSource messageSource() {
+        ResourceBundleMessageSource source = new ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        return source;
+    }
 
     @Test
     @DisplayName("Scheduling emails both participants with details and a REQUEST attachment")
@@ -131,7 +142,7 @@ class AppointmentNotificationServiceTest {
 
         when(applicationTimeService.resolveProviderCalendarZone(provider))
                 .thenReturn(ZoneId.of("Europe/Bratislava"));
-        when(timeFormatter.format(any(Instant.class), any(ZoneId.class)))
+        when(timeFormatter.format(any(Instant.class), any(ZoneId.class), any(Locale.class)))
                 .thenReturn("Mon, 17 Aug 2026 15:00 CEST");
         when(userProfileService.resolveDisplayName(provider)).thenReturn("Dr. Smith");
         when(userProfileService.resolveDisplayName(client)).thenReturn("John Doe");
@@ -142,6 +153,7 @@ class AppointmentNotificationServiceTest {
     private User user(String email) {
         User user = mock(User.class);
         when(user.getEmail()).thenReturn(email);
+        when(user.getLanguage()).thenReturn("en");
         return user;
     }
 

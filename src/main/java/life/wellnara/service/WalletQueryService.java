@@ -19,6 +19,8 @@ import life.wellnara.repository.WalletEntryRepository;
 import life.wellnara.repository.WalletRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 import life.wellnara.service.wallet.WalletLedgerCalculator;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +67,7 @@ public class WalletQueryService {
     private final WalletLedgerCalculator ledgerCalculator;
     private final UserProfileService userProfileService;
     private final ApplicationTimeService applicationTimeService;
+    private final MessageSource messageSource;
 
     /**
      * Creates the wallet query service.
@@ -76,6 +79,7 @@ public class WalletQueryService {
      * @param ledgerCalculator             folds the ledger into money and session balances
      * @param userProfileService           resolves a client display name for the provider page
      * @param applicationTimeService       resolves the provider timezone for localised timestamps
+     * @param messageSource                resolver of localized user-facing labels
      */
     public WalletQueryService(WalletRepository walletRepository,
                               WalletEntryRepository walletEntryRepository,
@@ -83,7 +87,8 @@ public class WalletQueryService {
                               ServicePackageRepository servicePackageRepository,
                               WalletLedgerCalculator ledgerCalculator,
                               UserProfileService userProfileService,
-                              ApplicationTimeService applicationTimeService) {
+                              ApplicationTimeService applicationTimeService,
+                              MessageSource messageSource) {
         this.walletRepository = walletRepository;
         this.walletEntryRepository = walletEntryRepository;
         this.providerClientLinkRepository = providerClientLinkRepository;
@@ -91,6 +96,11 @@ public class WalletQueryService {
         this.ledgerCalculator = ledgerCalculator;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, LocaleContextHolder.getLocale());
     }
 
     /**
@@ -212,7 +222,7 @@ public class WalletQueryService {
             for (Long appointmentId : entry.getValue()) {
                 Integer number = sessionNumberByAppointment.get(appointmentId);
                 if (number != null) {
-                    labels.put(appointmentId, "Session " + number + " of " + total);
+                    labels.put(appointmentId, msg("wallet.sessionOf", number, total));
                 }
             }
         }
@@ -428,16 +438,16 @@ public class WalletQueryService {
      */
     private String labelOf(WalletEntryType type) {
         return switch (type) {
-            case TOP_UP -> "Top-up";
-            case HOLD -> "Reserved";
-            case RELEASE -> "Reservation released";
-            case SETTLE -> "Charged";
-            case ADJUSTMENT -> "Adjustment";
-            case PACKAGE_GRANT -> "Package granted";
-            case PACKAGE_HOLD -> "Package session reserved";
-            case PACKAGE_RELEASE -> "Package session released";
-            case PACKAGE_CONSUME -> "Package session used";
-            case PACKAGE_REVOKE -> "Package sessions voided";
+            case TOP_UP -> msg("wallet.entryType.topUp");
+            case HOLD -> msg("wallet.entryType.hold");
+            case RELEASE -> msg("wallet.entryType.release");
+            case SETTLE -> msg("wallet.entryType.settle");
+            case ADJUSTMENT -> msg("wallet.entryType.adjustment");
+            case PACKAGE_GRANT -> msg("wallet.entryType.packageGrant");
+            case PACKAGE_HOLD -> msg("wallet.entryType.packageHold");
+            case PACKAGE_RELEASE -> msg("wallet.entryType.packageRelease");
+            case PACKAGE_CONSUME -> msg("wallet.entryType.packageConsume");
+            case PACKAGE_REVOKE -> msg("wallet.entryType.packageRevoke");
         };
     }
 

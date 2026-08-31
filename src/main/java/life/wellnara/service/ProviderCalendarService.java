@@ -4,6 +4,7 @@ import life.wellnara.dto.AvailabilityOverrideForm;
 import life.wellnara.dto.CalendarTerm;
 import life.wellnara.dto.ProviderCalendarForm;
 import life.wellnara.exception.CalendarValidationException;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.AvailabilityDay;
 import life.wellnara.model.AvailabilityOverride;
 import life.wellnara.model.AvailabilityOverrideType;
@@ -14,6 +15,8 @@ import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import life.wellnara.service.time.ApplicationTimeService;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +46,7 @@ public class ProviderCalendarService {
 	private final ProviderCalendarGenerator calendarGenerator;
 	private final AvailabilityOverrideService availabilityOverrideService;
 	private final AvailabilityOverrideApplier availabilityOverrideApplier;
+	private final MessageSource messageSource;
 
 	/**
 	 * Creates provider calendar service.
@@ -53,6 +57,7 @@ public class ProviderCalendarService {
 	 * @param calendarGenerator generator for base calendar terms
 	 * @param availabilityOverrideService service for one-time availability overrides
 	 * @param availabilityOverrideApplier component that applies overrides to calendar terms
+	 * @param messageSource resolver of localized user-facing messages
 	 */
 	public ProviderCalendarService(AvailabilityPeriodRepository availabilityPeriodRepository,
 			AvailabilityRuleRepository availabilityRuleRepository,
@@ -60,7 +65,8 @@ public class ProviderCalendarService {
 			ProviderCalendarGenerator calendarGenerator,
 			AvailabilityOverrideService availabilityOverrideService,
 			AvailabilityOverrideApplier availabilityOverrideApplier,
-			ApplicationTimeService applicationTimeService) {
+			ApplicationTimeService applicationTimeService,
+			MessageSource messageSource) {
 		this.availabilityPeriodRepository = availabilityPeriodRepository;
 		this.availabilityRuleRepository = availabilityRuleRepository;
 		this.calendarValidator = calendarValidator;
@@ -68,6 +74,7 @@ public class ProviderCalendarService {
 		this.availabilityOverrideService = availabilityOverrideService;
 		this.availabilityOverrideApplier = availabilityOverrideApplier;
 		this.applicationTimeService = applicationTimeService;
+		this.messageSource = messageSource;
 	}
 
 	/**
@@ -176,7 +183,9 @@ public class ProviderCalendarService {
 				calendarValidator.validateAvailabilityOverride(
 						provider, item.getDate(), item.getStartTime(), item.getEndTime(), item.getType(), currentDate);
 			} catch (IllegalArgumentException exception) {
-				errors.put("override" + i, "One-time change #" + (i + 1) + ": " + exception.getMessage());
+				errors.put("override" + i, messageSource.getMessage("error.calendar.overridePrefix",
+						new Object[]{i + 1, LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale())},
+						LocaleContextHolder.getLocale()));
 			}
 		}
 

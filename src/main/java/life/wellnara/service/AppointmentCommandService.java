@@ -2,6 +2,7 @@ package life.wellnara.service;
 
 import life.wellnara.event.AppointmentCancelledEvent;
 import life.wellnara.event.AppointmentScheduledEvent;
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.AvailabilityOverrideType;
@@ -140,7 +141,7 @@ public class AppointmentCommandService {
 	@Transactional
 	public void acceptAppointment(User provider, Long appointmentId) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.REQUESTED, "Only requested appointment can be accepted");
+		requireStatus(appointment, AppointmentStatus.REQUESTED, "error.appt.notRequestedAccept", "Only requested appointment can be accepted");
 
 		appointment.schedule();
 		eventPublisher.publishEvent(new AppointmentScheduledEvent(appointment.getId()));
@@ -155,10 +156,10 @@ public class AppointmentCommandService {
 	 */
 	@Transactional
 	public void rejectAppointment(User provider, Long appointmentId, String rejectionReason) {
-		requireMessage(rejectionReason, "Rejection reason is required");
+		requireMessage(rejectionReason, "error.appt.rejectionReasonRequired", "Rejection reason is required");
 
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.REQUESTED, "Only requested appointment can be rejected");
+		requireStatus(appointment, AppointmentStatus.REQUESTED, "error.appt.notRequestedReject", "Only requested appointment can be rejected");
 
 		appointment.cancel(CancellationInitiator.PROVIDER, rejectionReason, now());
 		settlementService.release(appointment, appointment.getProvider());
@@ -184,8 +185,8 @@ public class AppointmentCommandService {
 			String message,
 			boolean blockSlot) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be cancelled");
-		requireBeforeStart(appointment, "Scheduled appointment can only be cancelled before it starts");
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "error.appt.notScheduledCancel", "Only scheduled appointment can be cancelled");
+		requireBeforeStart(appointment, "error.appt.cancelBeforeStart", "Scheduled appointment can only be cancelled before it starts");
 
 		if (blockSlot) {
 			blockSlot(provider, appointment);
@@ -215,8 +216,8 @@ public class AppointmentCommandService {
 	@Transactional
 	public void completeScheduledAppointment(User provider, Long appointmentId) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be completed");
-		requireStarted(appointment, "Appointment can only be completed once it has started");
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "error.appt.notScheduledComplete", "Only scheduled appointment can be completed");
+		requireStarted(appointment, "error.appt.completeAfterStart", "Appointment can only be completed once it has started");
 
 		appointment.complete();
 		settlementService.settle(appointment, appointment.getProvider());
@@ -231,8 +232,8 @@ public class AppointmentCommandService {
 	@Transactional
 	public void markAppointmentNoShow(User provider, Long appointmentId) {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be marked as no-show");
-		requireStarted(appointment, "Appointment can only be marked as no-show once it has started");
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "error.appt.notScheduledNoShow", "Only scheduled appointment can be marked as no-show");
+		requireStarted(appointment, "error.appt.noShowAfterStart", "Appointment can only be marked as no-show once it has started");
 
 		appointment.markNoShow();
 		settlementService.settle(appointment, appointment.getProvider());
@@ -249,8 +250,7 @@ public class AppointmentCommandService {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 
 		if (!isCancelledBy(appointment, CancellationInitiator.CLIENT)) {
-			throw new IllegalArgumentException(
-					"Only client-cancelled appointment notification can be acknowledged");
+			throw new LocalizedException("error.appt.ackClientCancelledOnly", "Only client-cancelled appointment notification can be acknowledged");
 		}
 
 		appointment.acknowledge();
@@ -266,7 +266,7 @@ public class AppointmentCommandService {
 	@Transactional
 	public void cancelPendingAppointmentByClient(User client, Long appointmentId) {
 		Appointment appointment = findClientAppointment(client, appointmentId);
-		requireStatus(appointment, AppointmentStatus.REQUESTED, "Only pending appointment can be cancelled");
+		requireStatus(appointment, AppointmentStatus.REQUESTED, "error.appt.notRequestedCancel", "Only pending appointment can be cancelled");
 
 		appointment.cancel(CancellationInitiator.CLIENT, null, now());
 		settlementService.release(appointment, appointment.getClient());
@@ -283,7 +283,7 @@ public class AppointmentCommandService {
 	@Transactional
 	public void cancelScheduledAppointmentByClient(User client, Long appointmentId) {
 		Appointment appointment = findClientAppointment(client, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be cancelled");
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "error.appt.notScheduledCancel", "Only scheduled appointment can be cancelled");
 
 		LocalDateTime now = now();
 		appointment.cancel(CancellationInitiator.CLIENT, null, now);
@@ -314,7 +314,7 @@ public class AppointmentCommandService {
 	@Transactional
 	public Long rescheduleScheduledAppointmentByClient(User client, Long appointmentId) {
 		Appointment appointment = findClientAppointment(client, appointmentId);
-		requireStatus(appointment, AppointmentStatus.SCHEDULED, "Only scheduled appointment can be rescheduled");
+		requireStatus(appointment, AppointmentStatus.SCHEDULED, "error.appt.notScheduledReschedule", "Only scheduled appointment can be rescheduled");
 		requireReschedulable(appointment);
 
 		appointment.cancel(CancellationInitiator.CLIENT, null, now());
@@ -338,8 +338,7 @@ public class AppointmentCommandService {
 				|| appointment.getStatus() == AppointmentStatus.COMPLETED;
 
 		if (!acknowledgeable) {
-			throw new IllegalArgumentException(
-					"Only provider-cancelled or completed appointment can be acknowledged");
+			throw new LocalizedException("error.appt.ackProviderCancelledOrCompleted", "Only provider-cancelled or completed appointment can be acknowledged");
 		}
 
 		appointment.acknowledge();
@@ -371,9 +370,7 @@ public class AppointmentCommandService {
 
 	private void requireReschedulable(Appointment appointment) {
 		if (appointment.getStartDateTimeUtc().isBefore(now().plusHours(AppointmentPolicy.RESCHEDULE_MIN_HOURS))) {
-			throw new IllegalArgumentException(
-					"Appointment can only be rescheduled at least "
-							+ AppointmentPolicy.RESCHEDULE_MIN_HOURS + " hours before it starts");
+			throw new LocalizedException("error.appt.rescheduleMinHours", "Appointment can only be rescheduled at least " + AppointmentPolicy.RESCHEDULE_MIN_HOURS + " hours before it starts", AppointmentPolicy.RESCHEDULE_MIN_HOURS);
 		}
 	}
 
@@ -395,7 +392,7 @@ public class AppointmentCommandService {
 		Appointment appointment = findAppointment(appointmentId);
 
 		if (!appointment.getProvider().getId().equals(provider.getId())) {
-			throw new IllegalArgumentException("Appointment does not belong to provider");
+			throw new LocalizedException("error.appt.notProviderOwned", "Appointment does not belong to provider");
 		}
 
 		return appointment;
@@ -406,7 +403,7 @@ public class AppointmentCommandService {
 		Appointment appointment = findAppointment(appointmentId);
 
 		if (!appointment.getClient().getId().equals(client.getId())) {
-			throw new IllegalArgumentException("Appointment does not belong to client");
+			throw new LocalizedException("error.appt.notClientOwned", "Appointment does not belong to client");
 		}
 
 		return appointment;
@@ -417,9 +414,9 @@ public class AppointmentCommandService {
 				&& appointment.getCancellationInitiator() == initiator;
 	}
 
-	private void requireStatus(Appointment appointment, AppointmentStatus expected, String message) {
+	private void requireStatus(Appointment appointment, AppointmentStatus expected, String messageKey, String defaultMessage) {
 		if (appointment.getStatus() != expected) {
-			throw new IllegalArgumentException(message);
+			throw new LocalizedException(messageKey, defaultMessage);
 		}
 	}
 
@@ -427,9 +424,9 @@ public class AppointmentCommandService {
 	 * Requires that the appointment has not started yet (its start time is strictly
 	 * in the future relative to the current application time).
 	 */
-	private void requireBeforeStart(Appointment appointment, String message) {
+	private void requireBeforeStart(Appointment appointment, String messageKey, String defaultMessage) {
 		if (!now().isBefore(appointment.getStartDateTimeUtc())) {
-			throw new IllegalArgumentException(message);
+			throw new LocalizedException(messageKey, defaultMessage);
 		}
 	}
 
@@ -437,15 +434,15 @@ public class AppointmentCommandService {
 	 * Requires that the appointment has already started (its start time is now or in
 	 * the past relative to the current application time).
 	 */
-	private void requireStarted(Appointment appointment, String message) {
+	private void requireStarted(Appointment appointment, String messageKey, String defaultMessage) {
 		if (now().isBefore(appointment.getStartDateTimeUtc())) {
-			throw new IllegalArgumentException(message);
+			throw new LocalizedException(messageKey, defaultMessage);
 		}
 	}
 
-	private void requireMessage(String message, String error) {
-		if (message == null || message.isBlank()) {
-			throw new IllegalArgumentException(error);
+	private void requireMessage(String value, String errorKey, String errorDefault) {
+		if (value == null || value.isBlank()) {
+			throw new LocalizedException(errorKey, errorDefault);
 		}
 	}
 
@@ -455,7 +452,7 @@ public class AppointmentCommandService {
 
 	private Appointment findAppointment(Long appointmentId) {
 		return appointmentRepository.findById(appointmentId)
-				.orElseThrow(() -> new IllegalArgumentException("Appointment not found"));
+				.orElseThrow(() -> new LocalizedException("error.appt.notFound", "Appointment not found"));
 	}
 
 	private LocalDateTime toProviderLocalDateTime(Appointment appointment, ZoneId providerZone) {
@@ -475,34 +472,34 @@ public class AppointmentCommandService {
 				);
 
 		if (!available) {
-			throw new IllegalArgumentException("Requested time is not available");
+			throw new LocalizedException("error.appt.timeNotAvailable", "Requested time is not available");
 		}
 	}
 
 	private void validateClient(User client) {
 		if (client == null || client.getRole() != UserRole.CLIENT) {
-			throw new IllegalArgumentException("Only client can request appointment");
+			throw new LocalizedException("error.appt.onlyClientRequest", "Only client can request appointment");
 		}
 	}
 
 	private void validateProvider(User provider) {
 		if (provider == null || provider.getRole() != UserRole.PROVIDER) {
-			throw new IllegalArgumentException("Only provider can manage appointment");
+			throw new LocalizedException("error.appt.onlyProviderManage", "Only provider can manage appointment");
 		}
 	}
 
 	private void validateStartDateTime(LocalDateTime startDateTimeUtc) {
 		if (startDateTimeUtc == null) {
-			throw new IllegalArgumentException("Appointment start time is required");
+			throw new LocalizedException("error.appt.startRequired", "Appointment start time is required");
 		}
 	}
 
 	private User findProvider(Long providerId) {
 		User provider = userRepository.findById(providerId)
-				.orElseThrow(() -> new IllegalArgumentException("Provider not found"));
+				.orElseThrow(() -> new LocalizedException("error.appt.providerNotFound", "Provider not found"));
 
 		if (provider.getRole() != UserRole.PROVIDER) {
-			throw new IllegalArgumentException("User is not a provider");
+			throw new LocalizedException("error.appt.notProvider", "User is not a provider");
 		}
 
 		return provider;
@@ -511,18 +508,18 @@ public class AppointmentCommandService {
 	private void validateClientBelongsToProvider(User client, User provider) {
 		providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
 		.orElseThrow(() ->
-		new IllegalArgumentException("Client is not linked to provider"));
+		new LocalizedException("error.appt.clientNotLinked", "Client is not linked to provider"));
 	}
 
 	private Offering findProviderOffering(User provider, Long offeringId) {
 		return offeringRepository.findByProviderAndId(provider, offeringId)
 				.orElseThrow(() ->
-				new IllegalArgumentException("Offering not found for provider"));
+				new LocalizedException("error.appt.offeringNotFound", "Offering not found for provider"));
 	}
 
 	private void validateOfferingIsActive(Offering offering) {
 		if (!offering.isActive()) {
-			throw new IllegalArgumentException("Offering is not active");
+			throw new LocalizedException("error.appt.offeringNotActive", "Offering is not active");
 		}
 	}
 }

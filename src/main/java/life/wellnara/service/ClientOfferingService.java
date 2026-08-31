@@ -1,5 +1,6 @@
 package life.wellnara.service;
 
+import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
@@ -43,7 +44,7 @@ public class ClientOfferingService {
         validateClient(client);
 
         ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
-                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+                .orElseThrow(() -> new LocalizedException("error.clientOffering.providerLinkNotFound", "Provider link not found"));
 
         return offeringRepository.findAllByProviderAndActiveTrue(providerClientLink.getProvider());
     }
@@ -59,7 +60,7 @@ public class ClientOfferingService {
         validateClient(client);
 
         ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
-                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+                .orElseThrow(() -> new LocalizedException("error.clientOffering.providerLinkNotFound", "Provider link not found"));
 
         return providerClientLink.getProvider();
     }
@@ -71,7 +72,7 @@ public class ClientOfferingService {
      */
     private void validateClient(User client) {
         if (client.getRole() != UserRole.CLIENT) {
-            throw new IllegalArgumentException("Only client can view provider offerings");
+            throw new LocalizedException("error.clientOffering.onlyClient", "Only client can view provider offerings");
         }
     }
     
@@ -80,9 +81,9 @@ public class ClientOfferingService {
         validateClient(client);
 
         ProviderClientLink providerClientLink = providerClientLinkRepository.findByClient(client)
-                .orElseThrow(() -> new IllegalArgumentException("Provider link not found"));
+                .orElseThrow(() -> new LocalizedException("error.clientOffering.providerLinkNotFound", "Provider link not found"));
 
         return offeringRepository.findByProviderAndId(providerClientLink.getProvider(), offeringId)
-                .orElseThrow(() -> new IllegalArgumentException("Offering not found"));
+                .orElseThrow(() -> new LocalizedException("error.clientOffering.offeringNotFound", "Offering not found"));
     }
 }

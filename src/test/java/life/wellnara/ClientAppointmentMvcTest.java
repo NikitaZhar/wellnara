@@ -161,7 +161,7 @@ class ClientAppointmentMvcTest {
                         .param("selectedTime", "15:00"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
-                .andExpect(model().attribute("appointmentError", "Requested time is not available"));
+                .andExpect(model().attribute("appointmentError", "Выбранное время недоступно"));
 
         assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
                 .isEmpty();
@@ -203,7 +203,7 @@ class ClientAppointmentMvcTest {
                         .param("selectedTime", "10:15"))
                 .andExpect(status().isOk())
                 .andExpect(model().attributeExists("appointmentError"))
-                .andExpect(model().attribute("appointmentError", "Requested time is not available"));
+                .andExpect(model().attribute("appointmentError", "Выбранное время недоступно"));
 
         assertThat(appointmentRepository.findAllByProviderOrderByStartDateTimeUtcAsc(provider))
                 .hasSize(1);

@@ -3,6 +3,8 @@ package life.wellnara.controller;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.web.servlet.error.ErrorController;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,6 +22,21 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class AppErrorController implements ErrorController {
 
+    private final MessageSource messageSource;
+
+    /**
+     * Creates the application error controller.
+     *
+     * @param messageSource resolver of localized user-facing messages
+     */
+    public AppErrorController(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String msg(String key) {
+        return messageSource.getMessage(key, null, LocaleContextHolder.getLocale());
+    }
+
     /**
      * Resolves the error view and exposes a safe, user-facing status message.
      *
@@ -32,7 +49,8 @@ public class AppErrorController implements ErrorController {
         HttpStatus status = resolveStatus(request);
 
         model.addAttribute("statusCode", status.value());
-        model.addAttribute("statusReason", status.getReasonPhrase());
+        model.addAttribute("statusReason", messageSource.getMessage(
+                "error.status." + status.value(), null, status.getReasonPhrase(), LocaleContextHolder.getLocale()));
         model.addAttribute("message", userMessageFor(status));
 
         return "error";
@@ -54,14 +72,14 @@ public class AppErrorController implements ErrorController {
 
     private String userMessageFor(HttpStatus status) {
         if (status == HttpStatus.NOT_FOUND) {
-            return "Page not found.";
+            return msg("error.page.notFound");
         }
         if (status == HttpStatus.FORBIDDEN) {
-            return "You do not have access to this page.";
+            return msg("error.page.forbidden");
         }
         if (status == HttpStatus.BAD_REQUEST) {
-            return "The request could not be processed.";
+            return msg("error.page.badRequest");
         }
-        return "Something went wrong. Please try again later.";
+        return msg("error.page.generic");
     }
 }

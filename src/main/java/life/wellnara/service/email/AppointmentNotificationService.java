@@ -1,6 +1,8 @@
 package life.wellnara.service.email;
 
+import life.wellnara.config.LocalizationConfig;
 import life.wellnara.model.Appointment;
+import life.wellnara.model.User;
 import life.wellnara.repository.AppointmentRepository;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.service.calendar.CalendarAudience;
@@ -11,12 +13,15 @@ import life.wellnara.service.calendar.ICalendarSerializer;
 import life.wellnara.service.time.ApplicationTimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Locale;
 
 /**
  * Builds and sends appointment confirmation and cancellation emails to both
@@ -30,8 +35,11 @@ import java.time.ZoneOffset;
  * never propagates out of the post-commit callback into the already-committed
  * appointment transaction.
  *
- * <p>Each recipient sees the session name, the date and time in the provider's
- * time zone with an explicit zone label, and the other participant's name.
+ * <p>Each recipient's email is written in their own preferred language
+ * ({@link User#getLanguage()}, falling back to the application default when
+ * unset). The date and time are rendered in the provider's time zone with an
+ * explicit zone label, so the moment is unambiguous for both participants, but
+ * the month and day names follow the recipient's language.
  */
 @Service
 public class AppointmentNotificationService {
@@ -45,6 +53,7 @@ public class AppointmentNotificationService {
     private final CalendarEventFactory calendarEventFactory;
     private final ICalendarSerializer iCalendarSerializer;
     private final EmailService emailService;
+    private final MessageSource messageSource;
 
     /**
      * Creates the appointment notification service.
@@ -56,6 +65,7 @@ public class AppointmentNotificationService {
      * @param calendarEventFactory     factory for the calendar event
      * @param iCalendarSerializer      serializer for the calendar attachment
      * @param emailService             low-level email delivery
+     * @param messageSource            resolver of localized email text
      */
     public AppointmentNotificationService(AppointmentRepository appointmentRepository,
                                           UserProfileService userProfileService,
@@ -63,7 +73,8 @@ public class AppointmentNotificationService {
                                           AppointmentTimeFormatter timeFormatter,
                                           CalendarEventFactory calendarEventFactory,
                                           ICalendarSerializer iCalendarSerializer,
-                                          EmailService emailService) {
+                                          EmailService emailService,
+                                          MessageSource messageSource) {
         this.appointmentRepository = appointmentRepository;
         this.userProfileService = userProfileService;
         this.applicationTimeService = applicationTimeService;
@@ -71,6 +82,7 @@ public class AppointmentNotificationService {
         this.calendarEventFactory = calendarEventFactory;
         this.iCalendarSerializer = iCalendarSerializer;
         this.emailService = emailService;
+        this.messageSource = messageSource;
     }
 
     /**
@@ -95,17 +107,32 @@ public class AppointmentNotificationService {
 
     private void notify(long appointmentId, Notification notification) {
         appointmentRepository.findById(appointmentId).ifPresent(appointment -> {
-            Details details = detailsOf(appointment);
+            User provider = appointment.getProvider();
+            User client = appointment.getClient();
 
-            send(appointment.getProvider().getEmail(),
+            ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(provider);
+            Instant startInstant = appointment.getStartDateTimeUtc().toInstant(ZoneOffset.UTC);
+            String sessionName = appointment.getOffering().getName();
+            String providerName = userProfileService.resolveDisplayName(provider);
+            String clientName = userProfileService.resolveDisplayName(client);
+
+            Locale providerLocale = localeOf(provider);
+            send(provider.getEmail(),
                     notification,
-                    body(notification, details, "Client: " + details.clientName()),
+                    providerLocale,
+                    body(notification, providerLocale, sessionName,
+                            timeFormatter.format(startInstant, providerZone, providerLocale),
+                            msg("email.appointment.counterparty.client", providerLocale, clientName)),
                     attachment(appointment, CalendarAudience.PROVIDER, notification.method()),
                     appointmentId);
 
-            send(appointment.getClient().getEmail(),
+            Locale clientLocale = localeOf(client);
+            send(client.getEmail(),
                     notification,
-                    body(notification, details, "Provider: " + details.providerName()),
+                    clientLocale,
+                    body(notification, clientLocale, sessionName,
+                            timeFormatter.format(startInstant, providerZone, clientLocale),
+                            msg("email.appointment.counterparty.provider", clientLocale, providerName)),
                     attachment(appointment, CalendarAudience.CLIENT, notification.method()),
                     appointmentId);
         });
@@ -118,37 +145,27 @@ public class AppointmentNotificationService {
      */
     private void send(String recipient,
                       Notification notification,
+                      Locale locale,
                       String body,
                       CalendarAttachment attachment,
                       long appointmentId) {
         try {
-            emailService.sendCalendarEmail(recipient, notification.subject(), body, attachment);
+            emailService.sendCalendarEmail(recipient, msg(notification.subjectKey(), locale), body, attachment);
         } catch (RuntimeException exception) {
             log.warn("Could not send {} email for appointment {} to {}",
                     notification, appointmentId, recipient, exception);
         }
     }
 
-    private Details detailsOf(Appointment appointment) {
-        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(appointment.getProvider());
-        String when = timeFormatter.format(
-                appointment.getStartDateTimeUtc().toInstant(ZoneOffset.UTC), providerZone);
-
-        return new Details(
-                appointment.getOffering().getName(),
-                when,
-                userProfileService.resolveDisplayName(appointment.getProvider()),
-                userProfileService.resolveDisplayName(appointment.getClient()));
-    }
-
-    private String body(Notification notification, Details details, String counterpartyLine) {
-        return """
-                %s
-
-                Session: %s
-                When: %s
-                %s
-                """.formatted(notification.headline(), details.sessionName(), details.when(), counterpartyLine);
+    private String body(Notification notification,
+                        Locale locale,
+                        String sessionName,
+                        String when,
+                        String counterpartyLine) {
+        return msg(notification.headlineKey(), locale) + "\n\n"
+                + msg("email.appointment.session", locale, sessionName) + "\n"
+                + msg("email.appointment.when", locale, when) + "\n"
+                + counterpartyLine + "\n";
     }
 
     private CalendarAttachment attachment(Appointment appointment,
@@ -160,45 +177,51 @@ public class AppointmentNotificationService {
         return new CalendarAttachment("appointment-" + appointment.getId() + ".ics", method, calendar);
     }
 
+    private Locale localeOf(User user) {
+        String language = user.getLanguage();
+
+        return language == null || language.isBlank()
+                ? LocalizationConfig.SUPPORTED_LOCALES.get(0)
+                : Locale.forLanguageTag(language);
+    }
+
+    private String msg(String key, Locale locale, Object... args) {
+        return messageSource.getMessage(key, args, locale);
+    }
+
     /**
-     * Wording and iCalendar method for each kind of appointment notification.
+     * Message keys and iCalendar method for each kind of appointment notification.
      */
     private enum Notification {
 
-        SCHEDULED("Wellnara — appointment confirmed",
-                "Your appointment is confirmed.",
+        SCHEDULED("email.appointment.subject.scheduled",
+                "email.appointment.headline.scheduled",
                 CalendarMethod.REQUEST),
 
-        CANCELLED("Wellnara — appointment cancelled",
-                "Your appointment has been cancelled.",
+        CANCELLED("email.appointment.subject.cancelled",
+                "email.appointment.headline.cancelled",
                 CalendarMethod.CANCEL);
 
-        private final String subject;
-        private final String headline;
+        private final String subjectKey;
+        private final String headlineKey;
         private final CalendarMethod method;
 
-        Notification(String subject, String headline, CalendarMethod method) {
-            this.subject = subject;
-            this.headline = headline;
+        Notification(String subjectKey, String headlineKey, CalendarMethod method) {
+            this.subjectKey = subjectKey;
+            this.headlineKey = headlineKey;
             this.method = method;
         }
 
-        private String subject() {
-            return subject;
+        private String subjectKey() {
+            return subjectKey;
         }
 
-        private String headline() {
-            return headline;
+        private String headlineKey() {
+            return headlineKey;
         }
 
         private CalendarMethod method() {
             return method;
         }
-    }
-
-    /**
-     * Resolved, transaction-free details shared by both participants' emails.
-     */
-    private record Details(String sessionName, String when, String providerName, String clientName) {
     }
 }
