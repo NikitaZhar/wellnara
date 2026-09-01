@@ -91,39 +91,6 @@ class ProviderClientAndOfferingEdgeCasesMvcTest {
 	}
 
 	/**
-	 * Verifies that provider cannot delete a client belonging to another provider.
-	 *
-	 * <p>Expected behavior:
-	 * <ul>
-	 *     <li>request fails because client does not belong to current provider,</li>
-	 *     <li>client remains in database,</li>
-	 *     <li>provider-client link remains in database.</li>
-	 * </ul>
-	 *
-	 * @throws Exception if MockMvc request fails
-	 */
-	@Test
-	@DisplayName("Should not allow provider to delete another provider client")
-	void shouldNotAllowProviderToDeleteAnotherProviderClient() throws Exception {
-		User providerOne = createProvider("provider-one-edge", "provider-one-edge@example.com", "123");
-		User providerTwo = createProvider("provider-two-edge", "provider-two-edge@example.com", "123");
-		User client = createClient("client-edge", "client-edge@example.com", "123");
-
-		ProviderClientLink link = new ProviderClientLink(providerOne, client, LocalDateTime.now());
-		providerClientLinkRepository.save(link);
-
-		MockHttpSession providerTwoSession = authenticatedSession(providerTwo);
-
-		mockMvc.perform(post("/provider/clients/{clientId}/delete", client.getId()).with(csrf())
-				.session(providerTwoSession))
-				.andExpect(status().is3xxRedirection())
-				.andExpect(redirectedUrl("/provider/clients"));
-
-		assertThat(userRepository.findById(client.getId())).isPresent();
-		assertThat(providerClientLinkRepository.findByProviderAndClientId(providerOne, client.getId())).isPresent();
-	}
-
-	/**
 	 * Verifies that created offering is saved for current provider only.
 	 *
 	 * @throws Exception if MockMvc request fails

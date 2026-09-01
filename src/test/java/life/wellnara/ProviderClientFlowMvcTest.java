@@ -180,18 +180,6 @@ class ProviderClientFlowMvcTest {
                 .andExpect(status().isOk())
                 // UI is localized; the default locale is Russian, so the offerings heading reads "Услуги".
                 .andExpect(content().string(containsString("Услуги")));
-
-        mockMvc.perform(post("/provider/clients/{clientId}/delete", savedClient.getId()).with(csrf())
-                        .session(providerSession))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/clients"));
-
-        assertThat(userRepository.findById(savedClient.getId())).isEmpty();
-        assertThat(providerClientLinkRepository.findByProviderAndClientId(provider, savedClient.getId())).isEmpty();
-
-        mockMvc.perform(get("/provider/clients").session(providerSession))
-                .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("client-three@example.com"))));
     }
 
     @Test

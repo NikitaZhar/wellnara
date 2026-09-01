@@ -1,7 +1,6 @@
 package life.wellnara.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * View model for one row in the provider's "My clients" table.
@@ -9,7 +8,9 @@ import java.time.LocalDateTime;
  * <p>Carries the human-facing display name and phone resolved from the client
  * profile, plus the client's spendable wallet balance and its currency, so the
  * clients table can show finances inline without the template traversing lazy
- * associations.
+ * associations. The invitation date arrives already formatted for display
+ * ({@code invitedAtLabel}) in the request locale, so the template renders it
+ * verbatim without date logic.
  */
 public class ClientRow {
 
@@ -17,7 +18,7 @@ public class ClientRow {
     private final String displayName;
     private final String email;
     private final String phone;
-    private final LocalDateTime invitedAt;
+    private final String invitedAtLabel;
     private final BigDecimal availableBalance;
     private final String currency;
 
@@ -25,14 +26,14 @@ public class ClientRow {
                      String displayName,
                      String email,
                      String phone,
-                     LocalDateTime invitedAt,
+                     String invitedAtLabel,
                      BigDecimal availableBalance,
                      String currency) {
         this.clientId = clientId;
         this.displayName = displayName;
         this.email = email;
         this.phone = phone;
-        this.invitedAt = invitedAt;
+        this.invitedAtLabel = invitedAtLabel;
         this.availableBalance = availableBalance;
         this.currency = currency;
     }
@@ -53,8 +54,8 @@ public class ClientRow {
         return phone;
     }
 
-    public LocalDateTime getInvitedAt() {
-        return invitedAt;
+    public String getInvitedAtLabel() {
+        return invitedAtLabel;
     }
 
     public BigDecimal getAvailableBalance() {

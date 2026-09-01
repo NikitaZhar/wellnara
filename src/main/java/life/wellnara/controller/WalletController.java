@@ -1,5 +1,8 @@
 package life.wellnara.controller;
 
+import life.wellnara.dto.ClientWalletView;
+import life.wellnara.dto.TopUpResult;
+import life.wellnara.dto.WalletHistoryRow;
 import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.User;
 import life.wellnara.service.UserProfileService;
@@ -9,6 +12,7 @@ import life.wellnara.web.CurrentUser;
 import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.WebDataBinder;
@@ -17,19 +21,22 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
- * Provider actions on a client's wallet: view the wallet and top it up.
+ * Provider actions on a client's wallet: view the client profile and top the
+ * wallet up.
  *
  * <p>Thin controller — all rules and role checks live in the services. The
  * {@code /provider/**} security rule already restricts these routes to
  * providers; the services re-check ownership. The read page
  * ({@code GET .../wallet}) is served from {@link WalletQueryService}; the
- * top-up from {@link WalletCommandService}. On both success and failure the
- * top-up stays on the client's wallet page, so the provider sees the updated
- * balance (or the error) in place.
+ * top-up ({@code POST .../wallet/top-up}) from {@link WalletCommandService} and
+ * answers with JSON so the profile page updates the balance and payment history
+ * in place, without a reload.
  */
 @Controller
 public class WalletController {
@@ -71,13 +78,13 @@ public class WalletController {
     }
 
     /**
-     * Shows a client's wallet to the provider: balance, the full movement history
-     * and the top-up form.
+     * Shows a client's profile to the provider: contact details, balance, the
+     * payment history and the top-up action.
      *
-     * @param clientId    client whose wallet is shown
+     * @param clientId    client whose profile is shown
      * @param currentUser authenticated provider
      * @param model       MVC model
-     * @return the client wallet page, or a redirect to the clients list if the client is not linked
+     * @return the client profile page, or a redirect to the clients list if the client is not linked
      */
     @GetMapping("/provider/clients/{clientId}/wallet")
     public String showClientWallet(@PathVariable Long clientId,
@@ -92,43 +99,36 @@ public class WalletController {
     }
 
     /**
-     * Records a manual wallet top-up for a client.
+     * Records a manual wallet top-up for a client and answers with the refreshed
+     * balances and the newly created movement, for an in-place page update.
      *
      * @param clientId    client whose wallet is credited
      * @param amount      positive amount in the provider currency
      * @param comment     optional note
      * @param currentUser authenticated provider
-     * @param model       MVC model
-     * @return redirect back to the client's wallet page, or that page re-rendered with an error
+     * @return {@code 200} with the {@link TopUpResult}; {@code 400} with an {@code error} message
+     *         if the amount is invalid or the client is not the provider's
      */
     @PostMapping("/provider/clients/{clientId}/wallet/top-up")
-    public String topUp(@PathVariable Long clientId,
-                        @RequestParam BigDecimal amount,
-                        @RequestParam(required = false) String comment,
-                        @CurrentUser User currentUser,
-                        Model model) {
-        return execute(currentUser, clientId, model,
-                provider -> walletCommandService.topUp(provider, clientId, amount, comment));
-    }
-
-    /**
-     * Runs a money-in action and keeps the provider on the client's wallet page:
-     * a redirect on success (so the updated balance is fetched fresh), or the same
-     * page re-rendered with the error. Falls back to the clients list only if the
-     * client is not the provider's (the wallet page cannot be built).
-     */
-    private String execute(User currentUser, Long clientId, Model model, WalletAction action) {
+    @ResponseBody
+    public ResponseEntity<?> topUp(@PathVariable Long clientId,
+                                   @RequestParam BigDecimal amount,
+                                   @RequestParam(required = false) String comment,
+                                   @CurrentUser User currentUser) {
         try {
-            action.execute(currentUser);
-            return "redirect:/provider/clients/" + clientId + "/wallet";
+            walletCommandService.topUp(currentUser, clientId, amount, comment);
+            ClientWalletView view = walletQueryService.getWalletForProvider(currentUser, clientId);
+            WalletHistoryRow newest = view.getHistory().get(0);
+            TopUpResult result = new TopUpResult(
+                    view.getAvailable(),
+                    view.getHeld(),
+                    view.getCurrency(),
+                    new TopUpResult.Entry(newest.getTimestamp(), newest.getTypeLabel(),
+                            newest.getAmount(), newest.getCurrency()));
+            return ResponseEntity.ok(result);
         } catch (IllegalArgumentException exception) {
-            try {
-                populateWalletPage(model, currentUser, clientId);
-                model.addAttribute("walletActionError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
-                return WALLET_VIEW;
-            } catch (IllegalArgumentException notLinked) {
-                return CLIENTS_REDIRECT;
-            }
+            String message = LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale());
+            return ResponseEntity.badRequest().body(Map.of("error", message));
         }
     }
 
@@ -136,19 +136,5 @@ public class WalletController {
         model.addAttribute("wallet", walletQueryService.getWalletForProvider(provider, clientId));
         model.addAttribute("clientId", clientId);
         model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
-    }
-
-    /**
-     * Provider wallet action callback.
-     */
-    @FunctionalInterface
-    private interface WalletAction {
-
-        /**
-         * Executes the wallet action for the authenticated provider.
-         *
-         * @param provider authenticated provider
-         */
-        void execute(User provider);
     }
 }

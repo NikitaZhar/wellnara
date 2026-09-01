@@ -3,11 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="#{pcw.title}">Wellnara — Client wallet</title>
+    <title th:text="|#{pcw.title} — ${wallet.clientName}|">Wellnara — Client Profile</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+    <style>
+        /* Contact identity block is intentionally muted (name/email/phone). */
+        .client-id .page-title { color: var(--text-muted); }
+        /* Balance figures a touch smaller, to sit within the page's overall scale. */
+        .balance-grid .metric .v { font-size: 20px; }
+        .balance-grid .metric .v .cur { font-size: 14px; }
+        /* Top-up action sits under the balance cards, aligned to the trailing edge. */
+        .balance-actions { display: flex; justify-content: flex-end; margin-top: var(--s-3); }
+        /* Payment history scrolls inside its own window after ~4 rows. */
+        .history-scroll { max-height: 264px; overflow-y: auto; }
+        /* Newly added movement flashes briefly. */
+        @keyframes row-flash { from { background: rgba(99, 179, 156, 0.28); } to { background: transparent; } }
+        .item.flash { animation: row-flash 1.8s ease-out; }
+        /* Compact modal. */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+            display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+        .modal-overlay.open { display: flex; }
+        .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+            box-shadow: 0 12px 40px rgba(15, 23, 42, 0.22); width: 100%; max-width: 360px; padding: 20px; }
+        .modal-card h3 { margin: 0 0 12px; font-family: var(--font-ui); font-size: 16px; font-weight: 600; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    </style>
 </head>
 <body>
 
@@ -15,49 +37,40 @@
 
 <main class="page">
 
-    <a class="back-link" th:href="@{/provider/clients}" th:text="#{pcw.back}">← Back to clients</a>
-    <div class="page-head">
-        <h1 class="page-title"><span th:text="#{pcw.walletOf}">Wallet —</span> <span th:text="${wallet.clientName}">Client</span></h1>
-    </div>
+    <a class="back-link" th:href="@{/provider/clients}" th:text="#{pcw.back}">← Clients</a>
 
-    <div th:if="${walletActionError}" class="alert alert-danger" role="alert">
-        <span th:text="${walletActionError}">Something went wrong.</span>
+    <div class="page-head client-id">
+        <div>
+            <h1 class="page-title" th:text="${wallet.clientName}">Client</h1>
+            <p class="page-sub">
+                <span th:text="${wallet.clientEmail}">email</span>
+                <span th:if="${wallet.clientPhone}"> · <span th:text="${wallet.clientPhone}">phone</span></span>
+            </p>
+        </div>
     </div>
 
     <!-- Balance -->
-    <div class="grid-2">
+    <div class="section-head">
+        <h2 th:text="#{pcw.balance}">Balance</h2>
+    </div>
+    <div class="grid-2 balance-grid">
         <div class="metric">
             <p class="k" th:text="#{pcw.available}">Available</p>
             <p class="v">
-                <span th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
+                <span id="bal-available" th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
             </p>
         </div>
         <div class="metric">
             <p class="k" th:text="#{pcw.held}">Held (reserved)</p>
             <p class="v">
-                <span th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
+                <span id="bal-held" th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
             </p>
         </div>
     </div>
-    <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;" th:text="#{pcw.noWallet}">No wallet yet — the first top-up creates it.</p>
-
-    <!-- Top up -->
-    <div class="section-head">
-        <h2 th:text="#{pcw.topUp}">Top up balance</h2>
+    <div class="balance-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="add-funds-open" th:text="#{pcw.addFunds}">Add funds</button>
     </div>
-    <section class="card">
-        <form th:action="@{/provider/clients/{clientId}/wallet/top-up(clientId=${clientId})}" method="post" class="inline-form">
-            <div class="field">
-                <label for="amount"><span th:text="#{pcw.amount}">Amount</span> (<span th:text="${wallet.currency}">EUR</span>)</label>
-                <input id="amount" type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-            <div class="field">
-                <label for="comment" th:text="#{pcw.comment}">Comment (optional)</label>
-                <input id="comment" type="text" name="comment" th:placeholder="#{pcw.commentPlaceholder}" placeholder="e.g. bank transfer">
-            </div>
-            <button type="submit" class="btn btn-primary" th:text="#{pcw.topUpBtn}">Top up</button>
-        </form>
-    </section>
+    <p class="page-sub" th:unless="${wallet.walletExists}" style="margin-top:12px;" th:text="#{pcw.noWallet}">No wallet yet — the first top-up creates it.</p>
 
     <!-- Payment history -->
     <div class="section-head">
@@ -65,33 +78,175 @@
     </div>
 
     <div class="panel">
-        <div class="panel-body">
-            <div th:unless="${wallet.hasHistory}" class="empty">
+        <div class="panel-body history-scroll">
+            <div id="history-empty" th:unless="${wallet.hasHistory}" class="empty">
                 <p th:text="#{pcw.noMovements}">No movements yet.</p>
             </div>
-            <div class="item row-between" th:if="${wallet.hasHistory}" th:each="row : ${wallet.history}">
-                <div class="who">
-                    <p class="primary" th:text="${row.typeLabel}">Type</p>
-                    <p class="secondary">
-                        <span th:text="${row.timestamp}">Date</span>
-                        <span th:if="${row.offeringName}"> · <span th:text="${row.offeringName}">Offering</span></span>
-                        <span th:if="${row.comment}"> · <span th:text="${row.comment}">Comment</span></span>
-                    </p>
-                </div>
-                <span class="amount">
-                    <span th:if="${row.money}">
+            <div id="history-list">
+                <div class="item row-between" th:each="row : ${wallet.history}">
+                    <div class="who">
+                        <p class="primary" th:text="${row.typeLabel}">Type</p>
+                        <p class="secondary">
+                            <span th:text="${row.timestamp}">Date</span>
+                            <span th:if="${row.offeringName}"> · <span th:text="${row.offeringName}">Offering</span></span>
+                        </p>
+                    </div>
+                    <span class="amount">
                         <span th:text="${#numbers.formatDecimal(row.amount, 1, 2)}">0.00</span>
                         <span th:text="${row.currency}">EUR</span>
                     </span>
-                    <span th:if="${row.session}">
-                        <span th:text="${row.sessionCount}">0</span> <span th:text="#{pcw.sessionsSuffix}">session(s)</span>
-                    </span>
-                </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add funds modal -->
+    <div class="modal-overlay" id="add-funds-modal">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="add-funds-title">
+            <h3 id="add-funds-title" th:text="#{pcw.addFunds}">Add funds</h3>
+            <div class="alert alert-danger" id="add-funds-error" role="alert" hidden>
+                <span></span>
+            </div>
+            <div class="field">
+                <label for="fund-amount"><span th:text="#{pcw.amount}">Amount</span> (<span th:text="${wallet.currency}">EUR</span>)</label>
+                <input id="fund-amount" type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label for="fund-comment" th:text="#{pcw.comment}">Comment (optional)</label>
+                <input id="fund-comment" type="text" th:placeholder="#{pcw.commentPlaceholder}" placeholder="e.g. bank transfer">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="add-funds-cancel" th:text="#{pcw.cancel}">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-funds-submit" disabled></button>
             </div>
         </div>
     </div>
 
 </main>
+
+<script th:inline="javascript">
+    const TOPUP_URL = /*[[@{/provider/clients/{clientId}/wallet/top-up(clientId=${clientId})}]]*/ '';
+    const WALLET_CURRENCY = /*[[${wallet.currency}]]*/ 'EUR';
+    const ADD_LABEL = /*[[#{pcw.addBtn}]]*/ 'Add';
+    const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+    const CSRF_TOKEN = /*[[${_csrf.token}]]*/ '';
+
+    (function () {
+        const modal = document.getElementById('add-funds-modal');
+        const openBtn = document.getElementById('add-funds-open');
+        const cancelBtn = document.getElementById('add-funds-cancel');
+        const submitBtn = document.getElementById('add-funds-submit');
+        const amountInput = document.getElementById('fund-amount');
+        const commentInput = document.getElementById('fund-comment');
+        const errorBox = document.getElementById('add-funds-error');
+
+        function parsedAmount() {
+            const value = parseFloat(amountInput.value);
+            return (isFinite(value) && value > 0) ? value : null;
+        }
+
+        function refreshSubmit() {
+            const amount = parsedAmount();
+            if (amount === null) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = ADD_LABEL;
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = ADD_LABEL + ' ' + amount.toFixed(2) + ' ' + WALLET_CURRENCY;
+            }
+        }
+
+        function openModal() {
+            errorBox.hidden = true;
+            amountInput.value = '';
+            commentInput.value = '';
+            refreshSubmit();
+            modal.classList.add('open');
+            amountInput.focus();
+        }
+
+        function closeModal() {
+            modal.classList.remove('open');
+        }
+
+        function insertHistoryRow(entry) {
+            const empty = document.getElementById('history-empty');
+            if (empty) {
+                empty.remove();
+            }
+            const row = document.createElement('div');
+            row.className = 'item row-between flash';
+
+            const who = document.createElement('div');
+            who.className = 'who';
+            const primary = document.createElement('p');
+            primary.className = 'primary';
+            primary.textContent = entry.label;
+            const secondary = document.createElement('p');
+            secondary.className = 'secondary';
+            secondary.textContent = entry.timestamp;
+            who.appendChild(primary);
+            who.appendChild(secondary);
+
+            const amount = document.createElement('span');
+            amount.className = 'amount';
+            amount.textContent = Number(entry.amount).toFixed(2) + ' ' + entry.currency;
+
+            row.appendChild(who);
+            row.appendChild(amount);
+
+            const list = document.getElementById('history-list');
+            list.insertBefore(row, list.firstChild);
+            list.parentElement.scrollTop = 0;
+        }
+
+        async function submit() {
+            const amount = parsedAmount();
+            if (amount === null) {
+                return;
+            }
+            submitBtn.disabled = true;
+            errorBox.hidden = true;
+
+            const body = new URLSearchParams();
+            body.append('amount', amount);
+            if (commentInput.value.trim() !== '') {
+                body.append('comment', commentInput.value.trim());
+            }
+
+            try {
+                const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+                headers[CSRF_HEADER] = CSRF_TOKEN;
+                const response = await fetch(TOPUP_URL, { method: 'POST', headers: headers, body: body.toString() });
+                const data = await response.json();
+                if (!response.ok) {
+                    errorBox.querySelector('span').textContent = data.error || '';
+                    errorBox.hidden = false;
+                    refreshSubmit();
+                    return;
+                }
+                document.getElementById('bal-available').textContent = Number(data.available).toFixed(2);
+                document.getElementById('bal-held').textContent = Number(data.held).toFixed(2);
+                insertHistoryRow(data.entry);
+                closeModal();
+            } catch (e) {
+                errorBox.querySelector('span').textContent = '';
+                errorBox.hidden = false;
+                refreshSubmit();
+            }
+        }
+
+        openBtn.addEventListener('click', openModal);
+        cancelBtn.addEventListener('click', closeModal);
+        submitBtn.addEventListener('click', submit);
+        amountInput.addEventListener('input', refreshSubmit);
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+    })();
+</script>
 
 </body>
 </html>

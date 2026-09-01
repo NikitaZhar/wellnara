@@ -20,6 +20,8 @@ public class ClientWalletView {
 
     private final Long clientId;
     private final String clientName;
+    private final String clientEmail;
+    private final String clientPhone;
     private final boolean walletExists;
     private final String currency;
     private final BigDecimal available;
@@ -32,6 +34,8 @@ public class ClientWalletView {
      *
      * @param clientId     subject client id (provider page), or {@code null} on the client's own tile
      * @param clientName   subject client display name (provider page), or {@code null}
+     * @param clientEmail  subject client email (provider page), or {@code null} on the client's own tile
+     * @param clientPhone  subject client phone (provider page), or {@code null} when unknown or on the client's own tile
      * @param walletExists whether a wallet has been created for the client yet
      * @param currency     ISO 4217 currency code (provider currency when no wallet exists)
      * @param available    spendable money balance
@@ -41,6 +45,8 @@ public class ClientWalletView {
      */
     public ClientWalletView(Long clientId,
                             String clientName,
+                            String clientEmail,
+                            String clientPhone,
                             boolean walletExists,
                             String currency,
                             BigDecimal available,
@@ -49,6 +55,8 @@ public class ClientWalletView {
                             List<WalletHistoryRow> history) {
         this.clientId = clientId;
         this.clientName = clientName;
+        this.clientEmail = clientEmail;
+        this.clientPhone = clientPhone;
         this.walletExists = walletExists;
         this.currency = currency;
         this.available = available;
@@ -63,6 +71,14 @@ public class ClientWalletView {
 
     public String getClientName() {
         return clientName;
+    }
+
+    public String getClientEmail() {
+        return clientEmail;
+    }
+
+    public String getClientPhone() {
+        return clientPhone;
     }
 
     public boolean isWalletExists() {

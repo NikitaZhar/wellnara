@@ -7,6 +7,7 @@ import life.wellnara.dto.WalletHistoryRow;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.SessionBalance;
 import life.wellnara.model.User;
+import life.wellnara.model.UserProfile;
 import life.wellnara.model.Wallet;
 import life.wellnara.model.WalletBalance;
 import life.wellnara.model.WalletEntry;
@@ -165,8 +166,8 @@ public class WalletQueryService {
     @Transactional(readOnly = true)
     public ClientWalletView getWalletOfClient(User client) {
         return walletRepository.findByClient(client)
-                .map(wallet -> buildView(wallet, null, null))
-                .orElseGet(() -> emptyView(providerCurrencyOf(client), null, null));
+                .map(wallet -> buildView(wallet, null, null, null, null, false))
+                .orElseGet(() -> emptyView(providerCurrencyOf(client), null, null, null, null));
     }
 
     /**
@@ -306,10 +307,13 @@ public class WalletQueryService {
                 .orElseThrow(() -> new IllegalArgumentException("Client is not linked to provider"))
                 .getClient();
         String clientName = userProfileService.resolveDisplayName(client);
+        String clientPhone = userProfileService.findProfile(client)
+                .map(UserProfile::getPhone)
+                .orElse(null);
 
         return walletRepository.findByClient(client)
-                .map(wallet -> buildView(wallet, client.getId(), clientName))
-                .orElseGet(() -> emptyView(provider.getCurrency(), client.getId(), clientName));
+                .map(wallet -> buildView(wallet, client.getId(), clientName, client.getEmail(), clientPhone, true))
+                .orElseGet(() -> emptyView(provider.getCurrency(), client.getId(), clientName, client.getEmail(), clientPhone));
     }
 
     /**
@@ -362,7 +366,8 @@ public class WalletQueryService {
         return byPackageId;
     }
 
-    private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName) {
+    private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName,
+                                       String clientEmail, String clientPhone, boolean paymentsOnly) {
         List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
         WalletBalance money = ledgerCalculator.foldMoney(wallet.getCurrency(), entries);
         ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(wallet.getProvider());
@@ -370,17 +375,21 @@ public class WalletQueryService {
         return new ClientWalletView(
                 clientId,
                 clientName,
+                clientEmail,
+                clientPhone,
                 true,
                 wallet.getCurrency(),
                 money.getAvailable(),
                 money.getHeld(),
                 buildPackageRemainders(entries),
-                buildHistory(entries, providerZone));
+                buildHistory(entries, providerZone, paymentsOnly));
     }
 
-    private ClientWalletView emptyView(String currency, Long clientId, String clientName) {
+    private ClientWalletView emptyView(String currency, Long clientId, String clientName,
+                                       String clientEmail, String clientPhone) {
         return new ClientWalletView(
-                clientId, clientName, false, currency, BigDecimal.ZERO, BigDecimal.ZERO, List.of(), List.of());
+                clientId, clientName, clientEmail, clientPhone, false, currency,
+                BigDecimal.ZERO, BigDecimal.ZERO, List.of(), List.of());
     }
 
     /**
@@ -405,13 +414,26 @@ public class WalletQueryService {
      * Maps the ledger to display rows, newest first (the ledger is stored oldest
      * first, so the list is reversed). Timestamps are converted from stored UTC to
      * the provider timezone.
+     *
+     * <p>When {@code paymentsOnly} is set (the provider's client-profile payment
+     * history) only actual money movements are kept — a manual {@code TOP_UP} and a
+     * spend ({@code SETTLE}, whether the service was delivered or the client was a
+     * no-show). Reservations and package-session movements are money that has not
+     * (yet) left the client, so they are excluded. The spend row's offering name is
+     * taken from the covering package for a package purchase, otherwise from the
+     * settled appointment.
+     *
+     * @param entries      the wallet ledger, oldest first
+     * @param providerZone provider timezone the timestamps are shown in
+     * @param paymentsOnly keep only money-in / money-out movements when {@code true}
+     * @return display rows, newest first
      */
-    private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone) {
+    private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone, boolean paymentsOnly) {
         List<WalletHistoryRow> rows = new ArrayList<>(entries.size());
         for (WalletEntry entry : entries) {
-            String offeringName = entry.getServicePackage() != null
-                    ? entry.getServicePackage().getOffering().getName()
-                    : null;
+            if (paymentsOnly && !isPayment(entry.getType())) {
+                continue;
+            }
             rows.add(new WalletHistoryRow(
                     formatInZone(entry.getCreatedAt(), providerZone),
                     entry.getType(),
@@ -419,11 +441,34 @@ public class WalletQueryService {
                     entry.getAmount(),
                     entry.getSessionCount(),
                     entry.getCurrency(),
-                    offeringName,
+                    offeringNameOf(entry),
                     entry.getComment()));
         }
         Collections.reverse(rows);
         return rows;
+    }
+
+    /**
+     * Whether a ledger entry is an actual money movement shown in the payment
+     * history: a manual top-up or a final spend.
+     */
+    private boolean isPayment(WalletEntryType type) {
+        return type == WalletEntryType.TOP_UP || type == WalletEntryType.SETTLE;
+    }
+
+    /**
+     * Resolves the offering name for a history row: from the covering package for a
+     * package movement, otherwise from the settled appointment; {@code null} when
+     * the entry relates to neither (e.g. a plain top-up).
+     */
+    private String offeringNameOf(WalletEntry entry) {
+        if (entry.getServicePackage() != null) {
+            return entry.getServicePackage().getOffering().getName();
+        }
+        if (entry.getAppointment() != null) {
+            return entry.getAppointment().getOffering().getName();
+        }
+        return null;
     }
 
     private String formatInZone(LocalDateTime utc, ZoneId providerZone) {

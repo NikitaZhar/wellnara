@@ -15,10 +15,16 @@ import life.wellnara.service.UserProfileService;
 import life.wellnara.service.time.ApplicationTimeService;
 import life.wellnara.service.wallet.CurrencyCodes;
 
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.ui.Model;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.stream.Stream;
 import java.util.Map;
@@ -174,6 +180,9 @@ public class ProviderPageModelAssembler {
         Map<Long, UserProfile> profilesByUserId = userProfileService.loadProfilesByUserId(clients);
         Map<Long, BigDecimal> availableByClientId = walletQueryService.getClientBalances(provider);
         String providerCurrency = provider.getCurrency();
+        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(provider);
+        DateTimeFormatter invitedFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+                .withLocale(LocaleContextHolder.getLocale());
 
         return links.stream()
                 .map(link -> {
@@ -185,11 +194,25 @@ public class ProviderPageModelAssembler {
                             userProfileService.displayNameOf(client, profile),
                             client.getEmail(),
                             profile != null ? profile.getPhone() : null,
-                            link.getInvitedAt(),
+                            formatInvitedAt(link.getInvitedAt(), providerZone, invitedFormat),
                             available != null ? available : BigDecimal.ZERO,
                             providerCurrency
                     );
                 })
                 .toList();
+    }
+
+    /**
+     * Formats an invitation timestamp as a locale-aware date for display.
+     *
+     * @param invitedAtUtc invitation instant stored in UTC
+     * @param providerZone provider calendar zone the date is shown in
+     * @param format       locale-aware date formatter
+     * @return the invitation date rendered in the request locale (e.g. {@code Aug 18, 2026})
+     */
+    private String formatInvitedAt(LocalDateTime invitedAtUtc, ZoneId providerZone, DateTimeFormatter format) {
+        return invitedAtUtc.atZone(ZoneOffset.UTC)
+                .withZoneSameInstant(providerZone)
+                .format(format);
     }
 }

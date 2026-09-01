@@ -59,8 +59,7 @@ class WalletAccessMvcTest {
         mockMvc.perform(post("/provider/clients/{clientId}/wallet/top-up", client.getId()).with(csrf())
                         .session(authenticatedSession(provider))
                         .param("amount", "75.00"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/clients/" + client.getId() + "/wallet"));
+                .andExpect(status().isOk());
 
         Wallet wallet = walletRepository.findByClient(client).orElseThrow();
         assertThat(walletEntryRepository.findAllByWalletOrderByIdAsc(wallet)).hasSize(1);
