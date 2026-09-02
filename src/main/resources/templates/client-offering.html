@@ -8,6 +8,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+    <style>
+        /* Price + duration facts under the offering title. */
+        .facts { display:flex; gap:var(--s-3); flex-wrap:wrap; margin:var(--s-4) 0 var(--s-6); }
+        .fact { flex:1; min-width:150px; background:var(--surface-2); border:1px solid var(--border);
+            border-radius:var(--r-md); padding:13px 15px; }
+        .fact .k { font-size:12px; color:var(--text-muted); margin:0 0 4px; }
+        .fact .v { font-family:var(--font-display); font-size:22px; font-weight:600; color:var(--text); margin:0; line-height:1.1; }
+        .fact .v .c { font-family:var(--font-ui); font-size:13px; font-weight:500; color:var(--text-muted); margin-left:2px; }
+        .fact .x { font-size:12px; color:var(--text-muted); margin:4px 0 0; }
+        .fact.pkg .v { color:var(--sea-primary-dark); }
+    </style>
 </head>
 <body>
 
@@ -20,8 +31,28 @@
     <div class="page-head">
         <div>
             <h1 class="page-title" th:text="${offering.name}">Offering</h1>
-            <p class="page-sub"><span th:text="${offering.durationMinutes}">0</span> <span th:text="#{coffer.min}">min</span></p>
         </div>
+    </div>
+
+    <div class="facts">
+        <div class="fact">
+            <p class="k" th:text="#{coffer.pricePerSession}">Price per session</p>
+            <p class="v"><span th:text="${#numbers.formatDecimal(offering.pricePerSession, 1, 2)}">0.00</span><span class="c" th:text="${walletCurrency}">EUR</span></p>
+        </div>
+        <div class="fact pkg" th:if="${offering.packageable and offering.packagePricePerSession.compareTo(offering.pricePerSession) < 0}">
+            <p class="k" th:text="#{coffer.inPackage}">In package</p>
+            <p class="v"><span th:text="${#numbers.formatDecimal(offering.packagePricePerSession, 1, 2)}">0.00</span><span class="c" th:text="${walletCurrency}">EUR</span></p>
+            <p class="x" th:text="#{coffer.packageNote}">per session · from 2 sessions</p>
+        </div>
+        <div class="fact">
+            <p class="k" th:text="#{coffer.duration}">Duration</p>
+            <p class="v"><span th:text="${offering.durationMinutes}">0</span><span class="c" th:text="#{coffer.min}">min</span></p>
+        </div>
+    </div>
+
+    <div th:if="${rescheduled}" class="alert" role="status"
+         style="background:var(--sea-primary-tint); border:1px solid var(--sea-primary-soft); color:var(--sea-primary-dark);">
+        <p style="margin:0;" th:text="#{coffer.rescheduledNotice}">Your previous time was released and your payment is in your wallet — pick a new time.</p>
     </div>
 
     <div th:if="${appointmentError}" class="alert alert-danger" role="alert">
@@ -97,6 +128,7 @@
                 <form th:action="@{/client/appointments}" method="post">
                     <input type="hidden" name="providerId" th:value="${offering.provider.id}">
                     <input type="hidden" name="offeringId" th:value="${offering.id}">
+                    <input type="hidden" name="fromCancelled" th:value="${fromCancelled}" th:if="${fromCancelled != null}">
 
                     <div th:replace="~{fragments/term-picker :: picker(${bookableDateOptions})}"></div>
 
@@ -132,6 +164,7 @@
             <form th:if="${not #lists.isEmpty(bookableDateOptions)}"
                   th:action="@{/client/packages}" method="post" id="purchaseForm">
                 <input type="hidden" name="offeringId" th:value="${offering.id}">
+                <input type="hidden" name="fromCancelled" th:value="${fromCancelled}" th:if="${fromCancelled != null}">
 
                 <div class="card"
                      id="pricing"
@@ -155,8 +188,13 @@
                                   th:text="${offering.totalPriceFor(1)} + ' ' + ${walletCurrency}">0.00 EUR</span>
                         </div>
                     </div>
-                    <p id="fundsLine" class="alert alert-danger" role="alert" hidden
-                       style="margin:var(--s-3) 0 0;" th:text="#{coffer.notEnoughFunds}">Not enough funds in your wallet for this selection.</p>
+                    <div id="fundsLine" class="alert alert-danger" role="alert" hidden style="margin:var(--s-3) 0 0;">
+                        <p style="margin:0;" th:text="#{coffer.notEnoughFunds}">Not enough funds — ask your provider to top up your wallet.</p>
+                        <p style="margin:6px 0 0;" th:if="${providerWhatsapp != null or providerTelegram != null}">
+                            <span th:text="#{coffer.contactProvider}">Contact your provider:</span>
+                            <a th:if="${providerWhatsapp}" th:href="${providerWhatsapp}" target="_blank" rel="noopener noreferrer" style="font-weight:500;">WhatsApp</a><span th:if="${providerWhatsapp != null and providerTelegram != null}"> · </span><a th:if="${providerTelegram}" th:href="${providerTelegram}" target="_blank" rel="noopener noreferrer" style="font-weight:500;">Telegram</a>
+                        </p>
+                    </div>
 
                     <hr class="card-divider">
 

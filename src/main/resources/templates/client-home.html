@@ -86,8 +86,7 @@
                     <div class="item" th:each="req : ${requestUpdates}">
                         <div class="item-head">
                             <p class="primary" th:text="${req.offeringName}">Offering</p>
-                            <span class="badge"
-                                  th:classappend="${req.status.name() == 'REQUESTED' ? 'badge-primary' : (req.status.name() == 'COMPLETED' ? 'badge-success' : 'badge-danger')}"
+                            <span class="badge badge-primary"
                                   th:text="#{'appointmentStatus.__${req.status.name()}__'}">STATUS</span>
                         </div>
                         <p class="secondary">
@@ -142,7 +141,9 @@
                     </li>
                 </ul>
             </div>
-            <p class="wallet-extra" th:unless="${wallet.hasHistory}" th:text="#{chome.wallet.noMovements}">No wallet movements yet.</p>
+            <p class="wallet-extra" th:unless="${wallet.hasHistory}" th:text="#{chome.wallet.noMovements}">No account movements yet.</p>
+            <a class="link-arrow" th:href="@{/client/wallet}" th:text="#{chome.wallet.open}"
+               style="margin-top:var(--s-3);">Open account →</a>
         </div>
 
         <div class="card">

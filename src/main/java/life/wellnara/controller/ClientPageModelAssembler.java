@@ -72,52 +72,50 @@ public class ClientPageModelAssembler {
     }
 
     /**
-     * Adds the appointments page data to the MVC model: the client's requests and
-     * notifications plus the confirmed appointments.
+     * Adds the appointments page data to the MVC model: the confirmed upcoming
+     * appointments plus the provider-cancellation notifications the client either
+     * re-books from ("choose another time") or dismisses.
      *
      * @param model  MVC model
      * @param client authenticated client
      */
     public void populateAppointments(Model model, User client) {
+        List<AppointmentView> updates = appointmentService.getAppointmentViewsOfClient(client);
         List<AppointmentView> confirmed = appointmentService.getConfirmedAppointmentViewsOfClient(client);
+        List<AppointmentView> providerCancellations = updates.stream()
+                .filter(view -> view.getStatus() == AppointmentStatus.CANCELLED)
+                .toList();
 
-        model.addAttribute("appointments", appointmentService.getAppointmentViewsOfClient(client));
+        // Rows on both lists can be package sessions (booked one at a time), so label
+        // them with their session number like every other page.
+        List<Long> labelledIds = Stream.concat(confirmed.stream(), providerCancellations.stream())
+                .map(AppointmentView::getId)
+                .toList();
+
         model.addAttribute("confirmedAppointments", confirmed);
-        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
-                confirmed.stream().map(AppointmentView::getId).toList()));
+        model.addAttribute("providerCancellations", providerCancellations);
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(labelledIds));
         addClientName(model, client);
     }
 
     /**
-     * Adds the requests page data to the MVC model, grouped by state rather than by
-     * type: everything still awaiting the provider (pending package requests and
-     * REQUESTED single appointments) versus requests the provider rejected, which
-     * the client acknowledges to dismiss.
+     * Adds the requests page data to the MVC model: everything still awaiting the
+     * provider — pending package requests and {@code REQUESTED} single appointments.
+     * Provider cancellations live on the appointments page, not here.
      *
      * @param model  MVC model
      * @param client authenticated client
      */
     public void populateRequests(Model model, User client) {
-        List<AppointmentView> appointments = appointmentService.getAppointmentViewsOfClient(client);
-
-        List<AppointmentView> pendingAppointments = appointments.stream()
+        List<AppointmentView> pendingAppointments = appointmentService.getAppointmentViewsOfClient(client).stream()
                 .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
-                .toList();
-        List<AppointmentView> rejectedRequests = appointments.stream()
-                .filter(view -> view.getStatus() == AppointmentStatus.CANCELLED)
-                .toList();
-
-        // Single-session rows here can be later package sessions (booked one at a
-        // time), so label them with their session number like every other page.
-        List<Long> labelledIds = Stream.concat(pendingAppointments.stream(), rejectedRequests.stream())
-                .map(AppointmentView::getId)
                 .toList();
 
         model.addAttribute("pendingPackages",
                 walletQueryService.getPendingPackageRequestsOfClient(client));
         model.addAttribute("pendingAppointments", pendingAppointments);
-        model.addAttribute("rejectedRequests", rejectedRequests);
-        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(labelledIds));
+        model.addAttribute("packageLabels", walletQueryService.packageLabelsForAppointments(
+                pendingAppointments.stream().map(AppointmentView::getId).toList()));
         addClientName(model, client);
     }
 
@@ -139,6 +137,19 @@ public class ClientPageModelAssembler {
     }
 
     /**
+     * Adds the wallet page data to the MVC model: the client's money balance,
+     * remaining package sessions and the full movement history.
+     *
+     * @param model  MVC model
+     * @param client authenticated client
+     */
+    public void populateWallet(Model model, User client) {
+        model.addAttribute("wallet", walletQueryService.getWalletOfClient(client));
+        model.addAttribute("heldItems", walletQueryService.getHeldBreakdownOfClient(client));
+        addClientName(model, client);
+    }
+
+    /**
      * Adds the single-offering booking page data to the MVC model: the offering,
      * the provider's free calendar terms and the bookable date options. Used both
      * to show the page and to re-render it when a booking request is rejected.
@@ -150,6 +161,7 @@ public class ClientPageModelAssembler {
     public void populateOffering(Model model, User client, Long offeringId) {
         Offering offering = clientOfferingService.getOfferingOfClientProvider(client, offeringId);
         User provider = offering.getProvider();
+        UserProfile providerProfile = userProfileService.findProfile(provider).orElse(null);
         ClientWalletView wallet = walletQueryService.getWalletOfClient(client);
 
         model.addAttribute("offering", offering);
@@ -160,6 +172,8 @@ public class ClientPageModelAssembler {
         model.addAttribute("walletAvailable", wallet.getAvailable());
         model.addAttribute("walletCurrency", wallet.getCurrency());
         model.addAttribute("pendingPackageForOffering", hasPendingPackageFor(client, offeringId));
+        model.addAttribute("providerWhatsapp", providerProfile != null ? providerProfile.getWhatsappUrl() : null);
+        model.addAttribute("providerTelegram", providerProfile != null ? providerProfile.getTelegramUrl() : null);
         addClientName(model, client);
     }
 

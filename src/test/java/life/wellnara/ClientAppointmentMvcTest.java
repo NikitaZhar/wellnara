@@ -2,11 +2,13 @@ package life.wellnara;
 
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.AvailabilityDay;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
+import life.wellnara.model.UserProfile;
 import life.wellnara.model.Wallet;
 import life.wellnara.model.WalletEntry;
 import life.wellnara.model.WalletEntryType;
@@ -19,6 +21,7 @@ import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import life.wellnara.repository.OfferingRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
+import life.wellnara.repository.UserProfileRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +45,7 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static life.wellnara.SecurityTestSupport.authenticatedSession;
@@ -85,6 +89,9 @@ class ClientAppointmentMvcTest {
 
     @Autowired
     private WalletEntryRepository walletEntryRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     /**
      * Verifies that client can create appointment request from selected date and time.
@@ -132,6 +139,165 @@ class ClientAppointmentMvcTest {
          */
         assertThat(appointment.getStartDateTimeUtc())
                 .isEqualTo(LocalDateTime.of(2026, 6, 1, 8, 0));
+    }
+
+    @Test
+    @DisplayName("Re-booking from a cancellation notice dismisses the old notice")
+    void rebookingFromCancellationDismissesNotice() throws Exception {
+        User provider = createProvider("provider-rebook");
+        User client = createClient("client-rebook");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+        createAvailability(provider);
+
+        Appointment cancelled = new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 9, 0));
+        cancelled.cancel(CancellationInitiator.PROVIDER, "Not available", LocalDateTime.now(ZoneOffset.UTC));
+        appointmentRepository.save(cancelled);
+
+        mockMvc.perform(post("/client/appointments").with(csrf())
+                        .session(authenticatedSession(client))
+                        .param("providerId", provider.getId().toString())
+                        .param("offeringId", offering.getId().toString())
+                        .param("selectedDate", "2026-06-01")
+                        .param("selectedTime", "10:00")
+                        .param("fromCancelled", cancelled.getId().toString()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client/requests"));
+
+        assertThat(appointmentRepository.findById(cancelled.getId()).orElseThrow().isAcknowledged()).isTrue();
+    }
+
+    @Test
+    @DisplayName("The offering page carries the fromCancelled id into the booking form")
+    void offeringPageCarriesFromCancelled() throws Exception {
+        User provider = createProvider("provider-carry");
+        User client = createClient("client-carry");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+        createAvailability(provider);
+
+        mockMvc.perform(get("/client/offerings/{offeringId}", offering.getId())
+                        .param("fromCancelled", "42")
+                        .session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("name=\"fromCancelled\"")))
+                .andExpect(content().string(containsString("value=\"42\"")));
+    }
+
+    @Test
+    @DisplayName("The offerings list shows each service's price and duration")
+    void offeringsListShowsPriceAndDuration() throws Exception {
+        User provider = createProvider("provider-list-price");
+        User client = createClient("client-list-price");
+        linkClient(provider, client);
+        createOffering(provider, 60);
+
+        mockMvc.perform(get("/client/offerings").session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                // Default locale is Russian: comma decimal separator and "мин".
+                .andExpect(content().string(containsString("100,00")))
+                .andExpect(content().string(containsString("мин")));
+    }
+
+    @Test
+    @DisplayName("The offering page shows the price-per-session and duration facts")
+    void offeringPageShowsPriceFacts() throws Exception {
+        User provider = createProvider("provider-detail-price");
+        User client = createClient("client-detail-price");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+
+        mockMvc.perform(get("/client/offerings/{offeringId}", offering.getId()).session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Цена за сессию")))
+                .andExpect(content().string(containsString("100,00")));
+    }
+
+    @Test
+    @DisplayName("Insufficient-funds message points the client to the provider's contacts")
+    void insufficientFundsMessagePointsToProvider() throws Exception {
+        User provider = createProvider("provider-funds");
+        User client = createClient("client-funds");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+        createAvailability(provider);
+
+        UserProfile profile = new UserProfile(provider, "Anna", "A", "+100");
+        profile.setWhatsappUrl("https://wa.me/100");
+        userProfileRepository.save(profile);
+
+        mockMvc.perform(get("/client/offerings/{offeringId}", offering.getId()).session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                // The purchase form's funds warning now points to the provider, with contact links.
+                .andExpect(content().string(containsString("попросите провайдера пополнить")))
+                .andExpect(content().string(containsString("https://wa.me/100")));
+    }
+
+    @Test
+    @DisplayName("The nav shows an attention badge for a provider cancellation")
+    void navShowsNoticeBadge() throws Exception {
+        User provider = createProvider("provider-nav-notice");
+        User client = createClient("client-nav-notice");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+
+        Appointment cancelled = new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 9, 0));
+        cancelled.cancel(CancellationInitiator.PROVIDER, "Not available", LocalDateTime.now(ZoneOffset.UTC));
+        appointmentRepository.save(cancelled);
+
+        mockMvc.perform(get("/client/offerings").session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("section-nav-badge alert")));
+    }
+
+    @Test
+    @DisplayName("The nav shows a count badge for a pending request")
+    void navShowsPendingBadge() throws Exception {
+        User provider = createProvider("provider-nav-pending");
+        User client = createClient("client-nav-pending");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+
+        // A freshly created appointment is REQUESTED (still awaiting the provider).
+        appointmentRepository.save(new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 2, 9, 0)));
+
+        mockMvc.perform(get("/client/offerings").session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("section-nav-badge count")));
+    }
+
+    @Test
+    @DisplayName("Rescheduling redirects to the offering with the reschedule notice flag")
+    void reschedulingRedirectsWithNotice() throws Exception {
+        User provider = createProvider("provider-resched");
+        User client = createClient("client-resched");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+
+        // Fixed clock is 2026-06-01T06:00Z; a term the next day is far enough ahead to reschedule.
+        Appointment scheduled = new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 2, 10, 0));
+        scheduled.schedule();
+        appointmentRepository.save(scheduled);
+
+        mockMvc.perform(post("/client/appointments/{appointmentId}/reschedule", scheduled.getId()).with(csrf())
+                        .session(authenticatedSession(client)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/client/offerings/" + offering.getId() + "?rescheduled=true"));
+    }
+
+    @Test
+    @DisplayName("The offering page shows the reschedule notice when landed from a reschedule")
+    void offeringPageShowsRescheduleNotice() throws Exception {
+        User provider = createProvider("provider-resched-note");
+        User client = createClient("client-resched-note");
+        linkClient(provider, client);
+        Offering offering = createOffering(provider, 60);
+
+        mockMvc.perform(get("/client/offerings/{offeringId}", offering.getId())
+                        .param("rescheduled", "true")
+                        .session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Прежний термин освобождён")));
     }
 
     /**

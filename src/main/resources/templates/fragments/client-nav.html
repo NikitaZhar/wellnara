@@ -32,6 +32,8 @@
             <path d="M3 4h18v18H3zM16 2v4M8 2v4M3 10h18"/>
         </svg>
         <span th:text="#{nav.upcoming}">Upcoming</span>
+        <span th:if="${navNoticeCount != null and navNoticeCount > 0}" class="section-nav-badge alert"
+              th:title="#{nav.notices}" th:text="${navNoticeCount}">1</span>
     </a>
 
     <a th:href="@{/client/requests}" class="section-nav-link"
@@ -41,6 +43,17 @@
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
         <span th:text="#{nav.requests}">Requests</span>
+        <span th:if="${navPendingCount != null and navPendingCount > 0}" class="section-nav-badge count"
+              th:title="#{nav.pending}" th:text="${navPendingCount}">2</span>
+    </a>
+
+    <a th:href="@{/client/wallet}" class="section-nav-link"
+       th:classappend="${active == 'wallet'} ? ' is-active'"
+       th:attr="aria-current=${active == 'wallet'} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7h18v12H3zM3 7l2-3h12l2 3M16 13h2"/>
+        </svg>
+        <span th:text="#{nav.wallet}">Wallet</span>
     </a>
 
     <a th:href="@{/client/profile}" class="section-nav-link"

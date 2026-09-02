@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{cwallet.title}">Wellnara — Account</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
+    <style>
+        /* Compact balance strip — current state, one line, not a half-page block. */
+        .wallet-balance { padding: var(--s-4) var(--s-6); }
+        .wallet-strip { display: flex; gap: var(--s-8); flex-wrap: wrap; align-items: baseline; }
+        .wallet-strip .k { font-size: 13px; color: var(--text-muted); margin-right: 6px; }
+        .wallet-strip .v { font-size: 19px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+        .wallet-strip .v.held { color: var(--warning); }
+        .wallet-strip .cur { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-left: 3px; }
+        /* "Held — against what" breakdown. */
+        .held-details { margin-top: var(--s-3); }
+        .held-details summary { font-size: 12px; color: var(--sea-primary-dark); cursor: pointer; }
+        .held-details summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--sea-primary-tint); border-radius: var(--r-sm); }
+        .held-details ul { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; color: var(--text-muted); }
+        .held-details li { margin: 3px 0; }
+        .held-details b { color: var(--text); }
+        /* Remaining package sessions. */
+        .pkg-remainder { margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px dashed var(--border); font-size: 13px; color: var(--text-muted); }
+        .pkg-remainder ul { margin: 6px 0 0; padding-left: 18px; }
+        .pkg-remainder b { color: var(--text); }
+        /* History scrolls inside its own window on long ledgers. */
+        .history-scroll { max-height: 420px; overflow-y: auto; }
+        .item .amount.session { color: var(--sea-primary-dark); }
+        /* Journal filter chips (All / Services / Money). */
+        .wallet-filters { display: flex; gap: var(--s-2); margin: 0 0 var(--s-3); flex-wrap: wrap; }
+        .wfilter { font-size: 13px; padding: 6px 13px; border-radius: var(--r-pill); border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-muted); cursor: pointer; font-family: var(--font-ui); }
+        .wfilter:hover { border-color: var(--sea-primary); color: var(--sea-primary-dark); }
+        .wfilter.is-active { background: var(--sea-primary-tint); border-color: transparent; color: var(--sea-primary-dark); font-weight: 600; }
+        .wfilter:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--sea-primary-tint); }
+    </style>
+</head>
+<body>
+
+<div th:replace="~{fragments/app-header :: header(#{role.client})}"></div>
+<div th:replace="~{fragments/client-nav :: nav('wallet')}"></div>
+
+<main class="page">
+
+    <div class="page-head">
+        <div>
+            <h1 class="page-title" th:text="#{cwallet.heading}">Account</h1>
+            <p class="page-sub"><span th:text="#{common.signedInAs}">Signed in as</span> <span th:text="${clientName}">Client</span></p>
+        </div>
+    </div>
+
+    <!-- Balance — current state. Only the provider tops the account up. -->
+    <div class="section-head">
+        <h2 th:text="#{cwallet.balance}">Balance</h2>
+    </div>
+    <div class="card wallet-balance">
+        <div class="wallet-strip">
+            <span>
+                <span class="k" th:text="#{cwallet.available}">Available</span><span class="v" th:text="${#numbers.formatDecimal(wallet.available, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
+            </span>
+            <span>
+                <span class="k" th:text="#{cwallet.held}">Held</span><span class="v held" th:text="${#numbers.formatDecimal(wallet.held, 1, 2)}">0.00</span><span class="cur" th:text="${wallet.currency}">EUR</span>
+            </span>
+        </div>
+
+        <details class="held-details" th:if="${not #lists.isEmpty(heldItems)}">
+            <summary th:text="#{cwallet.heldBreakdown}">What's holding it</summary>
+            <ul>
+                <li th:each="item : ${heldItems}">
+                    <b th:text="${item.offeringName}">Offering</b>
+                    <span th:if="${item.sessions != null}"> · <span th:text="${item.sessions}">0</span> <span th:text="#{cwallet.sessionsUnit}">session(s)</span></span>
+                    <span th:if="${item.startDateTime != null}"> · <span th:text="${item.startDateTime.toLocalDate()}">Date</span>, <span th:text="${item.startDateTime.toLocalTime()}">Time</span></span>
+                    — <span th:text="${#numbers.formatDecimal(item.amount, 1, 2)}">0.00</span> <span th:text="${item.currency}">EUR</span>
+                </li>
+            </ul>
+        </details>
+
+        <div class="pkg-remainder" th:if="${wallet.hasPackages}">
+            <span th:text="#{cwallet.packages}">Package sessions:</span>
+            <ul>
+                <li th:each="pkg : ${wallet.packages}">
+                    <b th:text="${pkg.offeringName}">Offering</b> —
+                    <span th:text="${pkg.available}">0</span> <span th:text="#{cwallet.availableSessions}">available</span>
+                    <span th:if="${pkg.held > 0}">(<span th:text="${pkg.held}">0</span> <span th:text="#{cwallet.heldSessions}">held</span>)</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Movement history — what already happened. -->
+    <div class="section-head">
+        <h2 th:text="#{cwallet.movements}">Movements</h2>
+        <span class="count-pill" th:text="${#lists.size(wallet.history)}">0</span>
+    </div>
+
+    <div th:if="${not wallet.hasHistory}" class="empty">
+        <p th:text="#{cwallet.noMovements}">No movements yet.</p>
+    </div>
+
+    <div class="wallet-filters" th:if="${wallet.hasHistory}" role="group" th:aria-label="#{cwallet.movements}">
+        <button type="button" class="wfilter is-active" data-filter="all" th:text="#{cwallet.filter.all}">All</button>
+        <button type="button" class="wfilter" data-filter="services" th:text="#{cwallet.filter.services}">Services</button>
+        <button type="button" class="wfilter" data-filter="money" th:text="#{cwallet.filter.money}">Money</button>
+    </div>
+
+    <div class="panel" th:if="${wallet.hasHistory}">
+        <div class="panel-body history-scroll" id="wallet-history">
+            <div class="item row-between hist-row" th:each="row : ${wallet.history}"
+                 th:attr="data-money=${row.money ? 'true' : 'false'}, data-service=${(row.session or row.type.name() == 'SETTLE') ? 'true' : 'false'}">
+                <div class="who">
+                    <p class="primary" th:text="${row.typeLabel}">Type</p>
+                    <p class="secondary">
+                        <span th:text="${row.timestamp}">Date</span>
+                        <span th:if="${row.offeringName}"> · <span th:text="${row.offeringName}">Offering</span></span>
+                    </p>
+                </div>
+                <span class="amount" th:if="${row.money}">
+                    <span th:text="${#numbers.formatDecimal(row.amount, 1, 2)}">0.00</span>
+                    <span th:text="${row.currency}">EUR</span>
+                </span>
+                <span class="amount session" th:if="${row.session}">
+                    <span th:text="${row.sessionCount}">0</span> <span th:text="#{cwallet.sessionsUnit}">session(s)</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    (function () {
+        const list = document.getElementById('wallet-history');
+        if (!list) {
+            return; // no history: nothing to filter.
+        }
+        const buttons = Array.prototype.slice.call(document.querySelectorAll('.wfilter'));
+        const rows = Array.prototype.slice.call(list.querySelectorAll('.hist-row'));
+
+        function apply(filter) {
+            rows.forEach(function (row) {
+                const visible = filter === 'all'
+                    || (filter === 'money' && row.dataset.money === 'true')
+                    || (filter === 'services' && row.dataset.service === 'true');
+                // Toggle inline display: the row is a flex .item, so an inline style is
+                // needed to beat the author rule that the [hidden] attribute cannot.
+                row.style.display = visible ? '' : 'none';
+            });
+        }
+
+        buttons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                buttons.forEach(function (other) { other.classList.remove('is-active'); });
+                button.classList.add('is-active');
+                apply(button.dataset.filter);
+            });
+        });
+    })();
+</script>
+
+</body>
+</html>

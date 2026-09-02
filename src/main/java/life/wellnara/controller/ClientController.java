@@ -41,6 +41,7 @@ public class ClientController {
     private static final String APPOINTMENTS_VIEW = "client-appointments";
     private static final String REQUESTS_VIEW = "client-requests";
     private static final String PROFILE_VIEW = "client-profile";
+    private static final String WALLET_VIEW = "client-wallet";
     private static final String OFFERING_VIEW = "client-offering";
     private static final String APPOINTMENTS_REDIRECT = "redirect:/client/appointments";
     private static final String REQUESTS_REDIRECT = "redirect:/client/requests";
@@ -161,18 +162,44 @@ public class ClientController {
     }
 
     /**
-     * Shows a single offering with its bookable calendar terms.
+     * Shows the wallet page: the client's money balance, remaining package
+     * sessions and the movement history (read-only; only the provider tops up).
      *
-     * @param offeringId  offering identifier
      * @param currentUser authenticated client
      * @param model       MVC model
+     * @return wallet page view name
+     */
+    @GetMapping("/client/wallet")
+    public String showWallet(@CurrentUser User currentUser, Model model) {
+        clientPageModelAssembler.populateWallet(model, currentUser);
+
+        return WALLET_VIEW;
+    }
+
+    /**
+     * Shows a single offering with its bookable calendar terms.
+     *
+     * @param offeringId    offering identifier
+     * @param fromCancelled identifier of a provider-cancelled appointment the client
+     *                      is re-booking from, or {@code null}; carried into the
+     *                      booking form so the old notification is dismissed once a
+     *                      new request is placed
+     * @param rescheduled   {@code true} when the client just rescheduled a term and
+     *                      landed here to pick a new time; drives an informational note
+     *                      that the previous time was released and the payment is kept
+     * @param currentUser   authenticated client
+     * @param model         MVC model
      * @return client offering view name
      */
     @GetMapping("/client/offerings/{offeringId}")
     public String showOffering(@PathVariable Long offeringId,
+                               @RequestParam(required = false) Long fromCancelled,
+                               @RequestParam(required = false, defaultValue = "false") boolean rescheduled,
                                @CurrentUser User currentUser,
                                Model model) {
         clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
+        model.addAttribute("fromCancelled", fromCancelled);
+        model.addAttribute("rescheduled", rescheduled);
 
         return OFFERING_VIEW;
     }
@@ -184,12 +211,15 @@ public class ClientController {
      * and stored in UTC. On a domain rejection the offering booking page is
      * re-rendered with the error, keeping the client on the page they booked from.
      *
-     * @param providerId   provider identifier
-     * @param offeringId   offering identifier
-     * @param selectedDate requested date in the provider timezone
-     * @param selectedTime requested time in the provider timezone
-     * @param currentUser  authenticated client
-     * @param model        MVC model
+     * @param providerId    provider identifier
+     * @param offeringId    offering identifier
+     * @param selectedDate  requested date in the provider timezone
+     * @param selectedTime  requested time in the provider timezone
+     * @param fromCancelled identifier of the provider-cancelled appointment being
+     *                      re-booked, or {@code null}; dismissed once the new request
+     *                      is placed
+     * @param currentUser   authenticated client
+     * @param model         MVC model
      * @return redirect to the appointments page on success, or the offering page with an error
      */
     @PostMapping("/client/appointments")
@@ -197,6 +227,7 @@ public class ClientController {
                                      @RequestParam Long offeringId,
                                      @RequestParam LocalDate selectedDate,
                                      @RequestParam LocalTime selectedTime,
+                                     @RequestParam(required = false) Long fromCancelled,
                                      @CurrentUser User currentUser,
                                      Model model) {
         try {
@@ -216,9 +247,11 @@ public class ClientController {
                     startDateTimeUtc
             );
 
+            dismissRebookedNotification(currentUser, fromCancelled);
             return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
+            model.addAttribute("fromCancelled", fromCancelled);
             model.addAttribute("appointmentError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return OFFERING_VIEW;
         }
@@ -231,12 +264,14 @@ public class ClientController {
      * provider's timezone and stored in UTC. On a domain rejection the offering page
      * is re-rendered in place with the error.
      *
-     * @param offeringId   offering to buy sessions of
-     * @param sessions     number of sessions in the package (1 up to the offering's maximum)
-     * @param selectedDate first-session date in the provider timezone
-     * @param selectedTime first-session time in the provider timezone
-     * @param currentUser  authenticated client
-     * @param model        MVC model
+     * @param offeringId    offering to buy sessions of
+     * @param sessions      number of sessions in the package (1 up to the offering's maximum)
+     * @param selectedDate  first-session date in the provider timezone
+     * @param selectedTime  first-session time in the provider timezone
+     * @param fromCancelled identifier of the provider-cancelled appointment being
+     *                      re-booked, or {@code null}; dismissed once the request is placed
+     * @param currentUser   authenticated client
+     * @param model         MVC model
      * @return redirect to the requests page on success, or the offering page with an error
      */
     @PostMapping("/client/packages")
@@ -244,6 +279,7 @@ public class ClientController {
                                  @RequestParam int sessions,
                                  @RequestParam LocalDate selectedDate,
                                  @RequestParam LocalTime selectedTime,
+                                 @RequestParam(required = false) Long fromCancelled,
                                  @CurrentUser User currentUser,
                                  Model model) {
         try {
@@ -259,9 +295,11 @@ public class ClientController {
             clientPackageBookingService.requestPackage(
                     currentUser, offeringId, sessions, selectedDate, selectedTime, startDateTimeUtc);
 
+            dismissRebookedNotification(currentUser, fromCancelled);
             return REQUESTS_REDIRECT;
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateOffering(model, currentUser, offeringId);
+            model.addAttribute("fromCancelled", fromCancelled);
             model.addAttribute("appointmentError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return OFFERING_VIEW;
         }
@@ -343,7 +381,7 @@ public class ClientController {
                                          @CurrentUser User currentUser) {
         appointmentService.acknowledgeRejectedAppointment(currentUser, appointmentId);
 
-        return REQUESTS_REDIRECT;
+        return APPOINTMENTS_REDIRECT;
     }
 
     /**
@@ -391,6 +429,26 @@ public class ClientController {
                                                  @CurrentUser User currentUser) {
         Long offeringId = appointmentService.rescheduleScheduledAppointmentByClient(currentUser, appointmentId);
 
-        return "redirect:/client/offerings/" + offeringId;
+        return "redirect:/client/offerings/" + offeringId + "?rescheduled=true";
+    }
+
+    /**
+     * Dismisses the provider-cancellation notification the client re-booked from,
+     * once a new request has been placed. Best-effort: a {@code null} id (a normal
+     * booking, not a re-booking) or a stale/already-dismissed id is ignored, so it
+     * never fails the request that has already succeeded.
+     *
+     * @param client        authenticated client
+     * @param fromCancelled cancelled-appointment identifier, or {@code null}
+     */
+    private void dismissRebookedNotification(User client, Long fromCancelled) {
+        if (fromCancelled == null) {
+            return;
+        }
+        try {
+            appointmentService.acknowledgeRejectedAppointment(client, fromCancelled);
+        } catch (IllegalArgumentException alreadyHandled) {
+            // Stale, not the client's, or already dismissed: the new request still stands.
+        }
     }
 }

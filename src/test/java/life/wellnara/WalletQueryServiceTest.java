@@ -4,6 +4,11 @@ import java.util.List;
 
 import life.wellnara.dto.ClientPackageView;
 import life.wellnara.dto.ClientWalletView;
+import life.wellnara.dto.HeldItemView;
+import life.wellnara.dto.WalletHistoryRow;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
+import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.Offering;
 import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
@@ -11,6 +16,7 @@ import life.wellnara.model.UserRole;
 import life.wellnara.model.Wallet;
 import life.wellnara.model.WalletEntry;
 import life.wellnara.model.WalletEntryType;
+import life.wellnara.repository.AppointmentRepository;
 import life.wellnara.repository.OfferingRepository;
 import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
@@ -22,11 +28,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,6 +70,12 @@ class WalletQueryServiceTest {
     @Autowired
     private ProviderClientLinkRepository providerClientLinkRepository;
 
+    @Autowired
+    private AppointmentRepository appointmentRepository;
+
+    @Autowired
+    private MessageSource messageSource;
+
     @Test
     @DisplayName("A HOLD leaves the client view with reduced available and matching held")
     void clientViewReflectsAvailableAndHeld() {
@@ -76,9 +91,73 @@ class WalletQueryServiceTest {
         assertThat(view.getCurrency()).isEqualTo("EUR");
         assertThat(view.getAvailable()).isEqualByComparingTo("70.00");
         assertThat(view.getHeld()).isEqualByComparingTo("30.00");
-        assertThat(view.getHistory()).hasSize(2);
-        // Newest first: the HOLD is the latest movement.
-        assertThat(view.getHistory().get(0).getType()).isEqualTo(WalletEntryType.HOLD);
+        // The hold shows only in the held balance; the client's own history hides
+        // reservation churn, so only the top-up movement remains.
+        assertThat(view.getHistory()).hasSize(1);
+        assertThat(view.getHistory().get(0).getType()).isEqualTo(WalletEntryType.TOP_UP);
+    }
+
+    @Test
+    @DisplayName("A hold and its release net to zero and are absent from the client history")
+    void clientHistoryHidesReservationChurn() {
+        User provider = provider("prov-churn", "EUR");
+        User client = linkedClient(provider, "client-churn");
+
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("100.00"), null);
+        holdMoney(client, provider, new BigDecimal("30.00"));
+        releaseMoney(client, provider, new BigDecimal("30.00"));
+
+        ClientWalletView view = walletQueryService.getWalletOfClient(client);
+
+        assertThat(view.getAvailable()).isEqualByComparingTo("100.00");
+        assertThat(view.getHeld()).isEqualByComparingTo("0.00");
+        assertThat(view.getHistory()).hasSize(1);
+        assertThat(view.getHistory().get(0).getType()).isEqualTo(WalletEntryType.TOP_UP);
+    }
+
+    @Test
+    @DisplayName("Held breakdown lists the appointment a hold reserves against and omits released holds")
+    void heldBreakdownListsActiveHolds() {
+        User provider = provider("prov-held", "EUR");
+        User client = linkedClient(provider, "client-held");
+        Offering offering = offering(provider);
+
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("100.00"), null);
+
+        Appointment active = appointment(provider, client, offering);
+        holdMoneyFor(client, provider, active, new BigDecimal("50.00"));
+
+        Appointment released = appointment(provider, client, offering);
+        holdMoneyFor(client, provider, released, new BigDecimal("30.00"));
+        releaseMoneyFor(client, provider, released, new BigDecimal("30.00"));
+
+        List<HeldItemView> held = walletQueryService.getHeldBreakdownOfClient(client);
+
+        assertThat(held).hasSize(1);
+        assertThat(held.get(0).getOfferingName()).isEqualTo("Consultation");
+        assertThat(held.get(0).getAmount()).isEqualByComparingTo("50.00");
+        assertThat(held.get(0).getStartDateTime()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("An appointment settlement is labelled by the appointment outcome")
+    void settleLabelReflectsAppointmentOutcome() {
+        User provider = provider("prov-settle", "EUR");
+        User client = linkedClient(provider, "client-settle");
+        Offering offering = offering(provider);
+
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("100.00"), null);
+        settle(client, provider, terminalAppointment(provider, client, offering, AppointmentStatus.COMPLETED), new BigDecimal("10.00"));
+        settle(client, provider, terminalAppointment(provider, client, offering, AppointmentStatus.NO_SHOW), new BigDecimal("20.00"));
+        settle(client, provider, terminalAppointment(provider, client, offering, AppointmentStatus.CANCELLED), new BigDecimal("30.00"));
+
+        Map<String, String> labelByAmount = walletQueryService.getWalletOfClient(client).getHistory().stream()
+                .filter(row -> row.getType() == WalletEntryType.SETTLE)
+                .collect(Collectors.toMap(row -> row.getAmount().toPlainString(), WalletHistoryRow::getTypeLabel));
+
+        assertThat(labelByAmount.get("10.00")).isEqualTo(msg("wallet.entryType.settle.completed"));
+        assertThat(labelByAmount.get("20.00")).isEqualTo(msg("wallet.entryType.settle.noShow"));
+        assertThat(labelByAmount.get("30.00")).isEqualTo(msg("wallet.entryType.settle.lateCancel"));
     }
 
     @Test
@@ -158,6 +237,50 @@ class WalletQueryServiceTest {
         Wallet wallet = walletRepository.findByClient(client).orElseThrow();
         walletEntryRepository.save(WalletEntry.money(
                 wallet, WalletEntryType.HOLD, amount, null, actor, LocalDateTime.now(), null));
+    }
+
+    private void releaseMoney(User client, User actor, BigDecimal amount) {
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.RELEASE, amount, null, actor, LocalDateTime.now(), null));
+    }
+
+    private Appointment appointment(User provider, User client, Offering offering) {
+        return appointmentRepository.save(
+                new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 10, 0)));
+    }
+
+    private void holdMoneyFor(User client, User actor, Appointment appointment, BigDecimal amount) {
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.HOLD, amount, appointment, actor, LocalDateTime.now(), null));
+    }
+
+    private void releaseMoneyFor(User client, User actor, Appointment appointment, BigDecimal amount) {
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.RELEASE, amount, appointment, actor, LocalDateTime.now(), null));
+    }
+
+    private void settle(User client, User actor, Appointment appointment, BigDecimal amount) {
+        Wallet wallet = walletRepository.findByClient(client).orElseThrow();
+        walletEntryRepository.save(WalletEntry.money(
+                wallet, WalletEntryType.SETTLE, amount, appointment, actor, LocalDateTime.now(), null));
+    }
+
+    private Appointment terminalAppointment(User provider, User client, Offering offering, AppointmentStatus status) {
+        Appointment appointment = new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 10, 0));
+        switch (status) {
+            case COMPLETED -> { appointment.schedule(); appointment.complete(); }
+            case NO_SHOW -> { appointment.schedule(); appointment.markNoShow(); }
+            case CANCELLED -> appointment.cancel(CancellationInitiator.CLIENT, null, LocalDateTime.now());
+            default -> throw new IllegalArgumentException("Not a settleable terminal status: " + status);
+        }
+        return appointmentRepository.save(appointment);
+    }
+
+    private String msg(String key) {
+        return messageSource.getMessage(key, null, LocaleContextHolder.getLocale());
     }
 
     private User provider(String username, String currency) {

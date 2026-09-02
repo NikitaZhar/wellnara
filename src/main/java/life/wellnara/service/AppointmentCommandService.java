@@ -148,7 +148,13 @@ public class AppointmentCommandService {
 	}
 
 	/**
-	 * Rejects a requested appointment and releases its hold.
+	 * Rejects a requested appointment, blocks its time slot and releases its hold.
+	 *
+	 * <p>The freed slot is marked unavailable so the client cannot immediately
+	 * re-request the same rejected time (the client is instead told to choose
+	 * another time). Blocking is skipped for a request whose start time has already
+	 * passed: a past slot cannot be re-requested, and a past-dated override is
+	 * rejected by the calendar rules.
 	 *
 	 * @param provider        provider who owns appointment
 	 * @param appointmentId   appointment identifier
@@ -161,6 +167,9 @@ public class AppointmentCommandService {
 		Appointment appointment = findProviderAppointment(provider, appointmentId);
 		requireStatus(appointment, AppointmentStatus.REQUESTED, "error.appt.notRequestedReject", "Only requested appointment can be rejected");
 
+		if (now().isBefore(appointment.getStartDateTimeUtc())) {
+			blockSlot(provider, appointment);
+		}
 		appointment.cancel(CancellationInitiator.PROVIDER, rejectionReason, now());
 		settlementService.release(appointment, appointment.getProvider());
 	}

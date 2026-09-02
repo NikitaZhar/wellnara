@@ -2,8 +2,11 @@ package life.wellnara.service;
 
 import life.wellnara.dto.ClientPackageView;
 import life.wellnara.dto.ClientWalletView;
+import life.wellnara.dto.HeldItemView;
 import life.wellnara.dto.PackageRemainder;
 import life.wellnara.dto.WalletHistoryRow;
+import life.wellnara.model.Appointment;
+import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.SessionBalance;
 import life.wellnara.model.User;
@@ -33,6 +36,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -168,6 +172,23 @@ public class WalletQueryService {
         return walletRepository.findByClient(client)
                 .map(wallet -> buildView(wallet, null, null, null, null, false))
                 .orElseGet(() -> emptyView(providerCurrencyOf(client), null, null, null, null));
+    }
+
+    /**
+     * Lists the reservations that make up the client's held money balance — the
+     * "held, against what" breakdown: one row per appointment or package that still
+     * holds money, soonest first. A reservation counts while its money hold has not
+     * been released or settled; an empty list when the client has no wallet or holds
+     * nothing.
+     *
+     * @param client authenticated client
+     * @return held-money reservations, soonest first
+     */
+    @Transactional(readOnly = true)
+    public List<HeldItemView> getHeldBreakdownOfClient(User client) {
+        return walletRepository.findByClient(client)
+                .map(this::buildHeldBreakdown)
+                .orElseGet(List::of);
     }
 
     /**
@@ -366,6 +387,75 @@ public class WalletQueryService {
         return byPackageId;
     }
 
+    /**
+     * Builds the held-money breakdown by grouping the wallet's money entries per
+     * reservation subject (appointment or package) and folding each group through
+     * the shared calculator; a subject with a positive held balance still holds
+     * money. Reuses {@link WalletLedgerCalculator} so the sign rules live in one
+     * place and the rows always sum to the wallet's held balance.
+     */
+    private List<HeldItemView> buildHeldBreakdown(Wallet wallet) {
+        List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
+        ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(wallet.getProvider());
+        String currency = wallet.getCurrency();
+
+        Map<String, List<WalletEntry>> bySubject = new LinkedHashMap<>();
+        for (WalletEntry entry : entries) {
+            String subjectKey = subjectKeyOf(entry);
+            if (subjectKey == null) {
+                continue; // top-up / adjustment: not a reservation
+            }
+            bySubject.computeIfAbsent(subjectKey, key -> new ArrayList<>()).add(entry);
+        }
+
+        List<HeldItemView> items = new ArrayList<>();
+        for (List<WalletEntry> subjectEntries : bySubject.values()) {
+            BigDecimal held = ledgerCalculator.foldMoney(currency, subjectEntries).getHeld();
+            if (held.signum() > 0) {
+                items.add(toHeldItem(subjectEntries.get(0), held, currency, providerZone));
+            }
+        }
+        items.sort(Comparator.comparing(HeldItemView::getStartDateTime,
+                Comparator.nullsLast(Comparator.naturalOrder())));
+        return items;
+    }
+
+    /**
+     * Grouping key for a money entry's reservation subject: the appointment it holds
+     * against, otherwise the package; {@code null} for a money entry with neither
+     * (a top-up or adjustment), which never holds money.
+     */
+    private String subjectKeyOf(WalletEntry entry) {
+        if (!entry.getType().isMoney()) {
+            return null;
+        }
+        if (entry.getAppointment() != null) {
+            return "A" + entry.getAppointment().getId();
+        }
+        if (entry.getServicePackage() != null) {
+            return "P" + entry.getServicePackage().getId();
+        }
+        return null;
+    }
+
+    private HeldItemView toHeldItem(WalletEntry entry, BigDecimal held, String currency, ZoneId providerZone) {
+        if (entry.getAppointment() != null) {
+            Appointment appointment = entry.getAppointment();
+            return new HeldItemView(appointment.getOffering().getName(),
+                    toZone(appointment.getStartDateTimeUtc(), providerZone), null, held, currency);
+        }
+        ServicePackage servicePackage = entry.getServicePackage();
+        LocalDateTime firstSession = servicePackage.getFirstSessionStartUtc() == null
+                ? null
+                : toZone(servicePackage.getFirstSessionStartUtc(), providerZone);
+        return new HeldItemView(servicePackage.getOffering().getName(),
+                firstSession, servicePackage.getTotalSessions(), held, currency);
+    }
+
+    private LocalDateTime toZone(LocalDateTime utc, ZoneId providerZone) {
+        return utc.atZone(ZoneOffset.UTC).withZoneSameInstant(providerZone).toLocalDateTime();
+    }
+
     private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName,
                                        String clientEmail, String clientPhone, boolean paymentsOnly) {
         List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
@@ -426,18 +516,26 @@ public class WalletQueryService {
      * @param entries      the wallet ledger, oldest first
      * @param providerZone provider timezone the timestamps are shown in
      * @param paymentsOnly keep only money-in / money-out movements when {@code true}
+     *                     (provider payment history); when {@code false} (the client's
+     *                     own history) keep every movement except reservation churn —
+     *                     holds and their releases, which net to zero and show only in
+     *                     the held balance
      * @return display rows, newest first
      */
     private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone, boolean paymentsOnly) {
         List<WalletHistoryRow> rows = new ArrayList<>(entries.size());
         for (WalletEntry entry : entries) {
-            if (paymentsOnly && !isPayment(entry.getType())) {
+            if (paymentsOnly) {
+                if (!isPayment(entry.getType())) {
+                    continue;
+                }
+            } else if (isReservationChurn(entry.getType())) {
                 continue;
             }
             rows.add(new WalletHistoryRow(
                     formatInZone(entry.getCreatedAt(), providerZone),
                     entry.getType(),
-                    labelOf(entry.getType()),
+                    labelOf(entry),
                     entry.getAmount(),
                     entry.getSessionCount(),
                     entry.getCurrency(),
@@ -454,6 +552,22 @@ public class WalletQueryService {
      */
     private boolean isPayment(WalletEntryType type) {
         return type == WalletEntryType.TOP_UP || type == WalletEntryType.SETTLE;
+    }
+
+    /**
+     * Whether an entry is reservation churn hidden from the client's own history: a
+     * hold or its release (money or package session). A hold and its later release
+     * net to zero and are reflected only in the held balance, so showing them as
+     * movements would only add noise.
+     *
+     * @param type ledger entry type
+     * @return {@code true} for a hold or release entry
+     */
+    private boolean isReservationChurn(WalletEntryType type) {
+        return type == WalletEntryType.HOLD
+                || type == WalletEntryType.RELEASE
+                || type == WalletEntryType.PACKAGE_HOLD
+                || type == WalletEntryType.PACKAGE_RELEASE;
     }
 
     /**
@@ -475,6 +589,41 @@ public class WalletQueryService {
         return utc.atZone(ZoneOffset.UTC)
                 .withZoneSameInstant(providerZone)
                 .format(TIMESTAMP_FORMAT);
+    }
+
+    /**
+     * Human-readable label for a ledger entry. For an appointment settlement the
+     * label reflects the settled appointment's outcome (service delivered, no-show
+     * or late cancellation), which is recoverable from the appointment's terminal
+     * status: a settlement is only ever written on {@code COMPLETED}, {@code NO_SHOW}
+     * or a client's late {@code CANCELLED}. Every other entry (including a package
+     * purchase settlement, which carries no appointment) uses the per-type label.
+     *
+     * @param entry ledger entry to label
+     * @return the localized label for the entry
+     */
+    private String labelOf(WalletEntry entry) {
+        if (entry.getType() == WalletEntryType.SETTLE && entry.getAppointment() != null) {
+            return settleLabelOf(entry.getAppointment().getStatus());
+        }
+        return labelOf(entry.getType());
+    }
+
+    /**
+     * Localized label for an appointment settlement, chosen from the settled
+     * appointment's terminal status. Falls back to the generic settle label for any
+     * other status, which a settlement never has in practice.
+     *
+     * @param status terminal status of the settled appointment
+     * @return the localized settlement label
+     */
+    private String settleLabelOf(AppointmentStatus status) {
+        return switch (status) {
+            case COMPLETED -> msg("wallet.entryType.settle.completed");
+            case NO_SHOW -> msg("wallet.entryType.settle.noShow");
+            case CANCELLED -> msg("wallet.entryType.settle.lateCancel");
+            default -> msg("wallet.entryType.settle");
+        };
     }
 
     /**

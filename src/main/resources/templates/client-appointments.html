@@ -108,6 +108,46 @@
         </div>
     </section>
 
+    <!-- Provider cancellations / expiries: the client picks another time or dismisses. -->
+    <section th:if="${not #lists.isEmpty(providerCancellations)}" style="margin-top:var(--s-6);">
+        <div class="section-head">
+            <h2 th:text="#{cappt.cancelledHeading}">Cancelled by provider</h2>
+            <span class="count-pill" th:text="${#lists.size(providerCancellations)}">0</span>
+        </div>
+
+        <div class="list">
+            <div class="appt" th:each="appointment : ${providerCancellations}">
+                <div class="appt-head">
+                    <p class="appt-title" th:text="${appointment.offeringName}">Offering</p>
+                    <span class="badge badge-danger" th:text="#{cappt.cancelledBadge}">Cancelled</span>
+                </div>
+                <p class="appt-meta">
+                    <span th:text="${appointment.localDate}">Date</span>,
+                    <span th:text="${appointment.localTime}">Time</span>
+                </p>
+                <p class="appt-meta" th:if="${packageLabels != null and packageLabels.containsKey(appointment.id)}"
+                   th:text="${packageLabels.get(appointment.id)}">Session 3 of 10</p>
+
+                <p class="appt-meta" th:if="${appointment.rejectionReason != null}"
+                   th:text="${appointment.rejectionReason}">Reason</p>
+                <p class="appt-meta" th:if="${appointment.rejectionReason == null}" th:text="#{cappt.cancelledByProvider}">Cancelled by your provider.</p>
+                <p class="appt-meta" th:text="#{cappt.canRequestNew}">You can choose another time.</p>
+
+                <div class="appt-actions">
+                    <a class="btn btn-primary btn-sm"
+                       th:href="@{/client/offerings/{offeringId}(offeringId=${appointment.offeringId},fromCancelled=${appointment.id})}"
+                       th:text="#{cappt.chooseNewTime}">Choose another time</a>
+
+                    <form th:action="@{/client/appointments/{appointmentId}/acknowledge(appointmentId=${appointment.id})}"
+                          method="post"
+                          th:attr="data-confirm=#{cappt.dismiss.confirm}">
+                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{cappt.markRead}">Mark as read</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
 </main>
 
 </body>

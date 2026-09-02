@@ -106,11 +106,13 @@ public class HomePageModelAssembler {
      * @param client authenticated client
      */
     public void populateClientHome(Model model, User client) {
-        // Mirror the internal "Requests and updates" page: every open request or
-        // provider update (REQUESTED, CANCELLED, COMPLETED) is shown on Home, each
-        // with its own status badge — not just the still-pending REQUESTED ones.
+        // The Home requests panel mirrors the requests page: only requests still
+        // awaiting the provider (REQUESTED). Provider cancellations live on the
+        // appointments page, and completed terms in the wallet history — neither here.
         List<AppointmentView> requestUpdates =
-                appointmentService.getAppointmentViewsOfClient(client);
+                appointmentService.getAppointmentViewsOfClient(client).stream()
+                        .filter(view -> view.getStatus() == AppointmentStatus.REQUESTED)
+                        .toList();
 
         List<PackageRequestView> pendingPackages =
                 walletQueryService.getPendingPackageRequestsOfClient(client);

@@ -1,7 +1,13 @@
 package life.wellnara;
 
+import life.wellnara.model.Appointment;
+import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +19,9 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static life.wellnara.SecurityTestSupport.authenticatedSession;
 import static org.hamcrest.Matchers.containsString;
@@ -35,6 +44,15 @@ class HomeMvcTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private OfferingRepository offeringRepository;
+
+    @Autowired
+    private ProviderClientLinkRepository providerClientLinkRepository;
+
+    @Autowired
+    private AppointmentRepository appointmentRepository;
 
     @MockBean
     private JavaMailSender mailSender;
@@ -63,7 +81,30 @@ class HomeMvcTest {
                 .andExpect(view().name("client-home"))
                 // UI is localized; the default locale is Russian.
                 .andExpect(content().string(containsString("Ближайшие записи")))
-                .andExpect(content().string(containsString("Кошелёк")));
+                // The wallet card is now titled "Счёт" and links to the account page.
+                .andExpect(content().string(containsString("Счёт")))
+                .andExpect(content().string(containsString("/client/wallet")));
+    }
+
+    @Test
+    @DisplayName("A completed appointment does not appear in the client's Home requests panel")
+    void completedAppointmentAbsentFromHomeRequests() throws Exception {
+        User provider = createUser("home-prov-comp", "home-prov-comp@example.com", UserRole.PROVIDER);
+        User client = createUser("home-client-comp", "home-client-comp@example.com", UserRole.CLIENT);
+        providerClientLinkRepository.save(new ProviderClientLink(provider, client, LocalDateTime.now()));
+        Offering offering = offeringRepository.save(
+                new Offering(provider, "Массаж", "desc", new BigDecimal("50.00"), 60));
+
+        Appointment appointment = new Appointment(provider, client, offering, LocalDateTime.of(2026, 1, 1, 10, 0));
+        appointment.schedule();
+        appointment.complete();
+        appointmentRepository.save(appointment);
+
+        mockMvc.perform(get("/home").session(authenticatedSession(client)))
+                .andExpect(status().isOk())
+                .andExpect(view().name("client-home"))
+                // The "My requests" panel shows its empty state: a completed term is not a request/update.
+                .andExpect(content().string(containsString("Нет заявок и обновлений")));
     }
 
     @Test

@@ -3,6 +3,8 @@ package life.wellnara;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.AvailabilityDay;
+import life.wellnara.model.AvailabilityOverride;
+import life.wellnara.model.AvailabilityOverrideType;
 import life.wellnara.model.AvailabilityPeriod;
 import life.wellnara.model.AvailabilityRule;
 import life.wellnara.model.CancellationInitiator;
@@ -11,6 +13,7 @@ import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
 import life.wellnara.repository.AppointmentRepository;
+import life.wellnara.repository.AvailabilityOverrideRepository;
 import life.wellnara.repository.AvailabilityPeriodRepository;
 import life.wellnara.repository.AvailabilityRuleRepository;
 import life.wellnara.repository.OfferingRepository;
@@ -35,14 +38,20 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static life.wellnara.SecurityTestSupport.authenticatedSession;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 /**
  * MVC tests for the payment-free appointment lifecycle and acknowledgement flow.
@@ -74,6 +83,9 @@ class AppointmentLifecycleMvcTest {
     @Autowired
     private AppointmentRepository appointmentRepository;
 
+    @Autowired
+    private AvailabilityOverrideRepository availabilityOverrideRepository;
+
     @Test
     @DisplayName("Should reject requested appointment as cancellation with reason and provider initiator")
     void shouldRejectRequestedAppointmentWithReason() throws Exception {
@@ -97,6 +109,51 @@ class AppointmentLifecycleMvcTest {
         assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
         assertThat(saved.getCancellationInitiator()).isEqualTo(CancellationInitiator.PROVIDER);
         assertThat(saved.getRejectionReason()).isEqualTo("Requested time is not suitable");
+    }
+
+    @Test
+    @DisplayName("Rejecting a future request blocks its time slot")
+    void rejectingFutureRequestBlocksSlot() throws Exception {
+        User provider = createUser("provider-reject-block", UserRole.PROVIDER);
+        User client = createUser("client-reject-block", UserRole.CLIENT);
+        linkClient(provider, client);
+        Offering offering = createOffering(provider);
+        // Fixed clock is 2026-06-01T06:00Z; this start is later the same day, so it is in the future.
+        Appointment appointment = appointmentRepository.save(
+                new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 10, 0)));
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId()).with(csrf())
+                        .session(authenticatedSession(provider))
+                        .param("rejectionReason", "Requested time is not suitable"))
+                .andExpect(status().is3xxRedirection());
+
+        List<AvailabilityOverride> overrides = availabilityOverrideRepository
+                .findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider);
+        assertThat(overrides).hasSize(1);
+        assertThat(overrides.get(0).getType()).isEqualTo(AvailabilityOverrideType.UNAVAILABLE);
+        assertThat(overrides.get(0).getStartTime()).isEqualTo(LocalTime.of(10, 0));
+    }
+
+    @Test
+    @DisplayName("Rejecting a past request does not block the slot")
+    void rejectingPastRequestDoesNotBlockSlot() throws Exception {
+        User provider = createUser("provider-reject-past", UserRole.PROVIDER);
+        User client = createUser("client-reject-past", UserRole.CLIENT);
+        linkClient(provider, client);
+        Offering offering = createOffering(provider);
+        // Fixed clock is 2026-06-01T06:00Z; this start has already passed.
+        Appointment appointment = appointmentRepository.save(
+                new Appointment(provider, client, offering, LocalDateTime.of(2026, 6, 1, 4, 0)));
+
+        mockMvc.perform(post("/provider/appointments/{appointmentId}/reject", appointment.getId()).with(csrf())
+                        .session(authenticatedSession(provider))
+                        .param("rejectionReason", "Requested time is not suitable"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(availabilityOverrideRepository
+                .findAllByProviderOrderByOverrideDateAscStartTimeAsc(provider)).isEmpty();
+        assertThat(appointmentRepository.findById(appointment.getId()).orElseThrow().getStatus())
+                .isEqualTo(AppointmentStatus.CANCELLED);
     }
 
     @Test
@@ -180,10 +237,36 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/acknowledge", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client/requests"));
+                .andExpect(redirectedUrl("/client/appointments"));
 
         Appointment acknowledged = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(acknowledged.isAcknowledged()).isTrue();
+    }
+
+    @Test
+    @DisplayName("A provider cancellation shows on the appointments page, not on the requests page")
+    void providerCancellationShowsOnAppointmentsNotRequests() throws Exception {
+        User provider = createUser("provider-notice", UserRole.PROVIDER);
+        User client = createUser("client-notice", UserRole.CLIENT);
+        linkClient(provider, client);
+
+        Offering offering = createOffering(provider);
+        Appointment appointment = createAppointment(provider, client, offering);
+        appointment.cancel(CancellationInitiator.PROVIDER, "Not available", LocalDateTime.now(ZoneOffset.UTC));
+        appointmentRepository.save(appointment);
+
+        MockHttpSession clientSession = authenticatedSession(client);
+
+        // Default locale is Russian: "Выбрать другое время" is the notice's action.
+        mockMvc.perform(get("/client/appointments").session(clientSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("client-appointments"))
+                .andExpect(content().string(containsString("Выбрать другое время")));
+
+        mockMvc.perform(get("/client/requests").session(clientSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("client-requests"))
+                .andExpect(content().string(not(containsString("Выбрать другое время"))));
     }
 
     @Test
@@ -304,7 +387,7 @@ class AppointmentLifecycleMvcTest {
         mockMvc.perform(post("/client/appointments/{appointmentId}/reschedule", appointment.getId()).with(csrf())
                         .session(clientSession))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/client/offerings/" + offering.getId()));
+                .andExpect(redirectedUrl("/client/offerings/" + offering.getId() + "?rescheduled=true"));
 
         Appointment saved = appointmentRepository.findById(appointment.getId()).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.CANCELLED);
