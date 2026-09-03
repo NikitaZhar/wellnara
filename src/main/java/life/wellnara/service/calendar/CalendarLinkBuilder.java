@@ -49,49 +49,6 @@ public class CalendarLinkBuilder {
     }
 
     /**
-     * Builds the absolute ICS feed URL for the given subscription token.
-     *
-     * @param token feed token
-     * @return absolute {@code .ics} feed URL
-     */
-    public String feedUrl(String token) {
-        Objects.requireNonNull(token, "token is required");
-
-        return publicBaseUrl + "/calendar/" + token + ".ics";
-    }
-
-    /**
-     * Builds the {@code webcal://} form of the feed URL for the given token.
-     *
-     * <p>The {@code webcal} scheme makes clicking the link hand the feed straight
-     * to the user's default calendar app (Apple Calendar, Outlook) instead of
-     * downloading a file, so no manual "add by URL" step is needed.
-     *
-     * @param token feed token
-     * @return absolute {@code webcal://} feed URL
-     */
-    public String webcalFeedUrl(String token) {
-        String url = feedUrl(token);
-        int schemeEnd = url.indexOf("://");
-
-        return schemeEnd < 0 ? url : "webcal://" + url.substring(schemeEnd + 3);
-    }
-
-    /**
-     * Builds a one-click "subscribe in Google Calendar" link for the given token.
-     *
-     * <p>Opening the link asks Google Calendar to subscribe to the feed directly,
-     * so the user never has to copy the URL or find the "add by URL" setting.
-     * Google requires the feed to be served over HTTPS for this to resolve.
-     *
-     * @param token feed token
-     * @return absolute Google Calendar subscribe link
-     */
-    public String googleSubscribeUrl(String token) {
-        return "https://www.google.com/calendar/render?cid=" + webcalFeedUrl(token);
-    }
-
-    /**
      * Builds a one-click "add to Google Calendar" link for a single event.
      *
      * <p>Opens Google Calendar's pre-filled new-event window. All event data is

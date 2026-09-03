@@ -49,6 +49,38 @@
         </div>
     </div>
 
+    <!-- Access status -->
+    <div th:if="${clientStatusError}" class="alert alert-danger" role="alert">
+        <p th:text="${clientStatusError}" style="margin:0;"></p>
+    </div>
+
+    <div class="section-head">
+        <h2 th:text="#{pcw.statusHeading}">Access</h2>
+    </div>
+    <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <span>
+                <span th:if="${clientActive}" class="badge badge-success" th:text="#{pcli.active}">Active</span>
+                <span th:unless="${clientActive}" class="badge badge-primary" th:text="#{pcli.inactive}">Inactive</span>
+            </span>
+
+            <form th:if="${clientActive}"
+                  th:action="@{/provider/clients/{clientId}/active(clientId=${clientId})}" method="post" style="margin:0;"
+                  th:attr="data-confirm=#{pcw.deactivate.confirm}">
+                <input type="hidden" name="active" value="false">
+                <button type="submit" class="btn btn-secondary" th:disabled="${!clientDeactivatable}" th:text="#{pcw.makeInactive}">Make inactive</button>
+            </form>
+            <form th:unless="${clientActive}"
+                  th:action="@{/provider/clients/{clientId}/active(clientId=${clientId})}" method="post" style="margin:0;">
+                <input type="hidden" name="active" value="true">
+                <button type="submit" class="btn btn-secondary" th:text="#{pcw.makeActive}">Make active</button>
+            </form>
+        </div>
+
+        <p th:if="${clientActive and !clientDeactivatable}" class="page-sub" style="margin:12px 0 0;" th:text="#{pcw.deactivateBlockedHint}">This client has appointments or package requests, so they can't be made inactive yet.</p>
+        <p th:unless="${clientActive}" class="page-sub" style="margin:12px 0 0;" th:text="#{pcw.viewOnlyNote}">An inactive client can sign in and view your services, but cannot book.</p>
+    </div>
+
     <!-- Balance -->
     <div class="section-head">
         <h2 th:text="#{pcw.balance}">Balance</h2>

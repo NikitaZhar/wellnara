@@ -142,6 +142,8 @@ public class ProviderPageModelAssembler {
         model.addAttribute("profileTelegram", profile != null ? profile.getTelegramUrl() : "");
         model.addAttribute("providerCurrency", provider.getCurrency());
         model.addAttribute("supportedCurrencies", CurrencyCodes.SUPPORTED);
+        model.addAttribute("preferredCalendar",
+                provider.getPreferredCalendar() != null ? provider.getPreferredCalendar().name() : "");
         addProviderName(model, provider);
     }
 
@@ -196,7 +198,8 @@ public class ProviderPageModelAssembler {
                             profile != null ? profile.getPhone() : null,
                             formatInvitedAt(link.getInvitedAt(), providerZone, invitedFormat),
                             available != null ? available : BigDecimal.ZERO,
-                            providerCurrency
+                            providerCurrency,
+                            link.isActive()
                     );
                 })
                 .toList();

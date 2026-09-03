@@ -74,6 +74,26 @@
 
         <section>
             <div class="section-head">
+                <h2 th:text="#{cprof.calendar}">Calendar</h2>
+            </div>
+
+            <div class="card">
+                <p class="page-sub" style="margin:0 0 var(--s-4);" th:text="#{cprof.calendarHint}">Used for the “Add to calendar” button on your appointments.</p>
+
+                <div class="field">
+                    <label for="preferredCalendar" th:text="#{cprof.calendarLabel}">Preferred calendar</label>
+                    <select id="preferredCalendar" name="preferredCalendar">
+                        <option value="" th:text="#{cprof.calendarNone}" th:selected="${preferredCalendar == null or preferredCalendar == ''}">— Not selected —</option>
+                        <option value="GOOGLE" th:text="#{cprof.calendarGoogle}" th:selected="${preferredCalendar == 'GOOGLE'}">Google Calendar</option>
+                        <option value="OUTLOOK" th:text="#{cprof.calendarOutlook}" th:selected="${preferredCalendar == 'OUTLOOK'}">Outlook</option>
+                        <option value="APPLE" th:text="#{cprof.calendarApple}" th:selected="${preferredCalendar == 'APPLE'}">Apple Calendar</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-head">
                 <h2 th:text="#{cprof.password}">Password</h2>
             </div>
 
@@ -102,52 +122,6 @@
             <button class="btn btn-primary" type="submit" th:text="#{cprof.save}">Save</button>
         </div>
     </form>
-
-    <section id="calendar-feed">
-        <div class="section-head">
-            <h2 th:text="#{cprof.calendarSync}">Sync with your calendar</h2>
-        </div>
-        <div class="card">
-            <p class="page-sub" style="margin:0 0 var(--s-4);" th:text="#{cprof.calendarIntro}">
-                Subscribe once and your upcoming sessions appear in your calendar automatically — new bookings
-                and changes keep syncing on their own, on your phone, tablet and computer.
-            </p>
-
-            <!-- Feed on: one add button per calendar family, plus a copyable link for anything else. -->
-            <div th:if="${calendarFeedEnabled}">
-                <div class="form-actions" style="justify-content:flex-start; margin:0 0 var(--s-4);">
-                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedGoogleUrl}" target="_blank" rel="noopener" th:text="#{cprof.subscribeGoogle}">Subscribe in Google Calendar</a>
-                    <a class="btn btn-secondary btn-sm" th:href="${calendarFeedWebcalUrl}" th:text="#{cprof.subscribeApple}">Subscribe in Apple Calendar / Outlook</a>
-                    <button type="button" class="btn btn-secondary btn-sm"
-                            th:attr="data-url=${calendarFeedUrl},data-copied=#{cprof.linkCopied}"
-                            onclick="const u=this.getAttribute('data-url');navigator.clipboard&amp;&amp;navigator.clipboard.writeText(u);this.textContent=this.getAttribute('data-copied');" th:text="#{cprof.copyLink}">Copy link</button>
-                </div>
-
-                <div style="margin-top:var(--s-6); padding-top:var(--s-4); border-top:1px solid var(--border);">
-                    <div class="form-actions" style="justify-content:space-between; align-items:center; margin:0;">
-                        <p class="page-sub" style="margin:0;" th:text="#{cprof.resetHint}">Lost your link or think it leaked? Reset it to get a new one — the old link stops working.</p>
-                        <div style="display:flex; gap:var(--s-2);">
-                            <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;"
-                                  th:attr="data-confirm=#{cprof.reset.confirm}">
-                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);" th:text="#{cprof.resetLink}">Reset link</button>
-                            </form>
-                            <form th:action="@{/profile/calendar/disable}" method="post" style="margin:0;"
-                                  th:attr="data-confirm=#{cprof.disable.confirm}">
-                                <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--text-muted);" th:text="#{cprof.turnOff}">Turn off</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Feed off or never set up: offer to enable it. -->
-            <div th:unless="${calendarFeedEnabled}">
-                <form th:action="@{/profile/calendar/regenerate}" method="post" style="margin:0;">
-                    <button class="btn btn-primary btn-sm" type="submit" th:text="#{cprof.syncMyCalendar}">Sync with my calendar</button>
-                </form>
-            </div>
-        </div>
-    </section>
 
 </main>
 

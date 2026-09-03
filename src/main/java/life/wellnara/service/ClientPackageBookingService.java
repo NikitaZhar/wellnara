@@ -3,8 +3,10 @@ package life.wellnara.service;
 import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.Offering;
+import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.ServicePackage;
 import life.wellnara.model.User;
+import life.wellnara.repository.ProviderClientLinkRepository;
 import life.wellnara.repository.ServicePackageRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,26 +44,30 @@ public class ClientPackageBookingService {
     private final AppointmentAvailabilityService availabilityService;
     private final ClientOfferingService clientOfferingService;
     private final ServicePackageRepository servicePackageRepository;
+    private final ProviderClientLinkRepository providerClientLinkRepository;
 
     /**
      * Creates the client package booking service.
      *
-     * @param walletCommandService      service that reserves and activates the package
-     * @param appointmentCommandService service that requests and schedules appointments
-     * @param availabilityService       service that lists bookable times for a day
-     * @param clientOfferingService     service for client access to provider offerings
-     * @param servicePackageRepository  repository for service packages
+     * @param walletCommandService        service that reserves and activates the package
+     * @param appointmentCommandService   service that requests and schedules appointments
+     * @param availabilityService         service that lists bookable times for a day
+     * @param clientOfferingService       service for client access to provider offerings
+     * @param servicePackageRepository    repository for service packages
+     * @param providerClientLinkRepository repository for provider-client links (view-only guard)
      */
     public ClientPackageBookingService(WalletCommandService walletCommandService,
                                        AppointmentCommandService appointmentCommandService,
                                        AppointmentAvailabilityService availabilityService,
                                        ClientOfferingService clientOfferingService,
-                                       ServicePackageRepository servicePackageRepository) {
+                                       ServicePackageRepository servicePackageRepository,
+                                       ProviderClientLinkRepository providerClientLinkRepository) {
         this.walletCommandService = walletCommandService;
         this.appointmentCommandService = appointmentCommandService;
         this.availabilityService = availabilityService;
         this.clientOfferingService = clientOfferingService;
         this.servicePackageRepository = servicePackageRepository;
+        this.providerClientLinkRepository = providerClientLinkRepository;
     }
 
     /**
@@ -85,6 +91,7 @@ public class ClientPackageBookingService {
                                LocalDate selectedDate,
                                LocalTime selectedTime,
                                LocalDateTime startUtc) {
+        requireActiveClient(client);
         User provider = clientOfferingService.getProviderOfClient(client);
         Offering offering = clientOfferingService.getOfferingOfClientProvider(client, offeringId);
 
@@ -108,6 +115,23 @@ public class ClientPackageBookingService {
     @Transactional
     public void cancelPackageRequest(User client, Long packageId) {
         walletCommandService.cancelPackageRequestByClient(client, packageId);
+    }
+
+    /**
+     * Guards that the client still has full (booking) access. A client the provider
+     * has made inactive may sign in and view services, but cannot request packages.
+     *
+     * @param client authenticated client
+     * @throws IllegalArgumentException if the client is not linked, or is view-only
+     */
+    private void requireActiveClient(User client) {
+        ProviderClientLink link = providerClientLinkRepository.findByClient(client)
+                .orElseThrow(() -> new LocalizedException(
+                        "error.clientOffering.providerLinkNotFound", "Provider link not found"));
+        if (!link.isActive()) {
+            throw new LocalizedException("error.client.inactiveViewOnly",
+                    "Your access is view-only; ask your provider to reactivate you to book.");
+        }
     }
 
     /**

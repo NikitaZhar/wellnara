@@ -10,13 +10,19 @@
     <link rel="stylesheet" th:href="@{/css/sea-glass.css}" href="/css/sea-glass.css">
     <style>
         /* One-off layout for appointment rows (tokens only). */
-        .appt { padding:14px 16px; border-bottom:1px solid var(--border); }
-        .appt:last-child { border-bottom:none; }
+        /* Each appointment is its own card, clearly separated from the next. */
+        .appt-list { display:flex; flex-direction:column; gap:var(--s-3); }
+        .appt { padding:16px; border:1px solid var(--border); border-radius:var(--r-md); background:var(--surface); }
         .appt-head { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; }
         .appt-title { font-size:15px; font-weight:500; color:var(--text); margin:0; }
         .appt-meta { font-size:13px; color:var(--text-muted); margin:2px 0 0; }
         .appt-actions { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; margin-top:10px; }
         .appt-actions form { margin:0; }
+        /* Footer action bar: calendar action on the left, manage actions on the right. */
+        .appt-foot { display:flex; align-items:center; justify-content:space-between; gap:var(--s-3);
+            flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+        .appt-foot .group { display:flex; align-items:center; gap:var(--s-2); flex-wrap:wrap; }
+        .appt-foot form { margin:0; }
         /* Reason input revealed under the action row: full-width field, buttons below. */
         .reveal { margin-top:var(--s-3); }
         .reveal textarea {
@@ -29,10 +35,8 @@
         .block-check input { accent-color:var(--sea-primary); width:16px; height:16px; }
         /* Keep anchored sections clear of the sticky header when jumped to. */
         section[id] { scroll-margin-top:88px; }
-        /* Inline "add to calendar" options. */
+        /* Hint shown when no calendar is chosen yet. */
         .cal-lead { font-size:13px; color:var(--text-muted); align-self:center; margin-right:2px; }
-        /* Second action row (manage) — visually separated from the calendar row above. */
-        .appt-manage { margin-top:8px; padding-top:10px; border-top:1px dashed var(--border); }
     </style>
 </head>
 <body>
@@ -59,18 +63,11 @@
             <span class="count-pill" th:text="${#lists.size(confirmedAppointments)}">0</span>
         </div>
 
-        <!-- One-time nudge: only when there is something to sync and sync is not set up yet. Disappears once enabled. -->
-        <div th:if="${not calendarFeedEnabled and not #lists.isEmpty(confirmedAppointments)}"
-             class="card" style="display:flex; align-items:center; justify-content:space-between; gap:var(--s-3); margin-bottom:var(--s-4); background:var(--surface-2);">
-            <p class="page-sub" style="margin:0;" th:text="#{pappt.syncNudge}">Get your confirmed sessions in your own calendar automatically — no need to add each one by hand.</p>
-            <a class="btn btn-secondary btn-sm" style="flex:none;" th:href="@{/provider/profile#calendar-feed}" href="/provider/profile#calendar-feed" th:text="#{cappt.syncMyCalendar}">Sync my calendar</a>
-        </div>
-
         <div th:if="${#lists.isEmpty(confirmedAppointments)}" class="empty">
             <p th:text="#{cappt.noUpcoming}">No upcoming appointments.</p>
         </div>
 
-        <div class="list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
+        <div class="appt-list" th:if="${not #lists.isEmpty(confirmedAppointments)}">
             <div class="appt" th:each="appointment : ${confirmedAppointments}">
                 <div class="appt-head">
                     <p class="appt-title">
@@ -96,37 +93,41 @@
                     Appointment cancelled by client.
                 </p>
 
-                <!-- Row 1: add this session to an external calendar. -->
-                <div class="appt-actions" th:if="${appointment.status.name() == 'SCHEDULED'}"
+                <!-- Footer: add-to-calendar on the left, manage actions on the right. -->
+                <div class="appt-foot" th:if="${appointment.status.name() == 'SCHEDULED'}"
                      th:with="addLinks=${calendarAddLinks != null ? calendarAddLinks.get(appointment.id) : null}">
-                    <span class="cal-lead" th:text="#{cappt.addToCalendar}">Add to calendar:</span>
-                    <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.google()}" target="_blank" rel="noopener">Google</a>
-                    <a th:if="${addLinks}" class="btn btn-secondary btn-sm" th:href="${addLinks.outlook()}" target="_blank" rel="noopener">Outlook</a>
-                    <a class="btn btn-secondary btn-sm"
-                       th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}" th:text="#{cappt.appleIcs}">Apple / .ics</a>
-                </div>
+                    <div class="group">
+                        <span th:if="${preferredCalendar == null}" class="cal-lead" th:text="#{cappt.chooseCalendarHint}">Choose a calendar in your profile to add appointments.</span>
+                        <a th:if="${preferredCalendar == null}" class="btn btn-secondary btn-sm"
+                           th:href="@{/provider/profile}" th:text="#{cappt.chooseCalendar}">Choose calendar</a>
 
-                <!-- Row 2: record the outcome / cancel the appointment (separate from the calendar actions above). -->
-                <div class="appt-actions appt-manage" th:if="${appointment.status.name() == 'SCHEDULED'}">
-                    <span class="cal-lead" th:text="#{cappt.manageAppt}">Manage appointment:</span>
+                        <a th:if="${preferredCalendar == 'GOOGLE' and addLinks != null}" class="btn btn-secondary btn-sm"
+                           th:href="${addLinks.google()}" target="_blank" rel="noopener" th:text="#{cappt.addToCalendar}">Add to calendar</a>
+                        <a th:if="${preferredCalendar == 'OUTLOOK' and addLinks != null}" class="btn btn-secondary btn-sm"
+                           th:href="${addLinks.outlook()}" target="_blank" rel="noopener" th:text="#{cappt.addToCalendar}">Add to calendar</a>
+                        <a th:if="${preferredCalendar == 'APPLE'}" class="btn btn-secondary btn-sm"
+                           th:href="@{/appointments/{appointmentId}/calendar.ics(appointmentId=${appointment.id})}" th:text="#{cappt.addToCalendar}">Add to calendar</a>
+                    </div>
 
-                    <button type="button" class="btn btn-secondary btn-sm"
-                            th:if="${!appointment.completable}"
-                            data-reveal th:attr="data-target='cancel-' + ${appointment.id}" th:text="#{pappt.cancelAppt}">Cancel appointment</button>
+                    <div class="group">
+                        <button type="button" class="btn btn-ghost btn-sm"
+                                th:if="${!appointment.completable}"
+                                data-reveal th:attr="data-target='cancel-' + ${appointment.id}" th:text="#{pappt.cancelAppt}">Cancel appointment</button>
 
-                    <form th:if="${appointment.completable}"
-                          th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
-                          method="post"
-                          th:attr="data-confirm=#{pappt.complete.confirm}">
-                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.completed}">Completed</button>
-                    </form>
+                        <form th:if="${appointment.completable}"
+                              th:action="@{/provider/appointments/{appointmentId}/complete(appointmentId=${appointment.id})}"
+                              method="post"
+                              th:attr="data-confirm=#{pappt.complete.confirm}">
+                            <button type="submit" class="btn btn-primary btn-sm" th:text="#{pappt.completed}">Completed</button>
+                        </form>
 
-                    <form th:if="${appointment.completable}"
-                          th:action="@{/provider/appointments/{appointmentId}/no-show(appointmentId=${appointment.id})}"
-                          method="post"
-                          th:attr="data-confirm=#{pappt.noShow.confirm}">
-                        <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.noShow}">No-show</button>
-                    </form>
+                        <form th:if="${appointment.completable}"
+                              th:action="@{/provider/appointments/{appointmentId}/no-show(appointmentId=${appointment.id})}"
+                              method="post"
+                              th:attr="data-confirm=#{pappt.noShow.confirm}">
+                            <button type="submit" class="btn btn-secondary btn-sm" th:text="#{pappt.noShow}">No-show</button>
+                        </form>
+                    </div>
                 </div>
 
                 <form class="reveal" style="display:none" th:if="${appointment.status.name() == 'SCHEDULED' and !appointment.completable}"

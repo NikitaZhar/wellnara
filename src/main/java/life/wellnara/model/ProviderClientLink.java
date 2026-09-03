@@ -35,13 +35,21 @@ public class ProviderClientLink {
     private LocalDateTime invitedAt;
 
     /**
+     * Whether the client has full access. An inactive client can still sign in and
+     * view the provider's services, but cannot book appointments or request
+     * packages. New links start active.
+     */
+    @Column(nullable = false)
+    private boolean active;
+
+    /**
      * Required by JPA.
      */
     protected ProviderClientLink() {
     }
 
     /**
-     * Creates provider-client link.
+     * Creates an active provider-client link.
      *
      * @param provider provider user
      * @param client client user
@@ -51,10 +59,35 @@ public class ProviderClientLink {
         this.provider = provider;
         this.client = client;
         this.invitedAt = invitedAt;
+        this.active = true;
     }
 
     public Long getId() {
         return id;
+    }
+
+    /**
+     * Whether the client has full (booking) access.
+     *
+     * @return {@code true} when active, {@code false} when view-only
+     */
+    public boolean isActive() {
+        return active;
+    }
+
+    /**
+     * Grants the client full access again.
+     */
+    public void activate() {
+        this.active = true;
+    }
+
+    /**
+     * Restricts the client to view-only access: they can sign in and view services
+     * but cannot book appointments or request packages.
+     */
+    public void deactivate() {
+        this.active = false;
     }
 
     public User getProvider() {

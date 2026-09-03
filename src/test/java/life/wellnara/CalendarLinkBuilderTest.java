@@ -40,13 +40,4 @@ class CalendarLinkBuilderTest {
         assertThat(builder.appointmentsLink(CalendarAudience.CLIENT))
                 .isEqualTo("https://app.wellnara.life/client/appointments");
     }
-
-    @Test
-    @DisplayName("The feed URL is the base URL plus the token path and .ics suffix")
-    void feedUrl() {
-        CalendarLinkBuilder builder = new CalendarLinkBuilder(BASE_URL);
-
-        assertThat(builder.feedUrl("abc-123"))
-                .isEqualTo("https://app.wellnara.life/calendar/abc-123.ics");
-    }
 }

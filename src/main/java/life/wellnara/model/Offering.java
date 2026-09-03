@@ -260,6 +260,21 @@ public class Offering {
         return active;
     }
 
+    /**
+     * Marks the offering active, so it is offered to clients and can be booked.
+     */
+    public void activate() {
+        this.active = true;
+    }
+
+    /**
+     * Marks the offering inactive: it is hidden from clients and cannot be booked,
+     * while existing appointments and its history are kept.
+     */
+    public void deactivate() {
+        this.active = false;
+    }
+
     public String getCurrency() {
         return currency;
     }

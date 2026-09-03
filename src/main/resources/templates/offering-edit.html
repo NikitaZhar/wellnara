@@ -81,6 +81,33 @@
         </form>
     </section>
 
+    <section class="card">
+        <div class="section-head">
+            <h2 th:text="#{oedit.statusHeading}">Status</h2>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <span>
+                <span th:if="${offering.active}" class="badge badge-success" th:text="#{poff.active}">Active</span>
+                <span th:unless="${offering.active}" class="badge badge-primary" th:text="#{poff.inactive}">Inactive</span>
+            </span>
+            <form th:action="@{/provider/offerings/{offeringId}/active(offeringId=${offering.id})}" method="post" style="margin:0;">
+                <input type="hidden" name="active" th:value="${!offering.active}">
+                <button type="submit" class="btn btn-secondary"
+                        th:text="${offering.active} ? #{oedit.deactivate} : #{oedit.activate}">Make inactive</button>
+            </form>
+        </div>
+
+        <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+            <form th:action="@{/provider/offerings/{offeringId}/delete(offeringId=${offering.id})}" method="post" style="margin:0;"
+                  th:attr="data-confirm=#{oedit.delete.confirm}">
+                <button type="submit" class="btn btn-secondary" style="color:var(--danger);"
+                        th:disabled="${!offeringDeletable}" th:text="#{oedit.delete}">Delete service</button>
+            </form>
+            <p th:unless="${offeringDeletable}" class="hint" style="margin-top:8px;" th:text="#{oedit.deleteBlockedHint}">This service has appointments or packages, so it can't be deleted. Deactivate it instead.</p>
+        </div>
+    </section>
+
 </main>
 
 </body>

@@ -51,7 +51,6 @@ public class ClientController {
     private final ProviderCalendarService providerCalendarService;
     private final UserProfileService userProfileService;
     private final ClientPageModelAssembler clientPageModelAssembler;
-    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final AppointmentCalendarLinkService appointmentCalendarLinkService;
     private final ClientPackageBookingService clientPackageBookingService;
     private final MessageSource messageSource;
@@ -64,7 +63,6 @@ public class ClientController {
      * @param providerCalendarService        service for provider calendar operations
      * @param userProfileService             service for user personal data
      * @param clientPageModelAssembler       assembler for client page model
-     * @param calendarFeedModelAssembler     assembler for the calendar feed section
      * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
      * @param clientPackageBookingService    service coordinating package purchase with first booking
      * @param messageSource                  resolver of localized user-facing messages
@@ -74,7 +72,6 @@ public class ClientController {
                             ProviderCalendarService providerCalendarService,
                             UserProfileService userProfileService,
                             ClientPageModelAssembler clientPageModelAssembler,
-                            CalendarFeedModelAssembler calendarFeedModelAssembler,
                             AppointmentCalendarLinkService appointmentCalendarLinkService,
                             ClientPackageBookingService clientPackageBookingService,
                             MessageSource messageSource) {
@@ -83,7 +80,6 @@ public class ClientController {
         this.providerCalendarService = providerCalendarService;
         this.userProfileService = userProfileService;
         this.clientPageModelAssembler = clientPageModelAssembler;
-        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.appointmentCalendarLinkService = appointmentCalendarLinkService;
         this.clientPackageBookingService = clientPackageBookingService;
         this.messageSource = messageSource;
@@ -125,8 +121,8 @@ public class ClientController {
     @GetMapping("/client/appointments")
     public String showAppointments(@CurrentUser User currentUser, Model model) {
         clientPageModelAssembler.populateAppointments(model, currentUser);
-        calendarFeedModelAssembler.populateFeed(model, currentUser);
         model.addAttribute("calendarAddLinks", appointmentCalendarLinkService.scheduledLinksFor(currentUser));
+        model.addAttribute("preferredCalendar", preferredCalendarName(currentUser));
 
         return APPOINTMENTS_VIEW;
     }
@@ -156,7 +152,6 @@ public class ClientController {
     @GetMapping("/client/profile")
     public String showProfile(@CurrentUser User currentUser, Model model) {
         clientPageModelAssembler.populateProfile(model, currentUser);
-        calendarFeedModelAssembler.populateFeed(model, currentUser);
 
         return PROFILE_VIEW;
     }
@@ -346,6 +341,7 @@ public class ClientController {
     public String updateClientProfile(@RequestParam String firstName,
                                       @RequestParam String lastName,
                                       @RequestParam(required = false) String phone,
+                                      @RequestParam(required = false) String preferredCalendar,
                                       @RequestParam(required = false) String currentPassword,
                                       @RequestParam(required = false) String newPassword,
                                       @RequestParam(required = false) String confirmNewPassword,
@@ -353,19 +349,31 @@ public class ClientController {
                                       Model model) {
         try {
             userProfileService.updateProfileAndPassword(currentUser,
-                    firstName, lastName, phone,
+                    firstName, lastName, phone, preferredCalendar,
                     currentPassword, newPassword, confirmNewPassword);
 
             return "redirect:/client/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
             clientPageModelAssembler.populateProfile(model, currentUser);
-            calendarFeedModelAssembler.populateFeed(model, currentUser);
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);
+            model.addAttribute("preferredCalendar", preferredCalendar);
             model.addAttribute("profileError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return PROFILE_VIEW;
         }
+    }
+
+    /**
+     * Returns the user's chosen calendar as its enum name for the appointments
+     * template, or {@code null} when none is set (the page then prompts the user
+     * to pick one in their profile).
+     *
+     * @param user authenticated user
+     * @return the preferred calendar's name, or {@code null}
+     */
+    private String preferredCalendarName(User user) {
+        return user.getPreferredCalendar() != null ? user.getPreferredCalendar().name() : null;
     }
 
     /**

@@ -5,7 +5,9 @@ import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
 import life.wellnara.model.UserRole;
+import life.wellnara.repository.AppointmentRepository;
 import life.wellnara.repository.OfferingRepository;
+import life.wellnara.repository.ServicePackageRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,14 +21,22 @@ import java.util.List;
 public class OfferingService {
 
     private final OfferingRepository offeringRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ServicePackageRepository servicePackageRepository;
 
     /**
      * Creates offering service.
      *
-     * @param offeringRepository repository for offerings
+     * @param offeringRepository        repository for offerings
+     * @param appointmentRepository     repository for appointments (delete guard)
+     * @param servicePackageRepository  repository for packages (delete guard)
      */
-    public OfferingService(OfferingRepository offeringRepository) {
+    public OfferingService(OfferingRepository offeringRepository,
+                           AppointmentRepository appointmentRepository,
+                           ServicePackageRepository servicePackageRepository) {
         this.offeringRepository = offeringRepository;
+        this.appointmentRepository = appointmentRepository;
+        this.servicePackageRepository = servicePackageRepository;
     }
 
     /**
@@ -145,6 +155,66 @@ public class OfferingService {
         offering.setPrepMinutes(prepMinutes);
         offering.setWrapMinutes(wrapMinutes);
         applyPackagePricing(offering, packagePricing);
+    }
+
+    /**
+     * Activates or deactivates an offering owned by the provider. A deactivated
+     * offering is hidden from clients and cannot be booked, while its existing
+     * appointments and history are kept.
+     *
+     * @param provider   provider owner
+     * @param offeringId offering identifier
+     * @param active     {@code true} to activate, {@code false} to deactivate
+     * @throws IllegalArgumentException if the user is not a provider or does not own the offering
+     */
+    @Transactional
+    public void setOfferingActive(User provider, Long offeringId, boolean active) {
+        validateProvider(provider);
+        Offering offering = getOwnedOffering(provider, offeringId);
+        if (active) {
+            offering.activate();
+        } else {
+            offering.deactivate();
+        }
+    }
+
+    /**
+     * Deletes an offering owned by the provider, but only when nothing references
+     * it. An offering that has any appointment or any package cannot be deleted
+     * ({@code offering_id} is a non-null foreign key on both) — it must be
+     * deactivated instead.
+     *
+     * @param provider   provider owner
+     * @param offeringId offering identifier
+     * @throws IllegalArgumentException if the user is not a provider, does not own
+     *                                  the offering, or the offering is still referenced
+     */
+    @Transactional
+    public void deleteOffering(User provider, Long offeringId) {
+        validateProvider(provider);
+        Offering offering = getOwnedOffering(provider, offeringId);
+        if (isReferenced(offering)) {
+            throw new LocalizedException("error.offering.hasHistory",
+                    "This service has appointments or packages and cannot be deleted; deactivate it instead");
+        }
+        offeringRepository.delete(offering);
+    }
+
+    /**
+     * Whether the offering can be deleted — i.e. no appointment and no package
+     * references it. Drives the enabled state of the delete action on the edit page.
+     *
+     * @param offering offering to check
+     * @return {@code true} if the offering has no references and may be deleted
+     */
+    @Transactional(readOnly = true)
+    public boolean isDeletable(Offering offering) {
+        return !isReferenced(offering);
+    }
+
+    private boolean isReferenced(Offering offering) {
+        return appointmentRepository.existsByOffering(offering)
+                || servicePackageRepository.existsByOffering(offering);
     }
 
     /**

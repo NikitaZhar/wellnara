@@ -117,8 +117,54 @@ public class OfferingController {
 			@CurrentUser User currentUser,
 			Model model) {
 		Offering offering = offeringService.getOfferingOfProvider(currentUser, offeringId);
-		model.addAttribute("offering", offering);
+		populateEditModel(model, offering);
 		return OFFERING_EDIT_VIEW;
+	}
+
+	/**
+	 * Activates or deactivates an offering owned by the current provider, then
+	 * returns to its edit page.
+	 *
+	 * @param offeringId  offering identifier
+	 * @param active      {@code true} to activate, {@code false} to deactivate
+	 * @param currentUser authenticated provider
+	 * @return redirect to the offering edit page
+	 */
+	@PostMapping("/provider/offerings/{offeringId}/active")
+	public String setActive(@PathVariable Long offeringId,
+			@RequestParam boolean active,
+			@CurrentUser User currentUser) {
+		offeringService.setOfferingActive(currentUser, offeringId, active);
+		return "redirect:/provider/offerings/" + offeringId + "/edit";
+	}
+
+	/**
+	 * Deletes an offering owned by the current provider. Rejected (with the edit
+	 * page re-rendered) when the offering still has appointments or packages.
+	 *
+	 * @param offeringId  offering identifier
+	 * @param currentUser authenticated provider
+	 * @param model       MVC model
+	 * @return redirect to the offerings page, or the edit page with an error
+	 */
+	@PostMapping("/provider/offerings/{offeringId}/delete")
+	public String deleteOffering(@PathVariable Long offeringId,
+			@CurrentUser User currentUser,
+			Model model) {
+		try {
+			offeringService.deleteOffering(currentUser, offeringId);
+			return OFFERINGS_REDIRECT;
+		} catch (IllegalArgumentException exception) {
+			populateEditModel(model, offeringService.getOfferingOfProvider(currentUser, offeringId));
+			model.addAttribute("offeringError",
+					LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
+			return OFFERING_EDIT_VIEW;
+		}
+	}
+
+	private void populateEditModel(Model model, Offering offering) {
+		model.addAttribute("offering", offering);
+		model.addAttribute("offeringDeletable", offeringService.isDeletable(offering));
 	}
 
 	/**
@@ -159,8 +205,7 @@ public class OfferingController {
 					);
 			return OFFERINGS_REDIRECT;
 		} catch (IllegalArgumentException exception) {
-			model.addAttribute("offering",
-					offeringService.getOfferingOfProvider(currentUser, offeringId));
+			populateEditModel(model, offeringService.getOfferingOfProvider(currentUser, offeringId));
 			model.addAttribute("offeringError", LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
 			return OFFERING_EDIT_VIEW;
 		}

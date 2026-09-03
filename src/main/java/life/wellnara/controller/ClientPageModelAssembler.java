@@ -133,6 +133,8 @@ public class ClientPageModelAssembler {
         model.addAttribute("profileFirstName", profile != null ? profile.getFirstName() : "");
         model.addAttribute("profileLastName", profile != null ? profile.getLastName() : "");
         model.addAttribute("profilePhone", profile != null ? profile.getPhone() : "");
+        model.addAttribute("preferredCalendar",
+                client.getPreferredCalendar() != null ? client.getPreferredCalendar().name() : "");
         addClientName(model, client);
     }
 

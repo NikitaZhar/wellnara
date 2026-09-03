@@ -6,6 +6,7 @@ import life.wellnara.exception.LocalizedException;
 import life.wellnara.model.Appointment;
 import life.wellnara.model.AppointmentStatus;
 import life.wellnara.model.AvailabilityOverrideType;
+import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.CancellationInitiator;
 import life.wellnara.model.Offering;
 import life.wellnara.model.User;
@@ -515,9 +516,13 @@ public class AppointmentCommandService {
 	}
 
 	private void validateClientBelongsToProvider(User client, User provider) {
-		providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
-		.orElseThrow(() ->
-		new LocalizedException("error.appt.clientNotLinked", "Client is not linked to provider"));
+		ProviderClientLink link = providerClientLinkRepository.findByProviderAndClientId(provider, client.getId())
+				.orElseThrow(() ->
+				new LocalizedException("error.appt.clientNotLinked", "Client is not linked to provider"));
+		if (!link.isActive()) {
+			throw new LocalizedException("error.client.inactiveViewOnly",
+					"Your access is view-only; ask your provider to reactivate you to book.");
+		}
 	}
 
 	private Offering findProviderOffering(User provider, Long offeringId) {

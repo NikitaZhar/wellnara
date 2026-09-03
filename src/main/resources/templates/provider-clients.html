@@ -73,6 +73,9 @@
                     <p class="email"><span th:text="#{pcli.invited}">Invited</span> <span th:text="${clientRow.invitedAtLabel}">date</span></p>
                 </div>
 
+                <span class="badge badge-success" th:if="${clientRow.active}" th:text="#{pcli.active}">Active</span>
+                <span class="badge badge-primary" th:unless="${clientRow.active}" th:text="#{pcli.inactive}">Inactive</span>
+
                 <span class="amount">
                     <span th:text="${#numbers.formatDecimal(clientRow.availableBalance, 1, 2)}">0.00</span>
                     <span th:text="${clientRow.currency}">EUR</span>

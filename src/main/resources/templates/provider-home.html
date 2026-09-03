@@ -86,9 +86,12 @@
                                 <span th:text="${appointment.clientName}">Client</span> ·
                                 <span th:text="${appointment.offeringName}">Offering</span>
                             </p>
-                            <span class="badge"
-                                  th:classappend="${appointment.status.name() == 'SCHEDULED' ? 'badge-success' : 'badge-danger'}"
-                                  th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">SCHEDULED</span>
+                            <span th:if="${appointment.status.name() == 'SCHEDULED' and appointment.completable}"
+                                  class="badge badge-warning" th:text="#{pappt.needsOutcome}">Needs outcome</span>
+                            <span th:if="${appointment.status.name() == 'SCHEDULED' and !appointment.completable}"
+                                  class="badge badge-success" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">Scheduled</span>
+                            <span th:if="${appointment.status.name() != 'SCHEDULED'}"
+                                  class="badge badge-danger" th:text="#{'appointmentStatus.__${appointment.status.name()}__'}">Cancelled</span>
                         </div>
                         <p class="secondary">
                             <span th:text="${appointment.localDate}">Date</span>,

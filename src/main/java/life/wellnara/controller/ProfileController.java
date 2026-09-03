@@ -26,7 +26,6 @@ public class ProfileController {
 
     private final UserProfileService userProfileService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
-    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final MessageSource messageSource;
 
     /**
@@ -35,17 +34,13 @@ public class ProfileController {
      * @param userProfileService         service for user personal data
      * @param providerPageModelAssembler assembler for the provider profile model, used
      *                                   to re-render the profile page when the update fails
-     * @param calendarFeedModelAssembler assembler for the calendar feed section, used
-     *                                   to re-render the profile page when the update fails
      * @param messageSource              resolver of localized user-facing messages
      */
     public ProfileController(UserProfileService userProfileService,
                              ProviderPageModelAssembler providerPageModelAssembler,
-                             CalendarFeedModelAssembler calendarFeedModelAssembler,
                              MessageSource messageSource) {
         this.userProfileService = userProfileService;
         this.providerPageModelAssembler = providerPageModelAssembler;
-        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.messageSource = messageSource;
     }
 
@@ -62,6 +57,7 @@ public class ProfileController {
      * @param phone              new phone number, optional
      * @param whatsappUrl        WhatsApp contact link, optional (blank removes it)
      * @param telegramUrl        Telegram contact link, optional (blank removes it)
+     * @param preferredCalendar  chosen calendar for the add-to-calendar action, optional (blank clears it)
      * @param currentPassword    current password, required only when changing the password
      * @param newPassword        new password, required only when changing the password
      * @param confirmNewPassword repeated new password, required only when changing the password
@@ -75,6 +71,7 @@ public class ProfileController {
                                         @RequestParam(required = false) String phone,
                                         @RequestParam(required = false) String whatsappUrl,
                                         @RequestParam(required = false) String telegramUrl,
+                                        @RequestParam(required = false) String preferredCalendar,
                                         @RequestParam(required = false) String currentPassword,
                                         @RequestParam(required = false) String newPassword,
                                         @RequestParam(required = false) String confirmNewPassword,
@@ -82,18 +79,18 @@ public class ProfileController {
                                         Model model) {
         try {
             userProfileService.updateProviderProfile(currentUser,
-                    firstName, lastName, phone, whatsappUrl, telegramUrl,
+                    firstName, lastName, phone, whatsappUrl, telegramUrl, preferredCalendar,
                     currentPassword, newPassword, confirmNewPassword);
 
             return "redirect:/provider/profile?profileUpdated";
         } catch (IllegalArgumentException exception) {
             providerPageModelAssembler.populateProfile(model, currentUser);
-            calendarFeedModelAssembler.populateFeed(model, currentUser);
             model.addAttribute("profileFirstName", firstName);
             model.addAttribute("profileLastName", lastName);
             model.addAttribute("profilePhone", phone);
             model.addAttribute("profileWhatsapp", whatsappUrl);
             model.addAttribute("profileTelegram", telegramUrl);
+            model.addAttribute("preferredCalendar", preferredCalendar);
             model.addAttribute("profileError",
                     LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale()));
             return PROFILE_VIEW;

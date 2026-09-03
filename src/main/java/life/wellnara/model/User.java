@@ -54,6 +54,17 @@ public class User {
     private String language;
 
     /**
+     * Calendar the user picked for the per-appointment "add to calendar" action.
+     *
+     * <p>{@code null} when the user has not chosen one yet; the appointments page
+     * then prompts the user to pick a calendar in their profile instead of showing
+     * an add button.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_calendar", length = 16)
+    private CalendarProvider preferredCalendar;
+
+    /**
      * Required by JPA.
      */
     public User() {
@@ -109,5 +120,13 @@ public class User {
 
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    public CalendarProvider getPreferredCalendar() {
+        return preferredCalendar;
+    }
+
+    public void setPreferredCalendar(CalendarProvider preferredCalendar) {
+        this.preferredCalendar = preferredCalendar;
     }
 }

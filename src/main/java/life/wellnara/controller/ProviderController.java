@@ -36,7 +36,6 @@ public class ProviderController {
     private final ProviderCalendarService providerCalendarService;
     private final AppointmentService appointmentService;
     private final ProviderPageModelAssembler providerPageModelAssembler;
-    private final CalendarFeedModelAssembler calendarFeedModelAssembler;
     private final AppointmentCalendarLinkService appointmentCalendarLinkService;
 
     /**
@@ -45,18 +44,15 @@ public class ProviderController {
      * @param providerCalendarService service for provider calendar management
      * @param appointmentService service for appointment operations
      * @param providerPageModelAssembler assembler for provider page model
-     * @param calendarFeedModelAssembler assembler for the calendar feed section
      * @param appointmentCalendarLinkService service for per-appointment add-to-calendar links
      */
     public ProviderController(ProviderCalendarService providerCalendarService,
                               AppointmentService appointmentService,
                               ProviderPageModelAssembler providerPageModelAssembler,
-                              CalendarFeedModelAssembler calendarFeedModelAssembler,
                               AppointmentCalendarLinkService appointmentCalendarLinkService) {
         this.providerCalendarService = providerCalendarService;
         this.appointmentService = appointmentService;
         this.providerPageModelAssembler = providerPageModelAssembler;
-        this.calendarFeedModelAssembler = calendarFeedModelAssembler;
         this.appointmentCalendarLinkService = appointmentCalendarLinkService;
     }
 
@@ -117,8 +113,9 @@ public class ProviderController {
         appointmentService.expireStaleAppointmentRequests();
 
         providerPageModelAssembler.populateAppointments(model, currentUser);
-        calendarFeedModelAssembler.populateFeed(model, currentUser);
         model.addAttribute("calendarAddLinks", appointmentCalendarLinkService.scheduledLinksFor(currentUser));
+        model.addAttribute("preferredCalendar",
+                currentUser.getPreferredCalendar() != null ? currentUser.getPreferredCalendar().name() : null);
 
         return APPOINTMENTS_VIEW;
     }
@@ -171,7 +168,6 @@ public class ProviderController {
     @GetMapping("/provider/profile")
     public String showProfile(@CurrentUser User currentUser, Model model) {
         providerPageModelAssembler.populateProfile(model, currentUser);
-        calendarFeedModelAssembler.populateFeed(model, currentUser);
 
         return PROFILE_VIEW;
     }

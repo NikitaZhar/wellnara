@@ -1,14 +1,17 @@
 package life.wellnara.service;
 
 import life.wellnara.exception.LocalizedException;
+import life.wellnara.model.CalendarProvider;
 import life.wellnara.model.User;
 import life.wellnara.model.UserProfile;
 import life.wellnara.repository.UserProfileRepository;
+import life.wellnara.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -22,6 +25,7 @@ import java.util.stream.Collectors;
 public class UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
+    private final UserRepository userRepository;
     private final AuthService authService;
     private final ContactLinkValidator contactLinkValidator;
 
@@ -29,13 +33,16 @@ public class UserProfileService {
      * Creates user profile service.
      *
      * @param userProfileRepository repository for user profiles
+     * @param userRepository        repository for users (persists the preferred calendar)
      * @param authService           service for password verification and change
      * @param contactLinkValidator  validator/normalizer for provider contact links
      */
     public UserProfileService(UserProfileRepository userProfileRepository,
+                              UserRepository userRepository,
                               AuthService authService,
                               ContactLinkValidator contactLinkValidator) {
         this.userProfileRepository = userProfileRepository;
+        this.userRepository = userRepository;
         this.authService = authService;
         this.contactLinkValidator = contactLinkValidator;
     }
@@ -52,17 +59,21 @@ public class UserProfileService {
      * @param firstName          new first name
      * @param lastName           new last name
      * @param phone              new phone number, optional (may be null or blank)
+     * @param preferredCalendar  chosen calendar for the add-to-calendar action,
+     *                           as its enum name; blank clears the choice
      * @param currentPassword    current password, required only when changing the password
      * @param newPassword        new password, required only when changing the password
      * @param confirmNewPassword repeated new password, required only when changing the password
-     * @throws IllegalArgumentException if a required field is blank, the current
-     *                                  password is wrong, or the new passwords differ
+     * @throws IllegalArgumentException if a required field is blank, the preferred
+     *                                  calendar is unknown, the current password is
+     *                                  wrong, or the new passwords differ
      */
     @Transactional
     public void updateProfileAndPassword(User user,
                                          String firstName,
                                          String lastName,
                                          String phone,
+                                         String preferredCalendar,
                                          String currentPassword,
                                          String newPassword,
                                          String confirmNewPassword) {
@@ -82,7 +93,11 @@ public class UserProfileService {
             }
         }
 
+        CalendarProvider parsedCalendar = parsePreferredCalendar(preferredCalendar);
+
         updateProfile(user, firstName, lastName, phone);
+        user.setPreferredCalendar(parsedCalendar);
+        userRepository.save(user);
 
         if (passwordChangeRequested) {
             authService.changePassword(user, newPassword);
@@ -100,12 +115,15 @@ public class UserProfileService {
      * @param phone              new phone number, optional
      * @param whatsappUrl        WhatsApp contact link, optional (blank removes it)
      * @param telegramUrl        Telegram contact link, optional (blank removes it)
+     * @param preferredCalendar  chosen calendar for the add-to-calendar action,
+     *                           as its enum name; blank clears the choice
      * @param currentPassword    current password, required only when changing the password
      * @param newPassword        new password, required only when changing the password
      * @param confirmNewPassword repeated new password, required only when changing the password
-     * @throws IllegalArgumentException if a required field is blank, the current
-     *                                  password is wrong, the new passwords differ,
-     *                                  or a contact link is invalid
+     * @throws IllegalArgumentException if a required field is blank, the preferred
+     *                                  calendar is unknown, the current password is
+     *                                  wrong, the new passwords differ, or a contact
+     *                                  link is invalid
      */
     @Transactional
     public void updateProviderProfile(User user,
@@ -114,10 +132,11 @@ public class UserProfileService {
                                       String phone,
                                       String whatsappUrl,
                                       String telegramUrl,
+                                      String preferredCalendar,
                                       String currentPassword,
                                       String newPassword,
                                       String confirmNewPassword) {
-        updateProfileAndPassword(user, firstName, lastName, phone,
+        updateProfileAndPassword(user, firstName, lastName, phone, preferredCalendar,
                 currentPassword, newPassword, confirmNewPassword);
         applyContactLinks(user, whatsappUrl, telegramUrl);
     }
@@ -256,6 +275,25 @@ public class UserProfileService {
      */
     public String displayNameOf(User user, UserProfile profile) {
         return profile != null ? profile.getFullName() : user.getUsername();
+    }
+
+    /**
+     * Parses the submitted preferred-calendar value into a {@link CalendarProvider}.
+     * A blank value means "no calendar chosen" and maps to {@code null}.
+     *
+     * @param value submitted enum name, or blank
+     * @return the matching provider, or {@code null} when blank
+     * @throws IllegalArgumentException if the value is not a known calendar
+     */
+    private CalendarProvider parsePreferredCalendar(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return CalendarProvider.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException unknown) {
+            throw new LocalizedException("error.profile.calendarInvalid", "Unknown calendar");
+        }
     }
 
     private String requireNonBlank(String value, String message) {

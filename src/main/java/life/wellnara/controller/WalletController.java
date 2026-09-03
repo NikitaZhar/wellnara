@@ -4,7 +4,9 @@ import life.wellnara.dto.ClientWalletView;
 import life.wellnara.dto.TopUpResult;
 import life.wellnara.dto.WalletHistoryRow;
 import life.wellnara.exception.LocalizedException;
+import life.wellnara.model.ProviderClientLink;
 import life.wellnara.model.User;
+import life.wellnara.service.ProviderClientService;
 import life.wellnara.service.UserProfileService;
 import life.wellnara.service.WalletCommandService;
 import life.wellnara.service.WalletQueryService;
@@ -47,23 +49,27 @@ public class WalletController {
     private final WalletCommandService walletCommandService;
     private final WalletQueryService walletQueryService;
     private final UserProfileService userProfileService;
+    private final ProviderClientService providerClientService;
     private final MessageSource messageSource;
 
     /**
      * Creates wallet controller.
      *
-     * @param walletCommandService service for provider wallet operations
-     * @param walletQueryService   service for read-only wallet views
-     * @param userProfileService   service resolving the provider display name
-     * @param messageSource        resolver of localized user-facing messages
+     * @param walletCommandService  service for provider wallet operations
+     * @param walletQueryService    service for read-only wallet views
+     * @param userProfileService    service resolving the provider display name
+     * @param providerClientService service for the client's active/inactive status
+     * @param messageSource         resolver of localized user-facing messages
      */
     public WalletController(WalletCommandService walletCommandService,
                             WalletQueryService walletQueryService,
                             UserProfileService userProfileService,
+                            ProviderClientService providerClientService,
                             MessageSource messageSource) {
         this.walletCommandService = walletCommandService;
         this.walletQueryService = walletQueryService;
         this.userProfileService = userProfileService;
+        this.providerClientService = providerClientService;
         this.messageSource = messageSource;
     }
 
@@ -132,9 +138,44 @@ public class WalletController {
         }
     }
 
+    /**
+     * Activates or deactivates the client, then returns to their profile page. On a
+     * rejected deactivation (the client still has open commitments) the page is
+     * re-rendered with the reason.
+     *
+     * @param clientId    client whose access is changed
+     * @param active      {@code true} to activate, {@code false} to deactivate
+     * @param currentUser authenticated provider
+     * @param model       MVC model
+     * @return redirect to the client profile page, or the page re-rendered with an error
+     */
+    @PostMapping("/provider/clients/{clientId}/active")
+    public String setClientActive(@PathVariable Long clientId,
+                                  @RequestParam boolean active,
+                                  @CurrentUser User currentUser,
+                                  Model model) {
+        try {
+            providerClientService.setClientActive(currentUser, clientId, active);
+            return "redirect:/provider/clients/" + clientId + "/wallet";
+        } catch (IllegalArgumentException exception) {
+            String message = LocalizedException.resolve(exception, messageSource, LocaleContextHolder.getLocale());
+            try {
+                populateWalletPage(model, currentUser, clientId);
+                model.addAttribute("clientStatusError", message);
+                return WALLET_VIEW;
+            } catch (IllegalArgumentException notLinked) {
+                return CLIENTS_REDIRECT;
+            }
+        }
+    }
+
     private void populateWalletPage(Model model, User provider, Long clientId) {
         model.addAttribute("wallet", walletQueryService.getWalletForProvider(provider, clientId));
         model.addAttribute("clientId", clientId);
         model.addAttribute("providerName", userProfileService.resolveDisplayName(provider));
+
+        ProviderClientLink link = providerClientService.getClientLink(provider, clientId);
+        model.addAttribute("clientActive", link.isActive());
+        model.addAttribute("clientDeactivatable", providerClientService.isDeactivatable(provider, link.getClient()));
     }
 }

@@ -21,6 +21,7 @@ public class ClientRow {
     private final String invitedAtLabel;
     private final BigDecimal availableBalance;
     private final String currency;
+    private final boolean active;
 
     public ClientRow(Long clientId,
                      String displayName,
@@ -28,7 +29,8 @@ public class ClientRow {
                      String phone,
                      String invitedAtLabel,
                      BigDecimal availableBalance,
-                     String currency) {
+                     String currency,
+                     boolean active) {
         this.clientId = clientId;
         this.displayName = displayName;
         this.email = email;
@@ -36,10 +38,15 @@ public class ClientRow {
         this.invitedAtLabel = invitedAtLabel;
         this.availableBalance = availableBalance;
         this.currency = currency;
+        this.active = active;
     }
 
     public Long getClientId() {
         return clientId;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
     public String getDisplayName() {
