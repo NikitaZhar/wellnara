@@ -16,8 +16,10 @@
         .balance-grid .metric .v .cur { font-size: 14px; }
         /* Top-up action sits under the balance cards, aligned to the trailing edge. */
         .balance-actions { display: flex; justify-content: flex-end; margin-top: var(--s-3); }
-        /* Payment history scrolls inside its own window after ~4 rows. */
+        /* Activity history scrolls inside its own window after ~4 rows. */
         .history-scroll { max-height: 264px; overflow-y: auto; }
+        /* Package-session rows show a session count instead of a money amount. */
+        .item .amount.session { color: var(--sea-primary-dark); }
         /* Newly added movement flashes briefly. */
         @keyframes row-flash { from { background: rgba(99, 179, 156, 0.28); } to { background: transparent; } }
         .item.flash { animation: row-flash 1.8s ease-out; }
@@ -123,9 +125,12 @@
                             <span th:if="${row.offeringName}"> · <span th:text="${row.offeringName}">Offering</span></span>
                         </p>
                     </div>
-                    <span class="amount">
+                    <span class="amount" th:if="${row.money}">
                         <span th:text="${#numbers.formatDecimal(row.amount, 1, 2)}">0.00</span>
                         <span th:text="${row.currency}">EUR</span>
+                    </span>
+                    <span class="amount session" th:if="${row.session}">
+                        <span th:text="${row.sessionCount}">0</span> <span th:text="#{pcw.sessionsUnit}">session(s)</span>
                     </span>
                 </div>
             </div>

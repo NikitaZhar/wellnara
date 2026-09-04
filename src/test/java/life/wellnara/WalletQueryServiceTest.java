@@ -161,6 +161,27 @@ class WalletQueryServiceTest {
     }
 
     @Test
+    @DisplayName("Client history omits the package grant and does not treat a package purchase as a service")
+    void clientHistoryOmitsGrantAndPackagePurchaseIsNotService() {
+        User provider = provider("prov-grant-hist", "EUR");
+        User client = linkedClient(provider, "client-grant-hist");
+        Offering offering = offering(provider);
+
+        walletCommandService.topUp(provider, client.getId(), new BigDecimal("1000.00"), null);
+        Long packageId = walletCommandService.requestPackage(
+                client, offering.getId(), 10, LocalDateTime.of(2026, 6, 1, 10, 0), null).getId();
+        walletCommandService.acceptPackageRequest(provider, packageId);
+
+        List<WalletHistoryRow> history = walletQueryService.getWalletOfClient(client).getHistory();
+
+        assertThat(history).noneMatch(row -> row.getType() == WalletEntryType.PACKAGE_GRANT);
+        assertThat(history)
+                .filteredOn(row -> row.getType() == WalletEntryType.SETTLE)
+                .isNotEmpty()
+                .allMatch(row -> !row.isService());
+    }
+
+    @Test
     @DisplayName("A granted package appears as a remaining-sessions row")
     void clientViewReflectsPackageRemainder() {
         User provider = provider("prov-pkg-view", "EUR");

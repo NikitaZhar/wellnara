@@ -110,7 +110,7 @@
     <div class="panel" th:if="${wallet.hasHistory}">
         <div class="panel-body history-scroll" id="wallet-history">
             <div class="item row-between hist-row" th:each="row : ${wallet.history}"
-                 th:attr="data-money=${row.money ? 'true' : 'false'}, data-service=${(row.session or row.type.name() == 'SETTLE') ? 'true' : 'false'}">
+                 th:attr="data-money=${row.money ? 'true' : 'false'}, data-service=${row.service ? 'true' : 'false'}">
                 <div class="who">
                     <p class="primary" th:text="${row.typeLabel}">Type</p>
                     <p class="secondary">

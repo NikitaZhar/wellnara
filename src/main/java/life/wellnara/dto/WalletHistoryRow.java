@@ -27,6 +27,7 @@ public class WalletHistoryRow {
     private final String currency;
     private final String offeringName;
     private final String comment;
+    private final boolean service;
 
     /**
      * Creates a wallet history row.
@@ -39,6 +40,10 @@ public class WalletHistoryRow {
      * @param currency     ISO 4217 currency code of the wallet
      * @param offeringName offering the sessions apply to for package entries, or {@code null}
      * @param comment      optional free-text note captured when the entry was written
+     * @param service      whether this row is a rendered service (a delivered/no-show/late-cancel
+     *                     appointment, paid with money or a package session), as opposed to a pure
+     *                     money movement (top-up, package purchase, adjustment); drives the
+     *                     "Services" journal filter
      */
     public WalletHistoryRow(String timestamp,
                             WalletEntryType type,
@@ -47,7 +52,8 @@ public class WalletHistoryRow {
                             Integer sessionCount,
                             String currency,
                             String offeringName,
-                            String comment) {
+                            String comment,
+                            boolean service) {
         this.timestamp = timestamp;
         this.type = type;
         this.typeLabel = typeLabel;
@@ -56,6 +62,7 @@ public class WalletHistoryRow {
         this.currency = currency;
         this.offeringName = offeringName;
         this.comment = comment;
+        this.service = service;
     }
 
     public String getTimestamp() {
@@ -106,5 +113,18 @@ public class WalletHistoryRow {
      */
     public boolean isSession() {
         return type.kind() == WalletLedgerKind.SESSION;
+    }
+
+    /**
+     * Whether this row represents a rendered service (an appointment that was
+     * delivered, a no-show, or a late cancellation — settled with money or a
+     * package session). Used by the client journal's "Services" filter; a pure
+     * money movement such as a top-up, a package purchase or an adjustment is not
+     * a service.
+     *
+     * @return {@code true} for a service movement
+     */
+    public boolean isService() {
+        return service;
     }
 }

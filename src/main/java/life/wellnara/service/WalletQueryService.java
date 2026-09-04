@@ -457,7 +457,7 @@ public class WalletQueryService {
     }
 
     private ClientWalletView buildView(Wallet wallet, Long clientId, String clientName,
-                                       String clientEmail, String clientPhone, boolean paymentsOnly) {
+                                       String clientEmail, String clientPhone, boolean providerActivityOnly) {
         List<WalletEntry> entries = walletEntryRepository.findAllByWalletOrderByIdAsc(wallet);
         WalletBalance money = ledgerCalculator.foldMoney(wallet.getCurrency(), entries);
         ZoneId providerZone = applicationTimeService.resolveProviderCalendarZone(wallet.getProvider());
@@ -472,7 +472,7 @@ public class WalletQueryService {
                 money.getAvailable(),
                 money.getHeld(),
                 buildPackageRemainders(entries),
-                buildHistory(entries, providerZone, paymentsOnly));
+                buildHistory(entries, providerZone, providerActivityOnly));
     }
 
     private ClientWalletView emptyView(String currency, Long clientId, String clientName,
@@ -505,31 +505,33 @@ public class WalletQueryService {
      * first, so the list is reversed). Timestamps are converted from stored UTC to
      * the provider timezone.
      *
-     * <p>When {@code paymentsOnly} is set (the provider's client-profile payment
-     * history) only actual money movements are kept — a manual {@code TOP_UP} and a
-     * spend ({@code SETTLE}, whether the service was delivered or the client was a
-     * no-show). Reservations and package-session movements are money that has not
-     * (yet) left the client, so they are excluded. The spend row's offering name is
-     * taken from the covering package for a package purchase, otherwise from the
-     * settled appointment.
+     * <p>When {@code providerActivityOnly} is set (the provider's client-profile activity
+     * history) only account movements are kept — a manual {@code TOP_UP} or
+     * {@code ADJUSTMENT}, a money {@code SETTLE} (a service paid with money, or a
+     * package purchase) and a {@code PACKAGE_CONSUME} (a service paid with a package
+     * session). Reservation churn (holds and their releases) and pure provisioning
+     * (package granted/revoked) are excluded. The offering name is taken from the
+     * covering package for a package purchase, otherwise from the settled
+     * appointment.
      *
      * @param entries      the wallet ledger, oldest first
      * @param providerZone provider timezone the timestamps are shown in
-     * @param paymentsOnly keep only money-in / money-out movements when {@code true}
-     *                     (provider payment history); when {@code false} (the client's
+     * @param providerActivityOnly keep only the provider activity movements when {@code true}
+     *                     (provider activity history); when {@code false} (the client's
      *                     own history) keep every movement except reservation churn —
      *                     holds and their releases, which net to zero and show only in
-     *                     the held balance
+     *                     the held balance — and package grants, shown in the package
+     *                     panel rather than as a movement
      * @return display rows, newest first
      */
-    private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone, boolean paymentsOnly) {
+    private List<WalletHistoryRow> buildHistory(List<WalletEntry> entries, ZoneId providerZone, boolean providerActivityOnly) {
         List<WalletHistoryRow> rows = new ArrayList<>(entries.size());
         for (WalletEntry entry : entries) {
-            if (paymentsOnly) {
-                if (!isPayment(entry.getType())) {
+            if (providerActivityOnly) {
+                if (!isProviderActivity(entry.getType())) {
                     continue;
                 }
-            } else if (isReservationChurn(entry.getType())) {
+            } else if (isHiddenFromClientHistory(entry.getType())) {
                 continue;
             }
             rows.add(new WalletHistoryRow(
@@ -540,34 +542,59 @@ public class WalletQueryService {
                     entry.getSessionCount(),
                     entry.getCurrency(),
                     offeringNameOf(entry),
-                    entry.getComment()));
+                    entry.getComment(),
+                    isServiceRow(entry)));
         }
         Collections.reverse(rows);
         return rows;
     }
 
     /**
-     * Whether a ledger entry is an actual money movement shown in the payment
-     * history: a manual top-up or a final spend.
+     * Whether a ledger entry belongs in the provider's activity history: an actual
+     * account movement — a manual top-up, a manual adjustment, a money settlement
+     * (a service delivered/no-show/late-cancelled and paid with money, or a package
+     * purchase) or a package session consumed (a service delivered/no-show/late-
+     * cancelled and paid with a package session). Reservation churn (holds and their
+     * releases) and pure provisioning (package granted/revoked) are excluded.
      */
-    private boolean isPayment(WalletEntryType type) {
-        return type == WalletEntryType.TOP_UP || type == WalletEntryType.SETTLE;
+    private boolean isProviderActivity(WalletEntryType type) {
+        return type == WalletEntryType.TOP_UP
+                || type == WalletEntryType.ADJUSTMENT
+                || type == WalletEntryType.SETTLE
+                || type == WalletEntryType.PACKAGE_CONSUME;
     }
 
     /**
-     * Whether an entry is reservation churn hidden from the client's own history: a
-     * hold or its release (money or package session). A hold and its later release
-     * net to zero and are reflected only in the held balance, so showing them as
-     * movements would only add noise.
+     * Whether an entry is hidden from the client's own history: reservation churn
+     * (a hold or its release, money or package session — it nets to zero and shows
+     * only in the held balance) or a package grant (the sessions appear in the
+     * package-remainder panel, not as a movement).
      *
      * @param type ledger entry type
-     * @return {@code true} for a hold or release entry
+     * @return {@code true} for a hold, release or package-grant entry
      */
-    private boolean isReservationChurn(WalletEntryType type) {
+    private boolean isHiddenFromClientHistory(WalletEntryType type) {
         return type == WalletEntryType.HOLD
                 || type == WalletEntryType.RELEASE
                 || type == WalletEntryType.PACKAGE_HOLD
-                || type == WalletEntryType.PACKAGE_RELEASE;
+                || type == WalletEntryType.PACKAGE_RELEASE
+                || type == WalletEntryType.PACKAGE_GRANT;
+    }
+
+    /**
+     * Whether a history row is a rendered service — a settled appointment, whether
+     * paid with money ({@code SETTLE} against an appointment) or with a package
+     * session ({@code PACKAGE_CONSUME}). A money movement with no appointment (a
+     * top-up, a package purchase settlement, an adjustment) is not a service. Drives
+     * the client journal's "Services" filter.
+     *
+     * @param entry ledger entry
+     * @return {@code true} when the entry settles an appointment
+     */
+    private boolean isServiceRow(WalletEntry entry) {
+        return entry.getAppointment() != null
+                && (entry.getType() == WalletEntryType.SETTLE
+                || entry.getType() == WalletEntryType.PACKAGE_CONSUME);
     }
 
     /**
@@ -603,7 +630,10 @@ public class WalletQueryService {
      * @return the localized label for the entry
      */
     private String labelOf(WalletEntry entry) {
-        if (entry.getType() == WalletEntryType.SETTLE && entry.getAppointment() != null) {
+        boolean appointmentSettlement = entry.getAppointment() != null
+                && (entry.getType() == WalletEntryType.SETTLE
+                || entry.getType() == WalletEntryType.PACKAGE_CONSUME);
+        if (appointmentSettlement) {
             return settleLabelOf(entry.getAppointment().getStatus());
         }
         return labelOf(entry.getType());

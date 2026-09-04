@@ -81,8 +81,8 @@ class HomeMvcTest {
                 .andExpect(view().name("client-home"))
                 // UI is localized; the default locale is Russian.
                 .andExpect(content().string(containsString("Ближайшие записи")))
-                // The wallet card is now titled "Счёт" and links to the account page.
-                .andExpect(content().string(containsString("Счёт")))
+                // The wallet card is now titled "Выписка" and links to the statement page.
+                .andExpect(content().string(containsString("Выписка")))
                 .andExpect(content().string(containsString("/client/wallet")));
     }
 

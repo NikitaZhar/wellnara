@@ -57,7 +57,7 @@ class WalletViewMvcTest {
                         .session(authenticatedSession(provider)))
                 .andExpect(status().isOk())
                 .andExpect(view().name("provider-client-wallet"))
-                .andExpect(content().string(containsString("История платежей")))
+                .andExpect(content().string(containsString("История активности")))
                 // Amounts follow the active locale; the default is Russian, which uses a comma decimal separator.
                 .andExpect(content().string(containsString("100,00")));
     }
